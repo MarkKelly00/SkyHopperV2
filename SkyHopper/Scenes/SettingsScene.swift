@@ -29,16 +29,16 @@ class SettingsScene: SKScene {
     }
     
     private func setupUI() {
-        // Title
+        // Back button first (to be under the title)
+        createBackButton()
+        
+        // Title (positioned to not overlap with back button)
         let titleLabel = SKLabelNode(text: "Settings")
         titleLabel.fontName = "AvenirNext-Bold"
         titleLabel.fontSize = 40
         titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
         titleLabel.zPosition = 10
         addChild(titleLabel)
-        
-        // Back button
-        createBackButton()
         
         // Create settings options
         createSettingsOptions()
@@ -49,8 +49,8 @@ class SettingsScene: SKScene {
         backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 80, y: size.height - 40)
-        backButton.zPosition = 10
+        backButton.position = CGPoint(x: 75, y: size.height - 50) // Adjusted position to avoid overlap
+        backButton.zPosition = 5 // Lower zPosition than title
         backButton.name = "backButton"
         
         let backLabel = SKLabelNode(text: "Back")
@@ -224,12 +224,14 @@ class SettingsScene: SKScene {
         let popupNode = SKNode()
         popupNode.zPosition = 100
         popupNode.name = "creditsPopup"
+        popupNode.position = CGPoint(x: size.width/2, y: size.height/2) // Center the popup on screen
         
         // Overlay
         let overlay = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
         overlay.fillColor = UIColor.black.withAlphaComponent(0.5)
         overlay.strokeColor = .clear
         overlay.zPosition = -1
+        overlay.position = CGPoint.zero // Position relative to popupNode
         popupNode.addChild(overlay)
         
         // Credits panel
@@ -237,6 +239,7 @@ class SettingsScene: SKScene {
         panel.fillColor = UIColor(white: 0.2, alpha: 0.9)
         panel.strokeColor = .white
         panel.lineWidth = 2
+        panel.position = CGPoint.zero // Centered relative to popupNode
         popupNode.addChild(panel)
         
         // Title
@@ -249,11 +252,11 @@ class SettingsScene: SKScene {
         // Credits text
         let credits = [
             "SkyHopper Game",
-            "Created by Your Name",
+            "Created by MAKLLIPSE",
             "",
-            "Programming: Your Name",
-            "Design: Your Name",
-            "Graphics: Your Name",
+            "Programming: MAKLLIPSE",
+            "Design: MAKLLIPSE",
+            "Graphics: MAKLLIPSE",
             "",
             "Made with SpriteKit"
         ]

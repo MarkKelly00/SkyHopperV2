@@ -176,7 +176,7 @@ class LevelSelectionScene: SKScene {
         titleLabel.fontName = "AvenirNext-Bold"
         titleLabel.fontSize = 20
         titleLabel.fontColor = UIColor.white
-        titleLabel.position = CGPoint(x: 0, y: height/2 - 30) // Moved up for more margin below
+        titleLabel.position = CGPoint(x: 0, y: height/2 - 35) // Adjusted position
         titleLabel.preferredMaxLayoutWidth = width - 30 // Prevent text overflow
         titleLabel.horizontalAlignmentMode = .center
         titleLabel.verticalAlignmentMode = .center
@@ -184,19 +184,26 @@ class LevelSelectionScene: SKScene {
         titleLabel.numberOfLines = 2 // Allow title to wrap if needed
         containerNode.addChild(titleLabel)
         
-        // Difficulty stars with improved spacing from title
-        let starSpacing: CGFloat = 18 // Increased spacing
-        let totalStarWidth = (starSpacing * CGFloat(level.difficulty - 1)) + (CGFloat(level.difficulty) * 18)
+        // Calculate proper spacing for stars that's evenly balanced with title and description
+        // Stars should be evenly spaced between title and description
+        let titleBottom: CGFloat = height/2 - 45 // Approximate bottom of title accounting for potential two lines
+        let descriptionTop: CGFloat = -10 + 10 // Approximate top of description (resolves to 0 as CGFloat)
+        let availableSpace: CGFloat = titleBottom - descriptionTop
+        let starPosition: CGFloat = titleBottom - (availableSpace * 0.4) // Position stars 40% of the way down from title
+        
+        // Difficulty stars with better spacing
+        let starSpacing: CGFloat = 16 // Slightly reduced spacing
+        let totalStarWidth = (starSpacing * CGFloat(level.difficulty - 1)) + (CGFloat(level.difficulty) * 16)
         var starX = -totalStarWidth / 2
         
         for _ in 0..<level.difficulty {
             let star = SKLabelNode(text: "⭐️")
-            star.fontSize = 16 // Slightly larger
-            star.verticalAlignmentMode = .center // Better vertical alignment
-            star.position = CGPoint(x: starX + 9, y: height/2 - 75) // Moved down for more spacing from title
+            star.fontSize = 16
+            star.verticalAlignmentMode = .center
+            star.position = CGPoint(x: starX + 8, y: starPosition) // Precisely positioned between title and description
             star.zPosition = 2
             containerNode.addChild(star)
-            starX += 18 + starSpacing
+            starX += 16 + starSpacing
         }
         
         // Description with better positioning and readability
@@ -227,11 +234,20 @@ class LevelSelectionScene: SKScene {
         
         // Handle locked/unlocked level styling
         if !level.isUnlocked {
+            // Create an interactive overlay node for the entire level card
+            let interactiveOverlay = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 15)
+            interactiveOverlay.fillColor = UIColor.clear // Clear but interactive
+            interactiveOverlay.strokeColor = UIColor.clear
+            interactiveOverlay.zPosition = 10 // Above everything for touch detection
+            interactiveOverlay.name = "infoTapTarget_\(level.id)" // Named with level ID for direct identification
+            interactiveOverlay.isUserInteractionEnabled = true // Make sure it responds to touches
+            containerNode.addChild(interactiveOverlay)
+            
             // Create a semi-transparent overlay for locked levels
             let lockOverlay = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 15)
             lockOverlay.fillColor = UIColor.black.withAlphaComponent(0.5)
             lockOverlay.strokeColor = UIColor.clear
-            lockOverlay.zPosition = 5 // Above other elements
+            lockOverlay.zPosition = 5 // Above other elements but below the interactive overlay
             lockOverlay.name = "lockOverlay"
             containerNode.addChild(lockOverlay)
             
@@ -250,6 +266,7 @@ class LevelSelectionScene: SKScene {
             lockIcon.horizontalAlignmentMode = .center
             lockIcon.position = CGPoint(x: 0, y: 0)
             lockIcon.zPosition = 7
+            lockIcon.name = "lockIcon_\(level.id)" // Named with level ID
             lockIconBackground.addChild(lockIcon)
             
             // Show tap instruction for lock
@@ -290,27 +307,27 @@ class LevelSelectionScene: SKScene {
             glowShape.lineWidth = 4
             glow.addChild(glowShape)
             
-            // Round play button icon at bottom of card
-            let playButtonCircle = SKShapeNode(circleOfRadius: 30)
+            // Play button icon in lower left corner (slightly larger than previous)
+            let playButtonCircle = SKShapeNode(circleOfRadius: 13.2) // Increased by 10% from previous 12
             playButtonCircle.fillColor = UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 0.8) // Green play button
             playButtonCircle.strokeColor = UIColor.white
-            playButtonCircle.lineWidth = 2
-            playButtonCircle.position = CGPoint(x: 0, y: -height/2 + 50) // Position at bottom center
+            playButtonCircle.lineWidth = 1
+            playButtonCircle.position = CGPoint(x: -width/2 + 25, y: -height/2 + 25) // Positioned in corner
             playButtonCircle.zPosition = 4
             playButtonCircle.name = "playButton_\(level.id)" // Add ID to the button name
             containerNode.addChild(playButtonCircle)
             
-            // Play icon (triangle)
+            // Play icon (triangle) - proportionally sized
             let playTriangle = SKShapeNode()
             let trianglePath = UIBezierPath()
-            trianglePath.move(to: CGPoint(x: -8, y: -10))
-            trianglePath.addLine(to: CGPoint(x: -8, y: 10))
-            trianglePath.addLine(to: CGPoint(x: 12, y: 0))
+            trianglePath.move(to: CGPoint(x: -3.3, y: -4.4)) // Proportionally adjusted triangle (10% larger)
+            trianglePath.addLine(to: CGPoint(x: -3.3, y: 4.4))
+            trianglePath.addLine(to: CGPoint(x: 5.5, y: 0))
             trianglePath.close()
             playTriangle.path = trianglePath.cgPath
             playTriangle.fillColor = UIColor.white
             playTriangle.strokeColor = UIColor.clear
-            playTriangle.position = CGPoint(x: 2, y: 0) // Slight offset for visual centering
+            playTriangle.position = CGPoint(x: 1, y: 0) // Slight offset for visual centering
             playTriangle.name = "playIcon"
             playButtonCircle.addChild(playTriangle)
         }
@@ -440,42 +457,91 @@ class LevelSelectionScene: SKScene {
                     }
                 }
                 
-                // Check if clicked directly on the "infoText" label
-                if nodeName == "infoText" || parentName == "infoText" {
-                    // Find the level ID from the parent chain
+                // Direct check for the interactive overlay - highest priority
+                if nodeName.starts(with: "infoTapTarget_") {
+                    // Extract level ID directly from the node name
+                    let levelId = nodeName.components(separatedBy: "infoTapTarget_").last!
+                    print("Direct info tap target hit for level: \(levelId)")
+                    AudioManager.shared.playEffect(.menuTap)
+                    showUnlockRequirement(forLevelId: levelId)
+                    return
+                }
+                
+                // Check if clicked on lock icon with level ID
+                if nodeName.starts(with: "lockIcon_") {
+                    let levelId = nodeName.components(separatedBy: "lockIcon_").last!
+                    print("Lock icon tapped for level: \(levelId)")
+                    AudioManager.shared.playEffect(.menuTap)
+                    showUnlockRequirement(forLevelId: levelId)
+                    return
+                }
+                
+                // Check all the other possible tap locations
+                if nodeName == "infoText" || parentName == "infoText" || 
+                   nodeName == "🔒" || nodeName == "lockOverlay" || 
+                   parentName == "lockOverlay" {
+                    // Find the level ID from the parent chain - more thorough traversal
                     var currentNode: SKNode? = node
-                    while currentNode != nil {
-                        if let parentNodeName = currentNode?.parent?.name, parentNodeName.starts(with: "level_") {
-                            let levelId = parentNodeName.components(separatedBy: "level_").last
-                            if let id = levelId {
-                                showUnlockRequirement(forLevelId: id)
-                                return
-                            }
+                    var foundId: String? = nil
+                    
+                    // Keep moving up the node hierarchy until we find a level node
+                    while currentNode != nil && foundId == nil {
+                        // Check if the current node is a level node
+                        if let nodeName = currentNode?.name, nodeName.starts(with: "level_") {
+                            foundId = nodeName.components(separatedBy: "level_").last
                             break
                         }
+                        
+                        // Check if the parent is a level node
+                        if let parentName = currentNode?.parent?.name, parentName.starts(with: "level_") {
+                            foundId = parentName.components(separatedBy: "level_").last
+                            break
+                        }
+                        
+                        // Move up to the parent
                         currentNode = currentNode?.parent
+                    }
+                    
+                    // If we found a level ID, show the unlock requirement
+                    if let id = foundId {
+                        print("Showing unlock requirement through hierarchy for level: \(id)")
+                        AudioManager.shared.playEffect(.menuTap)
+                        showUnlockRequirement(forLevelId: id)
+                        return
                     }
                 }
                 
-                // Check for level node selection (background, lock, etc.)
+                // Check for general level node selection (container, background, etc.)
+                // This will be a fallback if the above specific checks don't match
                 var levelId: String? = nil
                 
                 if nodeName.starts(with: "level_") {
                     levelId = nodeName.components(separatedBy: "level_").last
                 } else if parentName.starts(with: "level_") {
                     levelId = parentName.components(separatedBy: "level_").last
-                } else if node.name == "lockOverlay" || node.name == "infoText" || 
-                          node.parent?.name == "lockOverlay" || node.parent?.name == "infoText" {
-                    // If clicking on lock overlay, find the level ID from the parent
+                } else {
+                    // For any other nodes (background, etc.), try to find parent level node
                     var currentNode: SKNode? = node
                     var foundId: String? = nil
+                    
+                    // Check entire parent hierarchy for level node
                     while currentNode != nil && foundId == nil {
-                        if let parentNodeName = currentNode?.parent?.name, parentNodeName.starts(with: "level_") {
-                            foundId = parentNodeName.components(separatedBy: "level_").last
+                        // Check current node
+                        if let nodeName = currentNode?.name, nodeName.starts(with: "level_") {
+                            foundId = nodeName.components(separatedBy: "level_").last
                             break
                         }
+                        
+                        // Check parent node
+                        if let parentName = currentNode?.parent?.name, parentName.starts(with: "level_") {
+                            foundId = parentName.components(separatedBy: "level_").last
+                            break
+                        }
+                        
+                        // Move up to parent
                         currentNode = currentNode?.parent
                     }
+                    
                     levelId = foundId
                 }
                 

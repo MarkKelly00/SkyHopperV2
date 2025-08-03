@@ -371,7 +371,7 @@ class PowerUpManager {
         NotificationCenter.default.post(name: NSNotification.Name("SpeedBoostDeactivated"), object: nil)
     }
     
-    // Standard shield - lasts for 3 seconds
+    // Standard shield - lasts for 5 seconds with continuous protection
     private func applyShield(to player: SKNode) -> Bool {
         guard !isShieldActive else { return false }
         
@@ -381,6 +381,9 @@ class PowerUpManager {
         // Create shield container
         let shieldContainer = SKNode()
         shieldContainer.name = "shield"
+        
+        // Make sure shield doesn't interfere with score nodes
+        shieldContainer.physicsBody = nil
         player.addChild(shieldContainer)
         
         // Create main shield bubble with cyan color
@@ -423,11 +426,9 @@ class PowerUpManager {
         // Double Time makes duration 10 seconds instead of 5
         let actualDuration = isDoubleTimeActive ? 10.0 : PowerUpType.shield.duration
         
-        // Timer for shield duration
+        // Timer for shield duration - shield lasts for its full duration regardless of hits
         DispatchQueue.main.asyncAfter(deadline: .now() + actualDuration) { [weak self] in
-            if self?.shieldHitCount ?? 0 > 0 { // Only expire if not hit
-                self?.deactivateShield(for: player)
-            }
+            self?.deactivateShield(for: player)
         }
         
         return true
@@ -570,38 +571,47 @@ class PowerUpManager {
                 if let playerNode = findPlayerNode() {
                     deactivateShield(for: playerNode)
                 } else {
-            deactivateShield()
+                    deactivateShield()
                 }
-            return false
-        }
-        return true
+                return false
+            }
+            return true
             
         } else {
-            // Regular shield logic - should protect for one hit
-            shieldHitCount -= 1
-            
-            // Create impact effect
+            // Regular shield logic - should absorb hits for its entire duration
+            // Show visual effect but don't deactivate the shield
             if let playerNode = findPlayerNode(),
                let shield = playerNode.childNode(withName: "shield") {
                 // Visual feedback for hit
                 let flash = SKAction.sequence([
                     SKAction.fadeAlpha(to: 0.9, duration: 0.1),
-                    SKAction.fadeAlpha(to: 0.1, duration: 0.1)
+                    SKAction.fadeAlpha(to: 0.1, duration: 0.1),
+                    SKAction.fadeAlpha(to: 0.7, duration: 0.1)
                 ])
                 shield.run(flash)
                 
-                // Add shield impact effect
+                // Add shield impact effect for visual feedback
                 createShieldImpact(in: shield)
+                
+                // Create a stronger flash effect to show shield absorbing hit
+                let outerFlash = SKShapeNode(circleOfRadius: 40)
+                outerFlash.strokeColor = UIColor.cyan
+                outerFlash.lineWidth = 3
+                outerFlash.fillColor = UIColor.cyan.withAlphaComponent(0.3)
+                outerFlash.alpha = 0.7
+                outerFlash.position = CGPoint.zero
+                outerFlash.zPosition = 2
+                shield.addChild(outerFlash)
+                
+                // Animate and remove the flash
+                let expand = SKAction.scale(to: 1.5, duration: 0.3)
+                let fade = SKAction.fadeOut(withDuration: 0.3)
+                let group = SKAction.group([expand, fade])
+                let remove = SKAction.removeFromParent()
+                outerFlash.run(SKAction.sequence([group, remove]))
             }
             
-            // Deactivate shield after being hit once
-            if let playerNode = findPlayerNode() {
-                deactivateShield(for: playerNode)
-            } else {
-                deactivateShield()
-            }
-            
-            // Return true since we successfully absorbed one hit
+            // Return true since we successfully absorbed the hit without deactivating
             return true
         }
     }

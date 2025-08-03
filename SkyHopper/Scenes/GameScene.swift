@@ -330,17 +330,29 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let bottomObstacleHeight = size.height - bottomObstacleY
         let bottomObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: bottomObstacleHeight), position: CGPoint(x: size.width + 40, y: bottomObstacleY + (bottomObstacleHeight / 2)))
         
-        // Create score node in the gap
+        // Create score node that spans the entire height of the screen
         let scoreNode = SKNode()
-        scoreNode.position = CGPoint(x: size.width + 40, y: gapPosition)
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2) // Center vertically
         
-        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 5, height: gapHeight))
+        // Make the score detection zone cover the full height of the screen
+        // This ensures the player gets points regardless of whether they go through, above or below the obstacles
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
         scorePhysics.isDynamic = false
         scorePhysics.categoryBitMask = scoreCategory
         scorePhysics.contactTestBitMask = playerCategory
         scorePhysics.collisionBitMask = 0 // Don't collide with anything
+        
+        // Set precise collision detection flag for better accuracy
+        scorePhysics.usesPreciseCollisionDetection = true
+        
         scoreNode.physicsBody = scorePhysics
         scoreNode.name = "scoreNode"
+        
+        // Optional visualization for debug - comment out in production
+        // let visualizer = SKShapeNode(rectOf: CGSize(width: 15, height: gapHeight))
+        // visualizer.fillColor = .green
+        // visualizer.alpha = 0.3
+        // scoreNode.addChild(visualizer)
         
         // Add the obstacles and score node to the scene
         addChild(topObstacle)
@@ -356,12 +368,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bottomObstacle.run(sequence)
         scoreNode.run(sequence)
         
-        // Increment distance counter
-        distance += 1
+        // Note: distance is now incremented in handlePlayerScoreCollision
+        // Track obstacles created
         playerData.recordDistance(1)
         
         // Update daily challenges
-        playerData.updateChallengeProgress(id: "distance", value: distance)
         playerData.updateChallengeProgress(id: "obstacles", value: distance * 2) // 2 obstacles per spawn
     }
     
@@ -403,28 +414,37 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Calculate position for power-up that doesn't collide with obstacles
         let xPos = size.width + 40
-        let safeSpawnDistance: CGFloat = 200.0 // Distance from obstacles where power-ups can spawn safely
+        let safeSpawnDistance: CGFloat = 100.0 // Distance from obstacles where power-ups can spawn safely (reduced to be more strict)
         
         // Find a safe position for the power-up
         var yPos = CGFloat.random(in: 150...(size.height - 150))
         var isSafe = false
+        var attempts = 0
+        let maxAttempts = 10 // More attempts to find safe position
         
-        // Get all obstacles in the scene
-        var obstaclePositions: [CGPoint] = []
+        // Get all obstacles in the scene and their bounding boxes
+        var obstacles: [(node: SKNode, frame: CGRect)] = []
         enumerateChildNodes(withName: "obstacle") { node, _ in
-            obstaclePositions.append(node.position)
+            // Convert node frame to scene coordinates
+            let frame = node.calculateAccumulatedFrame()
+            obstacles.append((node: node, frame: frame))
         }
         
-        // Try up to 5 times to find a safe position
-        for _ in 0..<5 {
+        // Try multiple times to find a safe position
+        while !isSafe && attempts < maxAttempts {
             isSafe = true
+            attempts += 1
             
-            // Check distance from all obstacles
-            for obstaclePos in obstaclePositions {
-                // Only consider obstacles that are ahead of the player and in spawn area
-                if obstaclePos.x > size.width * 0.4 {
-                    let distance = hypot(xPos - obstaclePos.x, yPos - obstaclePos.y)
-                    if distance < safeSpawnDistance {
+            // Create a test frame for the power-up (30x30 is typical size)
+            let testFrame = CGRect(x: xPos - 15, y: yPos - 15, width: 30, height: 30)
+            
+            // Check collision with all obstacles
+            for obstacle in obstacles {
+                // Only consider obstacles ahead of the player (right side of screen)
+                if obstacle.node.position.x > size.width * 0.4 {
+                    // Check if frames intersect or are too close
+                    let obstacleFrame = obstacle.frame.insetBy(dx: -safeSpawnDistance, dy: -safeSpawnDistance)
+                    if testFrame.intersects(obstacleFrame) {
                         isSafe = false
                         break
                     }
@@ -432,14 +452,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             
             if isSafe {
-                break // Found a safe position
+                // Found safe position - Debug info
+                print("Safe position found at y: \(yPos) after \(attempts) attempts")
+                break
             }
             
-            // Try a new random position
-            yPos = CGFloat.random(in: 150...(size.height - 150))
+            // Try a new random position with better distribution
+            yPos = CGFloat.random(in: 100...(size.height - 100))
         }
         
-        // Create power-up sprite at the safe position
+        // If no safe position found after all attempts, try middle of screen
+        if !isSafe {
+            print("No safe position found, using center area")
+            yPos = size.height / 2 + CGFloat.random(in: -50...50)
+        }
+        
+        // Create power-up sprite at the position
         let position = CGPoint(x: xPos, y: yPos)
         let powerUpNode = powerUpManager.createPowerUpSprite(ofType: powerUpType, at: position)
         powerUpNode.zPosition = 25
@@ -589,9 +617,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let sequence = SKAction.sequence([flash, explosion, remove])
             obstacle?.run(sequence)
             
-            // Award points for destroying the obstacle
-            score += 1
-            updateScore()
+            // Award points for destroying the obstacle (only if it hasn't been scored yet)
+            if let obstacle = obstacle, obstacle.name == "obstacle" {
+                // Award points - obstacles should only be counted once
+                obstacle.name = "scoredObstacle" // Mark as scored
+                score += 1
+                updateScore()
+                
+                // Add visual feedback
+                addScoreFeedback(at: obstacle.position)
+            }
             
             return
         }
@@ -681,20 +716,71 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func handlePlayerScoreCollision(scoreNode: SKNode?) {
-        // Increment score
+        // Ensure scoreNode is valid, still in the scene, and not already processed
+        guard let validNode = scoreNode, 
+              validNode.parent != nil,
+              validNode.name != "processedScoreNode" else { return }
+        
+        // Track distance for challenges
+        distance += 1
+        playerData.updateChallengeProgress(id: "distance", value: distance)
+        
+        // Immediately mark this score node as processed to prevent double counting
+        // This is critical to do before any other processing
+        validNode.name = "processedScoreNode"
+        
+        // Always increment score by 1 (or multiplier if active)
         score += 1 * (powerUpManager.scoreMultiplier)
         
         // Update score label
         updateScore()
         
-        // Remove score node
-        scoreNode?.removeFromParent()
+        // Add visual feedback for score
+        addScoreFeedback(at: validNode.position)
+        
+        // Remove score node to prevent further collisions
+        validNode.removeFromParent()
         
         // Play score sound
         audioManager.playEffect(.collect)
         
         // Update daily challenges
         playerData.updateChallengeProgress(id: "score", value: score)
+        
+        // Debug output
+        print("Score increased to: \(score) at distance: \(distance)")
+    }
+    
+    // Add visual feedback when scoring
+    private func addScoreFeedback(at position: CGPoint) {
+        // Create "+1" text that floats up and fades out
+        // Always show next to the player for better visibility
+        let scoreText = SKLabelNode(text: "+\(powerUpManager.scoreMultiplier)")
+        scoreText.fontName = "AvenirNext-Bold"
+        scoreText.fontSize = 20
+        scoreText.fontColor = .yellow
+        
+        // Position near the player for better visibility
+        if let player = childNode(withName: "player") {
+            scoreText.position = CGPoint(x: player.position.x + 40, y: player.position.y)
+        } else {
+            scoreText.position = position
+        }
+        
+        scoreText.zPosition = 100 // Above most game elements
+        addChild(scoreText)
+        
+        // Animate the score text
+        let moveUp = SKAction.moveBy(x: 0, y: 40, duration: 0.6)
+        let fade = SKAction.fadeOut(withDuration: 0.6)
+        let scale = SKAction.sequence([
+            SKAction.scale(to: 1.5, duration: 0.2),
+            SKAction.scale(to: 1.0, duration: 0.4)
+        ])
+        let group = SKAction.group([moveUp, fade, scale])
+        let remove = SKAction.removeFromParent()
+        let sequence = SKAction.sequence([group, remove])
+        scoreText.run(sequence)
     }
     
     private func handlePlayerPowerUpCollision(powerUpNode: SKNode?) {
@@ -849,8 +935,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Game State
     
     private func updateScore() {
-        // Update score label
+        // Update score label with current score
         scoreLabel.text = "Score: \(score)"
+        
+        // Check for high score updates
+        let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
+        if score > currentHighScore {
+            UserDefaults.standard.set(score, forKey: "highScore")
+            highScoreLabel.text = "Best: \(score)"
+        }
     }
     
     private func gameOver() {
