@@ -1,0 +1,411 @@
+import SpriteKit
+
+class MapManager {
+    static let shared = MapManager()
+    
+    enum MapTheme: String, CaseIterable {
+        case city
+        case forest
+        case mountain
+        case space
+        case underwater
+        
+        // Seasonal themes
+        case halloween
+        case christmas
+        case summer
+        
+        var displayName: String {
+            switch self {
+            case .city: return "City Skyline"
+            case .forest: return "Forest Valley"
+            case .mountain: return "Mountain Pass"
+            case .space: return "Cosmic Voyage"
+            case .underwater: return "Ocean Depths"
+            case .halloween: return "Spooky Halloween"
+            case .christmas: return "Winter Wonderland"
+            case .summer: return "Summer Beach"
+            }
+        }
+        
+        var difficulty: Int {
+            switch self {
+            case .city: return 1
+            case .forest: return 2
+            case .mountain: return 3
+            case .space: return 5
+            case .underwater: return 4
+            // Seasonal maps maintain moderate difficulty
+            case .halloween, .christmas, .summer: return 3
+            }
+        }
+        
+        var backgroundColor: UIColor {
+            switch self {
+            case .city: return UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0) // Blue sky
+            case .forest: return UIColor(red: 0.5, green: 0.8, blue: 0.5, alpha: 1.0) // Green tint
+            case .mountain: return UIColor(red: 0.7, green: 0.8, blue: 0.9, alpha: 1.0) // Light blue with clouds
+            case .space: return UIColor(red: 0.0, green: 0.0, blue: 0.1, alpha: 1.0) // Near black
+            case .underwater: return UIColor(red: 0.0, green: 0.3, blue: 0.6, alpha: 1.0) // Deep blue
+            case .halloween: return UIColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1.0) // Dark night
+            case .christmas: return UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0) // Snow white
+            case .summer: return UIColor(red: 0.9, green: 0.7, blue: 0.4, alpha: 1.0) // Sunny yellow
+            }
+        }
+        
+        var obstacleColor: UIColor {
+            switch self {
+            case .city: return UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0) // Gray buildings
+            case .forest: return UIColor(red: 0.3, green: 0.2, blue: 0.0, alpha: 1.0) // Brown trees
+            case .mountain: return UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1.0) // Gray mountains
+            case .space: return UIColor(red: 0.2, green: 0.2, blue: 0.4, alpha: 1.0) // Dark asteroids
+            case .underwater: return UIColor(red: 0.0, green: 0.4, blue: 0.3, alpha: 1.0) // Seaweed green
+            case .halloween: return UIColor(red: 0.5, green: 0.1, blue: 0.0, alpha: 1.0) // Blood red
+            case .christmas: return UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0) // Christmas red
+            case .summer: return UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0) // Orange
+            }
+        }
+        
+        var groundColor: UIColor {
+            switch self {
+            case .city: return UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0) // Gray concrete
+            case .forest: return UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1.0) // Green grass
+            case .mountain: return UIColor(red: 0.5, green: 0.4, blue: 0.3, alpha: 1.0) // Brown earth
+            case .space: return UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0) // Gray platform
+            case .underwater: return UIColor(red: 0.8, green: 0.7, blue: 0.6, alpha: 1.0) // Sandy bottom
+            case .halloween: return UIColor(red: 0.3, green: 0.2, blue: 0.0, alpha: 1.0) // Dark soil
+            case .christmas: return UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) // Snow
+            case .summer: return UIColor(red: 0.9, green: 0.8, blue: 0.5, alpha: 1.0) // Sand
+            }
+        }
+        
+        var unlockScore: Int {
+            switch self {
+            case .city: return 0 // Starter map
+            case .forest: return 1000
+            case .mountain: return 2500
+            case .underwater: return 5000
+            case .space: return 10000
+            // Seasonal maps have special unlock conditions (date-based)
+            case .halloween, .christmas, .summer: return 0
+            }
+        }
+        
+        var obstacleFrequency: TimeInterval {
+            switch self {
+            case .city: return 3.0
+            case .forest: return 2.8
+            case .mountain: return 2.5
+            case .space: return 2.0
+            case .underwater: return 2.2
+            // Seasonal maps - standard frequency
+            case .halloween, .christmas, .summer: return 2.5
+            }
+        }
+        
+        var obstacleSpeed: CGFloat {
+            switch self {
+            case .city: return 120.0
+            case .forest: return 130.0
+            case .mountain: return 140.0
+            case .space: return 160.0
+            case .underwater: return 100.0 // Slower underwater
+            // Seasonal maps
+            case .halloween: return 135.0
+            case .christmas: return 125.0
+            case .summer: return 145.0
+            }
+        }
+        
+        var isSeasonalMap: Bool {
+            switch self {
+            case .halloween, .christmas, .summer: return true
+            default: return false
+            }
+        }
+        
+        var specialEffects: [String] {
+            switch self {
+            case .city: return []
+            case .forest: return ["leaves", "birds"]
+            case .mountain: return ["snow", "fog"]
+            case .space: return ["stars", "asteroids"]
+            case .underwater: return ["bubbles", "fish"]
+            case .halloween: return ["ghosts", "bats"]
+            case .christmas: return ["snow", "gifts"]
+            case .summer: return ["seagulls", "waves"]
+            }
+        }
+    }
+    
+    var unlockedMaps: [MapTheme] = [.city] // Start with city map
+    var currentMap: MapTheme = .city
+    
+    private init() {
+        // Initialize with saved data
+        loadSavedData()
+        checkForSeasonalMaps()
+    }
+    
+    func unlockMap(theme: MapTheme) -> Bool {
+        guard !unlockedMaps.contains(theme) else { return false } // Already unlocked
+        
+        unlockedMaps.append(theme)
+        saveUnlockedMaps()
+        return true
+    }
+    
+    func selectMap(theme: MapTheme) -> Bool {
+        guard unlockedMaps.contains(theme) else { return false }
+        
+        currentMap = theme
+        UserDefaults.standard.set(theme.rawValue, forKey: "currentMap")
+        return true
+    }
+    
+    func isMapUnlocked(theme: MapTheme) -> Bool {
+        return unlockedMaps.contains(theme)
+    }
+    
+    func getMapUnlockRequirement(theme: MapTheme) -> String {
+        if theme.isSeasonalMap {
+            switch theme {
+            case .halloween:
+                return "Available during October"
+            case .christmas:
+                return "Available during December"
+            case .summer:
+                return "Available during June-August"
+            default:
+                return ""
+            }
+        } else {
+            return "Score \(theme.unlockScore) points to unlock"
+        }
+    }
+    
+    func checkForSeasonalMaps() {
+        let currentDate = Date()
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: currentDate)
+        
+        // Halloween - October
+        if month == 10 && !unlockedMaps.contains(.halloween) {
+            _ = unlockMap(theme: .halloween)
+        }
+        
+        // Christmas - December
+        if month == 12 && !unlockedMaps.contains(.christmas) {
+            _ = unlockMap(theme: .christmas)
+        }
+        
+        // Summer - June, July, August
+        if (month >= 6 && month <= 8) && !unlockedMaps.contains(.summer) {
+            _ = unlockMap(theme: .summer)
+        }
+    }
+    
+    // Persistence
+    func loadSavedData() {
+        if let savedRaw = UserDefaults.standard.stringArray(forKey: "unlockedMaps") {
+            unlockedMaps = savedRaw.compactMap { MapTheme(rawValue: $0) }
+        }
+        
+        if let savedMapRaw = UserDefaults.standard.string(forKey: "currentMap"),
+           let savedMap = MapTheme(rawValue: savedMapRaw) {
+            currentMap = savedMap
+        }
+    }
+    
+    func saveUnlockedMaps() {
+        let rawValues = unlockedMaps.map { $0.rawValue }
+        UserDefaults.standard.set(rawValues, forKey: "unlockedMaps")
+    }
+    
+    // Apply map theme to game scene
+    func applyTheme(to scene: SKScene) {
+        // Set background color
+        scene.backgroundColor = currentMap.backgroundColor
+        
+        // Find and update ground color
+        scene.enumerateChildNodes(withName: "ground") { node, _ in
+            if let shapeNode = node as? SKShapeNode {
+                shapeNode.fillColor = self.currentMap.groundColor
+                shapeNode.strokeColor = self.currentMap.groundColor.darker()
+            }
+        }
+        
+        // Apply any special effects
+        addSpecialEffects(to: scene)
+    }
+    
+    private func addSpecialEffects(to scene: SKScene) {
+        // Clear any existing effects first
+        scene.enumerateChildNodes(withName: "effect_*") { node, _ in
+            node.removeFromParent()
+        }
+        
+        // Add new effects based on the map theme
+        for effect in currentMap.specialEffects {
+            switch effect {
+            case "leaves":
+                addLeavesEffect(to: scene)
+            case "stars":
+                addStarsEffect(to: scene)
+            case "snow":
+                addSnowEffect(to: scene)
+            case "bubbles":
+                addBubblesEffect(to: scene)
+            default:
+                break
+            }
+        }
+    }
+    
+    // Effect implementations
+    private func addLeavesEffect(to scene: SKScene) {
+        // Simple placeholder implementation
+        for _ in 0..<10 {
+            let leaf = SKShapeNode(rectOf: CGSize(width: 5, height: 5), cornerRadius: 1)
+            leaf.fillColor = UIColor(red: 0.5, green: 0.3, blue: 0.0, alpha: 0.8)
+            leaf.strokeColor = UIColor.clear
+            leaf.name = "effect_leaf"
+            
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let startY = scene.size.height + 10
+            leaf.position = CGPoint(x: randomX, y: startY)
+            
+            // Create falling animation
+            let fallDuration = TimeInterval.random(in: 5...10)
+            let swayX = CGFloat.random(in: -100...100)
+            let fallAction = SKAction.moveBy(x: swayX, y: -scene.size.height - 20, duration: fallDuration)
+            let rotateAction = SKAction.rotate(byAngle: .pi * 2, duration: fallDuration)
+            let group = SKAction.group([fallAction, rotateAction])
+            let sequence = SKAction.sequence([group, SKAction.removeFromParent()])
+            
+            leaf.run(sequence)
+            scene.addChild(leaf)
+        }
+        
+        // Create repeating action to spawn more leaves
+        let wait = SKAction.wait(forDuration: 2.0)
+        let spawn = SKAction.run { [weak self] in
+            self?.addLeavesEffect(to: scene)
+        }
+        let sequence = SKAction.sequence([wait, spawn])
+        scene.run(SKAction.repeatForever(sequence), withKey: "spawnLeaves")
+    }
+    
+    private func addStarsEffect(to scene: SKScene) {
+        // Add starfield
+        for _ in 0..<100 {
+            let starSize = CGFloat.random(in: 1...3)
+            let star = SKShapeNode(circleOfRadius: starSize)
+            star.fillColor = UIColor.white
+            star.strokeColor = UIColor.clear
+            star.name = "effect_star"
+            star.alpha = CGFloat.random(in: 0.5...1.0)
+            
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let randomY = CGFloat.random(in: 0...scene.size.height)
+            star.position = CGPoint(x: randomX, y: randomY)
+            
+            // Twinkling effect
+            let fadeOut = SKAction.fadeAlpha(to: 0.2, duration: TimeInterval.random(in: 0.5...2.0))
+            let fadeIn = SKAction.fadeAlpha(to: 1.0, duration: TimeInterval.random(in: 0.5...2.0))
+            let twinkle = SKAction.sequence([fadeOut, fadeIn])
+            star.run(SKAction.repeatForever(twinkle))
+            
+            scene.addChild(star)
+        }
+    }
+    
+    private func addSnowEffect(to scene: SKScene) {
+        for _ in 0..<30 {
+            let snowflake = SKShapeNode(circleOfRadius: CGFloat.random(in: 1...3))
+            snowflake.fillColor = UIColor.white
+            snowflake.strokeColor = UIColor.clear
+            snowflake.name = "effect_snow"
+            
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let startY = scene.size.height + 10
+            snowflake.position = CGPoint(x: randomX, y: startY)
+            
+            // Create falling animation
+            let fallDuration = TimeInterval.random(in: 5...10)
+            let swayX = CGFloat.random(in: -50...50)
+            let fallAction = SKAction.moveBy(x: swayX, y: -scene.size.height - 20, duration: fallDuration)
+            let sequence = SKAction.sequence([fallAction, SKAction.removeFromParent()])
+            
+            snowflake.run(sequence)
+            scene.addChild(snowflake)
+        }
+        
+        // Create repeating action to spawn more snow
+        let wait = SKAction.wait(forDuration: 0.5)
+        let spawn = SKAction.run { [weak self] in
+            self?.addSnowEffect(to: scene)
+        }
+        let sequence = SKAction.sequence([wait, spawn])
+        scene.run(SKAction.repeatForever(sequence), withKey: "spawnSnow")
+    }
+    
+    private func addBubblesEffect(to scene: SKScene) {
+        for _ in 0..<5 {
+            let bubbleSize = CGFloat.random(in: 5...15)
+            let bubble = SKShapeNode(circleOfRadius: bubbleSize)
+            bubble.fillColor = UIColor(red: 0.8, green: 0.8, blue: 1.0, alpha: 0.3)
+            bubble.strokeColor = UIColor(red: 0.8, green: 0.8, blue: 1.0, alpha: 0.5)
+            // Safe initialization for bubble
+            bubble.name = "effect_bubble"
+            
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let startY: CGFloat = 0.0
+            bubble.position = CGPoint(x: randomX, y: startY)
+            
+            // Create rising animation
+            let riseDuration = TimeInterval.random(in: 5...8)
+            let swayX = CGFloat.random(in: -30...30)
+            let riseAction = SKAction.moveBy(x: swayX, y: scene.size.height + 20, duration: riseDuration)
+            let sequence = SKAction.sequence([riseAction, SKAction.removeFromParent()])
+            
+            bubble.run(sequence)
+            scene.addChild(bubble)
+        }
+        
+        // Create repeating action to spawn more bubbles
+        let wait = SKAction.wait(forDuration: 1.0)
+        let spawn = SKAction.run { [weak self] in
+            self?.addBubblesEffect(to: scene)
+        }
+        let sequence = SKAction.sequence([wait, spawn])
+        scene.run(SKAction.repeatForever(sequence), withKey: "spawnBubbles")
+    }
+}
+
+// Helper extension for UIColor
+extension UIColor {
+    func darker(by percentage: CGFloat = 0.2) -> UIColor {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        self.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        return UIColor(
+            red: max(red - percentage, 0),
+            green: max(green - percentage, 0),
+            blue: max(blue - percentage, 0),
+            alpha: alpha
+        )
+    }
+    
+    func lighter(by percentage: CGFloat = 0.2) -> UIColor {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        self.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        return UIColor(
+            red: min(red + percentage, 1),
+            green: min(green + percentage, 1),
+            blue: min(blue + percentage, 1),
+            alpha: alpha
+        )
+    }
+}
