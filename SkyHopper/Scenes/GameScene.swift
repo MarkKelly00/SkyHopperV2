@@ -1,6 +1,15 @@
 import SpriteKit
 import GameKit
 
+// MARK: - Extensions
+
+extension Bool {
+    // Helper method to create a random boolean with a given percentage chance of being true
+    static func random(percentage: Int) -> Bool {
+        return Int.random(in: 1...100) <= percentage
+    }
+}
+
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - Properties
@@ -291,10 +300,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Get level-specific settings for gap size and pattern difficulty
         var gapHeight: CGFloat = 170
         var obstacleWidth: CGFloat = 80
-        // Variable removed to avoid warning
         
         // Adjust based on current level difficulty
         if let level = currentLevel {
+            // Note: Desert level special features are handled in createObstacle method
+            
             // Adjust gap height based on difficulty (smaller gaps for harder levels)
             switch level.difficulty {
             case 1: // Beginner - wider gaps
@@ -318,21 +328,30 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         
-        // Calculate gap position
-        let gapPosition = CGFloat.random(in: 150...(size.height - 150))
+        // Check for desert level
+        let isDesertLevel = currentLevel?.id == "desert_escape"
         
-        // Create top obstacle
-        let topObstacleHeight = gapPosition - (gapHeight / 2)
-        let topObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: topObstacleHeight), position: CGPoint(x: size.width + 40, y: size.height - (topObstacleHeight / 2)))
-        
-        // Create bottom obstacle - always create it for proper Flappy Bird-style gaps
-        let bottomObstacleY = gapPosition + (gapHeight / 2)
-        let bottomObstacleHeight = size.height - bottomObstacleY
-        let bottomObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: bottomObstacleHeight), position: CGPoint(x: size.width + 40, y: bottomObstacleY + (bottomObstacleHeight / 2)))
-        
-        // Create score node that spans the entire height of the screen
-        let scoreNode = SKNode()
-        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2) // Center vertically
+        if isDesertLevel {
+            // For desert level, create pyramids attached to the ground
+            createDesertObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+            return // Score node is created inside createDesertObstacles
+        } else {
+            // Standard Flappy Bird style for other levels
+            // Calculate gap position
+            let gapPosition = CGFloat.random(in: 150...(size.height - 150))
+            
+            // Create top obstacle
+            let topObstacleHeight = gapPosition - (gapHeight / 2)
+            let topObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: topObstacleHeight), position: CGPoint(x: size.width + 40, y: size.height - (topObstacleHeight / 2)))
+            
+            // Create bottom obstacle - always create it for proper Flappy Bird-style gaps
+            let bottomObstacleY = gapPosition + (gapHeight / 2)
+            let bottomObstacleHeight = size.height - bottomObstacleY
+            let bottomObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: bottomObstacleHeight), position: CGPoint(x: size.width + 40, y: bottomObstacleY + (bottomObstacleHeight / 2)))
+            
+            // Create score node that spans the entire height of the screen
+            let scoreNode = SKNode()
+            scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2) // Center vertically
         
         // Make the score detection zone cover the full height of the screen
         // This ensures the player gets points regardless of whether they go through, above or below the obstacles
@@ -377,21 +396,81 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func createObstacle(size: CGSize, position: CGPoint) -> SKNode {
-        // Create obstacle node
-        let obstacle = SKSpriteNode(color: UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0), size: size)
+        // Check if this is desert level
+        let isDesertLevel = currentLevel?.id == "desert_escape"
+        
+        // Create obstacle node based on level theme
+        let obstacle = SKSpriteNode(color: isDesertLevel ? 
+                                    UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 1.0) : // Sandy color for pyramids
+                                    UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0),   // Default gray for city obstacles
+                                    size: size)
         obstacle.position = position
         obstacle.zPosition = 15
         obstacle.name = "obstacle"
         
-        // Add some decoration to the obstacle
-        if size.height > 50 {
-            let stripeCount = Int(size.height / 40)
-            for i in 0..<stripeCount {
-                let stripe = SKShapeNode(rectOf: CGSize(width: size.width, height: 3))
-                stripe.fillColor = .darkGray
-                stripe.strokeColor = .clear
-                stripe.position = CGPoint(x: 0, y: -size.height/2 + CGFloat(i * 40) + 20)
-                obstacle.addChild(stripe)
+        // For desert level, create pyramid-themed obstacles
+        if isDesertLevel {
+            // Remove default rectangle texture and draw pyramids
+            obstacle.color = .clear
+            
+                // Create pyramid shape for obstacles coming from the ground
+                if size.height > 100 {
+                    let pyramidPath = UIBezierPath()
+                    pyramidPath.move(to: CGPoint(x: -size.width/2, y: -size.height/2)) // Bottom left
+                    pyramidPath.addLine(to: CGPoint(x: size.width/2, y: -size.height/2)) // Bottom right
+                    pyramidPath.addLine(to: CGPoint(x: 0, y: size.height/2)) // Top center
+                    pyramidPath.close()
+
+                    let pyramid = SKShapeNode(path: pyramidPath.cgPath)
+                    pyramid.fillColor = UIColor(red: 0.85, green: 0.68, blue: 0.35, alpha: 1.0) // Sandy pyramid color
+                    pyramid.strokeColor = UIColor(red: 0.7, green: 0.5, blue: 0.2, alpha: 1.0) // Darker sandy border
+                    pyramid.position = CGPoint.zero
+                    obstacle.addChild(pyramid)
+
+                    // Add horizontal lines as pyramid steps
+                    let stepCount = min(6, Int(size.height / 35))
+                    for i in 0..<stepCount {
+                        let progress = CGFloat(i) / CGFloat(stepCount)
+                        let stepWidth = size.width * (1.0 - progress)
+                        let yPos = -size.height/2 + (progress * size.height)
+
+                        let step = SKShapeNode(rectOf: CGSize(width: stepWidth, height: 3))
+                        step.fillColor = UIColor(red: 0.7, green: 0.5, blue: 0.2, alpha: 1.0) // Darker sandy color
+                        step.strokeColor = .clear
+                        step.position = CGPoint(x: 0, y: yPos)
+                        pyramid.addChild(step)
+                    }
+
+                    // Add some small details to make it look more like ancient pyramid
+                    let entrance = SKShapeNode(rectOf: CGSize(width: size.width * 0.15, height: size.height * 0.1))
+                    entrance.fillColor = UIColor(red: 0.3, green: 0.2, blue: 0.1, alpha: 1.0) // Dark entrance
+                    entrance.strokeColor = .clear
+                    entrance.position = CGPoint(x: 0, y: -size.height/2 + (size.height * 0.05))
+                    pyramid.addChild(entrance)
+                    
+                    // Randomly add a stargate portal above the pyramids (30% chance)
+                    if Bool.random(percentage: 30) {
+                        createStargatePortal(near: obstacle, at: position)
+                    }
+            } else {
+                // For smaller obstacles, just make them sand dune shaped
+                let duneShape = SKShapeNode(rectOf: size, cornerRadius: size.height/2)
+                duneShape.fillColor = UIColor(red: 0.9, green: 0.85, blue: 0.6, alpha: 1.0) // Light sand color
+                duneShape.strokeColor = UIColor(red: 0.8, green: 0.7, blue: 0.5, alpha: 1.0) // Slightly darker border
+                duneShape.position = CGPoint.zero
+                obstacle.addChild(duneShape)
+            }
+        } else {
+            // Regular obstacles for other levels (city buildings, etc.)
+            if size.height > 50 {
+                let stripeCount = Int(size.height / 40)
+                for i in 0..<stripeCount {
+                    let stripe = SKShapeNode(rectOf: CGSize(width: size.width, height: 3))
+                    stripe.fillColor = .darkGray
+                    stripe.strokeColor = .clear
+                    stripe.position = CGPoint(x: 0, y: -size.height/2 + CGFloat(i * 40) + 20)
+                    obstacle.addChild(stripe)
+                }
             }
         }
         
@@ -403,6 +482,210 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         obstacle.physicsBody = physicsBody
         
         return obstacle
+    }
+    
+        private func createStargatePortal(near obstacle: SKNode, at position: CGPoint) {
+        // Position the stargate portal in the sky, away from the obstacle
+        let xPos = position.x + CGFloat.random(in: -40...40)
+        let yPos = position.y + size.height/4 + CGFloat.random(in: 0...size.height/4)
+        
+        // Create the portal node
+        let portal = SKNode()
+        portal.position = CGPoint(x: xPos, y: yPos)
+        portal.zPosition = 16 // Slightly in front of obstacles
+        portal.name = "stargate_portal" // Special name to identify it
+        
+        // Create Eye of Sauron style portal (vertical eye shape with fiery appearance)
+        // Outer elliptical shape for the eye
+        let eyeWidth: CGFloat = 40
+        let eyeHeight: CGFloat = 60
+        
+        // Create fiery outer ring with vertical oval shape
+        let eyePath = CGPath(ellipseIn: CGRect(x: -eyeWidth/2, y: -eyeHeight/2, width: eyeWidth, height: eyeHeight), transform: nil)
+        let eyeRing = SKShapeNode(path: eyePath)
+        eyeRing.fillColor = UIColor(red: 0.8, green: 0.2, blue: 0.0, alpha: 0.4) // Dark red/orange interior
+        eyeRing.strokeColor = UIColor(red: 0.9, green: 0.3, blue: 0.0, alpha: 1.0) // Brighter orange ring
+        eyeRing.lineWidth = 4
+        eyeRing.alpha = 0.9
+        eyeRing.position = CGPoint.zero
+        portal.addChild(eyeRing)
+
+        // Create inner pupil - black ellipse
+        let pupilPath = CGPath(ellipseIn: CGRect(x: -eyeWidth/4, y: -eyeHeight/4, width: eyeWidth/2, height: eyeHeight/2), transform: nil)
+        let pupil = SKShapeNode(path: pupilPath)
+        pupil.fillColor = UIColor.black
+        pupil.strokeColor = UIColor(red: 0.7, green: 0.0, blue: 0.0, alpha: 1.0) // Dark red outline
+        pupil.lineWidth = 2
+        pupil.position = CGPoint.zero
+        eyeRing.addChild(pupil)
+
+        // Create flame effect around the eye
+        let flameCount = 8
+        for i in 0..<flameCount {
+            let angle = (CGFloat(i) / CGFloat(flameCount)) * CGFloat.pi * 2.0
+            let flameDistance = max(eyeWidth, eyeHeight) * 0.7
+            let flameX = cos(angle) * flameDistance * (eyeWidth/eyeHeight)
+            let flameY = sin(angle) * flameDistance
+            
+            // Create flame path
+            let flamePath = UIBezierPath()
+            flamePath.move(to: CGPoint.zero)
+            flamePath.addLine(to: CGPoint(x: flameX * 0.5, y: flameY * 0.5))
+            flamePath.addLine(to: CGPoint(x: flameX * 0.7, y: flameY * 0.7))
+            flamePath.addLine(to: CGPoint(x: flameX * 0.3, y: flameY * 0.9))
+            flamePath.addLine(to: CGPoint(x: flameX, y: flameY))
+            flamePath.addLine(to: CGPoint(x: flameX * 0.4, y: flameY * 0.8))
+            flamePath.addLine(to: CGPoint(x: flameX * 0.6, y: flameY * 0.6))
+            flamePath.addLine(to: CGPoint(x: flameX * 0.2, y: flameY * 0.4))
+            flamePath.close()
+            
+            let flame = SKShapeNode(path: flamePath.cgPath)
+            flame.fillColor = UIColor(red: 0.9, green: 0.4, blue: 0.0, alpha: 0.6) // Orange
+            flame.strokeColor = UIColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 0.4) // Yellow-orange
+            flame.lineWidth = 1
+            flame.alpha = 0.7
+            flame.zPosition = -0.5
+            flame.position = CGPoint.zero
+            
+            // Animate the flame
+            let scaleAction = SKAction.sequence([
+                SKAction.scale(to: 1.2, duration: 0.3 + Double.random(in: 0...0.2)),
+                SKAction.scale(to: 0.8, duration: 0.3 + Double.random(in: 0...0.2))
+            ])
+            let fadeAction = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.9, duration: 0.2 + Double.random(in: 0...0.3)),
+                SKAction.fadeAlpha(to: 0.5, duration: 0.2 + Double.random(in: 0...0.3))
+            ])
+            let groupAction = SKAction.group([scaleAction, fadeAction])
+            let repeatAction = SKAction.repeatForever(groupAction)
+            
+            flame.run(repeatAction)
+            eyeRing.addChild(flame)
+        }
+
+        // Create a glow effect
+        let glow = SKEffectNode()
+        glow.position = CGPoint.zero
+        let glowFilter = CIFilter(name: "CIGaussianBlur")!
+        glowFilter.setValue(5, forKey: "inputRadius")
+        glow.filter = glowFilter
+        glow.shouldEnableEffects = true
+        glow.alpha = 0.7
+        eyeRing.addChild(glow)
+        
+        // Animate the portal with pulsing effect
+        let pulseAction = SKAction.sequence([
+            SKAction.scale(to: 1.1, duration: 1.0),
+            SKAction.scale(to: 0.9, duration: 1.0)
+        ])
+        let pulseRepeat = SKAction.repeatForever(pulseAction)
+        eyeRing.run(pulseRepeat)
+        
+        // Add physics body for collision detection
+        let portalPhysics = SKPhysicsBody(circleOfRadius: 25)
+        portalPhysics.isDynamic = false
+        portalPhysics.categoryBitMask = obstacleCategory // Same category as obstacles
+        portalPhysics.contactTestBitMask = playerCategory
+        portalPhysics.collisionBitMask = 0 // No actual collision physics, just detection
+        portal.physicsBody = portalPhysics
+        
+        // Add portal to the scene
+        addChild(portal)
+        
+        // Move the portal with the same speed as obstacles
+        let moveAction = SKAction.moveTo(x: -100, duration: TimeInterval(size.width + 100) / obstacleSpeed)
+        let removeAction = SKAction.removeFromParent()
+        portal.run(SKAction.sequence([moveAction, removeAction]))
+    }
+    
+    private func createDesertObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Create 1-2 pyramids from the ground with varying heights
+        let pyramidCount = Int.random(in: 1...2)
+        
+        // Create a gap in a random horizontal position
+        let gapXOffset = CGFloat.random(in: -obstacleWidth...obstacleWidth) * 0.5
+        
+        for i in 0..<pyramidCount {
+            // Create pyramid sizes with different heights and widths
+            let pyramidWidth = obstacleWidth + CGFloat.random(in: -10...20) // Vary width slightly
+            let maxHeight = size.height * 0.7 // Max pyramid height - leaves room to fly over
+            let minHeight = size.height * 0.3 // Min pyramid height
+            
+            // Calculate height - first pyramid is usually taller
+            let pyramidHeight = i == 0 ? 
+                CGFloat.random(in: minHeight + 50...maxHeight) : 
+                CGFloat.random(in: minHeight...maxHeight - 50)
+            
+            // Calculate horizontal position - space them out
+            var xOffset: CGFloat = 0
+            if pyramidCount > 1 {
+                // If we have multiple pyramids, space them out horizontally
+                if i == 0 {
+                    xOffset = gapXOffset - obstacleWidth * 1.0
+                } else {
+                    xOffset = gapXOffset + obstacleWidth * 1.0
+                }
+            } else {
+                // For single pyramid, use the gap offset directly
+                xOffset = gapXOffset
+            }
+            
+            // Position relative to bottom of screen
+            let position = CGPoint(
+                x: size.width + 40 + xOffset,
+                y: pyramidHeight / 2 // From bottom of screen
+            )
+            
+            // Create obstacle
+            let obstacle = createObstacle(
+                size: CGSize(width: pyramidWidth, height: pyramidHeight),
+                position: position
+            )
+            
+            // Add the obstacle to the scene
+            addChild(obstacle)
+            
+            // Animate obstacle movement
+            let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+            let removeAction = SKAction.removeFromParent()
+            let sequence = SKAction.sequence([moveAction, removeAction])
+            obstacle.run(sequence)
+            
+            // Create a stargate above (30% chance, but only if this is the taller pyramid)
+            if Bool.random(percentage: 30) && i == 0 {
+                createStargatePortal(near: obstacle, at: CGPoint(
+                    x: position.x,
+                    y: position.y + pyramidHeight * 0.8 + CGFloat.random(in: 20...60)
+                ))
+            }
+        }
+        
+        // Create score node that's used for all obstacles
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+        
+        // Make score detection span full height
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+        
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        
+        // Add score node to the scene
+        addChild(scoreNode)
+        
+        // Animate score node
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        let removeAction = SKAction.removeFromParent()
+        scoreNode.run(SKAction.sequence([moveAction, removeAction]))
+        
+        // Track obstacles created for statistics
+        playerData.recordDistance(pyramidCount)
+        playerData.updateChallengeProgress(id: "obstacles", value: distance + pyramidCount)
     }
     
     private func spawnPowerUp() {
@@ -583,6 +866,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func handlePlayerObstacleCollision(obstacle: SKNode?) {
+        // Check if player hit a stargate portal (special desert level obstacle)
+        if let portalNode = obstacle, portalNode.name == "stargate_portal" {
+            // Player is sucked into the portal - custom game over
+            gameOverWithStargate(portal: portalNode)
+            return
+        }
+        
         // Check for speed boost (which makes the player invincible)
         if powerUpManager.isSpeedBoostActive {
             // Obstacle is destroyed by speed boost
@@ -713,6 +1003,185 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // If not protected by any power-up, game over
         gameOver()
+    }
+    
+    private func gameOverWithStargate(portal: SKNode) {
+        guard isGameStarted && !isGameOver else { return }
+        
+        isGameOver = true
+        isGameStarted = false
+        
+        // Stop obstacle and power-up spawning
+        removeAction(forKey: "spawnObstacles")
+        removeAction(forKey: "spawnPowerUps")
+        
+        // Animate player being sucked into the stargate
+        if let player = childNode(withName: "player") {
+            // Create path from player to portal
+            let playerPosition = player.position
+            let portalPosition = portal.convert(CGPoint.zero, to: self)
+            
+            // Create a slight curve in the path for more natural movement
+            let controlPoint = CGPoint(
+                x: playerPosition.x + (portalPosition.x - playerPosition.x) / 2,
+                y: playerPosition.y + (portalPosition.y - playerPosition.y) / 2 + 30
+            )
+            
+            let path = UIBezierPath()
+            path.move(to: playerPosition)
+            path.addQuadCurve(to: portalPosition, controlPoint: controlPoint)
+            
+            // Move player along path
+            let followPath = SKAction.follow(path.cgPath, asOffset: false, orientToPath: true, duration: 0.7)
+            
+            // Scale player down as it approaches portal
+            let scaleDown = SKAction.scale(to: 0.1, duration: 0.7)
+            
+            // Group these actions
+            let moveToPortal = SKAction.group([followPath, scaleDown])
+            
+            // After reaching portal, remove player
+            let removePlayer = SKAction.removeFromParent()
+            
+            // Run sequence
+            player.run(SKAction.sequence([moveToPortal, removePlayer])) {
+                // After player is removed, show special game over message
+                self.showStargateGameOver()
+            }
+            
+            // Play portal sound effect - use collect sound for now
+            audioManager.playEffect(.collect)
+            
+            // Add particles around player while being sucked in
+            let suckEffect = SKEmitterNode()
+            suckEffect.position = player.position
+            suckEffect.particleBirthRate = 60
+            suckEffect.particleLifetime = 0.7
+            suckEffect.particleSpeed = 30
+            suckEffect.particleSpeedRange = 20
+            suckEffect.particleColor = UIColor(red: 0.0, green: 0.5, blue: 1.0, alpha: 0.7)
+            suckEffect.targetNode = portal
+            suckEffect.particleAction = SKAction.move(to: CGPoint.zero, duration: 0.7)
+            addChild(suckEffect)
+            
+            // Remove the effect after a delay
+            let waitAction = SKAction.wait(forDuration: 1.0)
+            suckEffect.run(SKAction.sequence([waitAction, SKAction.removeFromParent()]))
+            
+            // Enhance portal visuals
+            portal.run(SKAction.scale(by: 1.5, duration: 0.5))
+            portal.run(SKAction.sequence([
+                SKAction.wait(forDuration: 0.7),
+                SKAction.group([
+                    SKAction.scale(to: 2.0, duration: 0.3),
+                    SKAction.fadeOut(withDuration: 0.3)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        } else {
+            // If player node not found, show game over immediately
+            showStargateGameOver()
+        }
+    }
+    
+    private func showStargateGameOver() {
+        // Show custom game over message
+        let gameOverLabel = SKLabelNode(text: "Lost in The Abyss!")
+        gameOverLabel.fontName = "AvenirNext-Bold"
+        gameOverLabel.fontSize = 40
+        gameOverLabel.fontColor = UIColor(red: 0.0, green: 0.5, blue: 0.9, alpha: 1.0) // Blue color
+        gameOverLabel.position = CGPoint(x: size.width/2, y: size.height/2 + 60)
+        gameOverLabel.zPosition = 100
+        gameOverLabel.alpha = 0
+        addChild(gameOverLabel)
+        
+        // Show final score
+        let finalScoreLabel = SKLabelNode(text: "Final Score: \(score)")
+        finalScoreLabel.fontName = "AvenirNext-Bold"
+        finalScoreLabel.fontSize = 30
+        finalScoreLabel.position = CGPoint(x: size.width/2, y: size.height/2)
+        finalScoreLabel.zPosition = 100
+        finalScoreLabel.alpha = 0
+        addChild(finalScoreLabel)
+        
+        // Create Restart button (similar to Main Menu button but green)
+        let restartButton = SKShapeNode(rectOf: CGSize(width: 180, height: 50), cornerRadius: 10)
+        restartButton.fillColor = UIColor(red: 0.3, green: 0.7, blue: 0.3, alpha: 0.8) // Green color
+        restartButton.strokeColor = UIColor.white
+        restartButton.lineWidth = 2
+        restartButton.position = CGPoint(x: size.width/2, y: size.height/2 - 40)
+        restartButton.zPosition = 100
+        restartButton.alpha = 0
+        restartButton.name = "restartButton"
+        
+        let restartLabel = SKLabelNode(text: "Restart")
+        restartLabel.fontName = "AvenirNext-Bold"
+        restartLabel.fontSize = 22
+        restartLabel.fontColor = UIColor.white
+        restartLabel.verticalAlignmentMode = .center
+        restartLabel.horizontalAlignmentMode = .center
+        restartLabel.position = CGPoint(x: 0, y: 0)
+        restartButton.addChild(restartLabel)
+        
+        addChild(restartButton)
+        
+        // Add Main Menu button
+        let mainMenuButton = SKShapeNode(rectOf: CGSize(width: 180, height: 50), cornerRadius: 10)
+        mainMenuButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 0.8)
+        mainMenuButton.strokeColor = UIColor.white
+        mainMenuButton.lineWidth = 2
+        mainMenuButton.position = CGPoint(x: size.width/2, y: size.height/2 - 100)
+        mainMenuButton.zPosition = 100
+        mainMenuButton.alpha = 0
+        mainMenuButton.name = "mainMenuButton"
+        
+        let mainMenuLabel = SKLabelNode(text: "Main Menu")
+        mainMenuLabel.fontName = "AvenirNext-Bold"
+        mainMenuLabel.fontSize = 22
+        mainMenuLabel.fontColor = UIColor.white
+        mainMenuLabel.verticalAlignmentMode = .center
+        mainMenuLabel.horizontalAlignmentMode = .center
+        mainMenuLabel.position = CGPoint(x: 0, y: 0)
+        mainMenuButton.addChild(mainMenuLabel)
+        
+        addChild(mainMenuButton)
+        
+        // Fade in all elements with a slight delay between them
+        let fadeIn = SKAction.fadeIn(withDuration: 0.5)
+        
+        gameOverLabel.run(SKAction.sequence([SKAction.wait(forDuration: 0.5), fadeIn]))
+        finalScoreLabel.run(SKAction.sequence([SKAction.wait(forDuration: 0.8), fadeIn]))
+        restartButton.run(SKAction.sequence([SKAction.wait(forDuration: 1.1), fadeIn]))
+        mainMenuButton.run(SKAction.sequence([SKAction.wait(forDuration: 1.4), fadeIn]))
+        
+        // Update high score if needed
+        let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
+        if score > currentHighScore {
+            UserDefaults.standard.set(score, forKey: "highScore")
+            highScoreLabel.text = "Best: \(score)"
+        }
+        
+        // Add subtle stargate background effect
+        let stargateBackground = SKNode()
+        stargateBackground.position = CGPoint(x: size.width/2, y: size.height/2)
+        stargateBackground.zPosition = 90
+        
+        // Add starfield particles
+        let starfield = SKEmitterNode()
+        starfield.particleBirthRate = 5
+        starfield.particleLifetime = 5.0
+        starfield.particleSpeed = 20
+        starfield.particleSpeedRange = 10
+        starfield.particleAlpha = 0.3
+        starfield.particleAlphaSpeed = -0.1
+        starfield.particleScale = 0.1
+        starfield.particleScaleRange = 0.05
+        starfield.particleColor = .cyan
+        starfield.emissionAngle = 0
+        starfield.emissionAngleRange = CGFloat.pi * 2
+        stargateBackground.addChild(starfield)
+        
+        addChild(stargateBackground)
     }
     
     private func handlePlayerScoreCollision(scoreNode: SKNode?) {

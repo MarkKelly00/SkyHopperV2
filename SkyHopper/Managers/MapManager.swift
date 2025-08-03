@@ -9,6 +9,7 @@ class MapManager {
         case mountain
         case space
         case underwater
+        case desert // New desert theme for Stargate Escape
         
         // Seasonal themes
         case halloween
@@ -22,6 +23,7 @@ class MapManager {
             case .mountain: return "Mountain Pass"
             case .space: return "Cosmic Voyage"
             case .underwater: return "Ocean Depths"
+            case .desert: return "Stargate Desert"
             case .halloween: return "Spooky Halloween"
             case .christmas: return "Winter Wonderland"
             case .summer: return "Summer Beach"
@@ -32,6 +34,7 @@ class MapManager {
             switch self {
             case .city: return 1
             case .forest: return 2
+            case .desert: return 2 // Level 2 difficulty as requested
             case .mountain: return 3
             case .space: return 5
             case .underwater: return 4
@@ -47,6 +50,7 @@ class MapManager {
             case .mountain: return UIColor(red: 0.7, green: 0.8, blue: 0.9, alpha: 1.0) // Light blue with clouds
             case .space: return UIColor(red: 0.0, green: 0.0, blue: 0.1, alpha: 1.0) // Near black
             case .underwater: return UIColor(red: 0.0, green: 0.3, blue: 0.6, alpha: 1.0) // Deep blue
+            case .desert: return UIColor(red: 0.96, green: 0.83, blue: 0.6, alpha: 1.0) // Desert sky (warm sand color)
             case .halloween: return UIColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1.0) // Dark night
             case .christmas: return UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0) // Snow white
             case .summer: return UIColor(red: 0.9, green: 0.7, blue: 0.4, alpha: 1.0) // Sunny yellow
@@ -60,6 +64,7 @@ class MapManager {
             case .mountain: return UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1.0) // Gray mountains
             case .space: return UIColor(red: 0.2, green: 0.2, blue: 0.4, alpha: 1.0) // Dark asteroids
             case .underwater: return UIColor(red: 0.0, green: 0.4, blue: 0.3, alpha: 1.0) // Seaweed green
+            case .desert: return UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 1.0) // Sandy pyramids
             case .halloween: return UIColor(red: 0.5, green: 0.1, blue: 0.0, alpha: 1.0) // Blood red
             case .christmas: return UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0) // Christmas red
             case .summer: return UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0) // Orange
@@ -73,6 +78,7 @@ class MapManager {
             case .mountain: return UIColor(red: 0.5, green: 0.4, blue: 0.3, alpha: 1.0) // Brown earth
             case .space: return UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0) // Gray platform
             case .underwater: return UIColor(red: 0.8, green: 0.7, blue: 0.6, alpha: 1.0) // Sandy bottom
+            case .desert: return UIColor(red: 0.95, green: 0.85, blue: 0.6, alpha: 1.0) // Desert sand
             case .halloween: return UIColor(red: 0.3, green: 0.2, blue: 0.0, alpha: 1.0) // Dark soil
             case .christmas: return UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) // Snow
             case .summer: return UIColor(red: 0.9, green: 0.8, blue: 0.5, alpha: 1.0) // Sand
@@ -82,6 +88,7 @@ class MapManager {
         var unlockScore: Int {
             switch self {
             case .city: return 0 // Starter map
+            case .desert: return 500 // Easier to unlock than forest
             case .forest: return 1000
             case .mountain: return 2500
             case .underwater: return 5000
@@ -94,6 +101,7 @@ class MapManager {
         var obstacleFrequency: TimeInterval {
             switch self {
             case .city: return 3.0
+            case .desert: return 2.9 // Slightly more obstacles than city, but less than forest
             case .forest: return 2.8
             case .mountain: return 2.5
             case .space: return 2.0
@@ -106,6 +114,7 @@ class MapManager {
         var obstacleSpeed: CGFloat {
             switch self {
             case .city: return 120.0
+            case .desert: return 125.0 // Slightly faster than city
             case .forest: return 130.0
             case .mountain: return 140.0
             case .space: return 160.0
@@ -127,6 +136,7 @@ class MapManager {
         var specialEffects: [String] {
             switch self {
             case .city: return []
+            case .desert: return ["dust", "portals"]
             case .forest: return ["leaves", "birds"]
             case .mountain: return ["snow", "fog"]
             case .space: return ["stars", "asteroids"]
@@ -256,6 +266,10 @@ class MapManager {
                 addSnowEffect(to: scene)
             case "bubbles":
                 addBubblesEffect(to: scene)
+            case "dust":
+                addDustEffect(to: scene)
+            case "portals":
+                addPortalEffect(to: scene)
             default:
                 break
             }
@@ -380,6 +394,98 @@ class MapManager {
         }
         let sequence = SKAction.sequence([wait, spawn])
         scene.run(SKAction.repeatForever(sequence), withKey: "spawnBubbles")
+    }
+    
+    private func addDustEffect(to scene: SKScene) {
+        for _ in 0..<15 {
+            let dustSize = CGFloat.random(in: 1...5)
+            let dust = SKShapeNode(circleOfRadius: dustSize)
+            dust.fillColor = UIColor(red: 0.9, green: 0.85, blue: 0.6, alpha: 0.7) // Sandy color
+            dust.strokeColor = UIColor.clear
+            dust.name = "effect_dust"
+            
+            // Random position, but favor lower part of screen
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let randomY = CGFloat.random(in: 0...(scene.size.height / 2))
+            dust.position = CGPoint(x: randomX, y: randomY)
+            
+            // Create swirling animation
+            let duration = TimeInterval.random(in: 2...5)
+            let moveX = CGFloat.random(in: -80...80)
+            let moveY = CGFloat.random(in: -20...40)
+            let moveAction = SKAction.moveBy(x: moveX, y: moveY, duration: duration)
+            
+            // Fade and rotate
+            let fade = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.3, duration: duration/2),
+                SKAction.fadeAlpha(to: 0.7, duration: duration/2)
+            ])
+            let rotate = SKAction.rotate(byAngle: .pi * CGFloat.random(in: -1...1), duration: duration)
+            
+            let group = SKAction.group([moveAction, fade, rotate])
+            let sequence = SKAction.sequence([group, SKAction.removeFromParent()])
+            
+            dust.run(sequence)
+            scene.addChild(dust)
+        }
+        
+        // Create repeating action to spawn more dust
+        let wait = SKAction.wait(forDuration: 1.0)
+        let spawn = SKAction.run { [weak self] in
+            self?.addDustEffect(to: scene)
+        }
+        let sequence = SKAction.sequence([wait, spawn])
+        scene.run(SKAction.repeatForever(sequence), withKey: "spawnDust")
+    }
+    
+    private func addPortalEffect(to scene: SKScene) {
+        // Add 1-2 background portals that are just for visual effect
+        // These are separate from the actual gameplay portals in the desert level
+        let portalCount = Int.random(in: 1...2)
+        
+        for _ in 0..<portalCount {
+            // Create portal in the background
+            let portalSize = CGFloat.random(in: 20...40)
+            let portal = SKShapeNode(circleOfRadius: portalSize)
+            portal.fillColor = UIColor(red: 0.0, green: 0.3, blue: 0.6, alpha: 0.3) // Blue portal color
+            portal.strokeColor = UIColor(red: 0.0, green: 0.5, blue: 0.8, alpha: 0.5)
+            portal.lineWidth = 3
+            portal.name = "effect_portal"
+            
+            // Position in the distance (usually near the top of the screen)
+            let randomX = CGFloat.random(in: 0...scene.size.width)
+            let randomY = CGFloat.random(in: scene.size.height * 0.6...scene.size.height * 0.9)
+            portal.position = CGPoint(x: randomX, y: randomY)
+            portal.zPosition = -2 // Behind most elements
+            
+            // Inner ring
+            let innerRing = SKShapeNode(circleOfRadius: portalSize * 0.7)
+            innerRing.fillColor = UIColor.clear
+            innerRing.strokeColor = UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 0.4)
+            innerRing.lineWidth = 2
+            portal.addChild(innerRing)
+            
+            // Animation for portal
+            let pulse = SKAction.sequence([
+                SKAction.scale(to: 1.1, duration: 1.5),
+                SKAction.scale(to: 0.9, duration: 1.5)
+            ])
+            portal.run(SKAction.repeatForever(pulse))
+            
+            // Rotation for inner ring
+            let rotate = SKAction.rotate(byAngle: .pi * 2, duration: 5.0)
+            innerRing.run(SKAction.repeatForever(rotate))
+            
+            scene.addChild(portal)
+            
+            // Add a subtle glow effect
+            let glow = SKEffectNode()
+            glow.position = CGPoint.zero
+            glow.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 2.0])
+            portal.addChild(glow)
+        }
+        
+        // These portals stay visible for the entire scene, no need for respawn
     }
 }
 

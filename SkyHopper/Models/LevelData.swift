@@ -141,6 +141,22 @@ struct LevelData {
             isUnlocked: false
         ))
         
+        // Level 2.5: Stargate Escape
+        levels.append(LevelData(
+            id: "desert_escape",
+            name: "Stargate Escape",
+            description: "Navigate through Egyptian desert with pyramid obstacles and mysterious portal gates.",
+            mapTheme: .desert,
+            difficulty: 2,
+            unlockRequirement: .previousLevelScore(75),
+            obstaclePatterns: [
+                ObstaclePattern.standardPattern(id: "desert_pyramids", name: "Desert Pyramids", difficulty: 2, gapSize: 140, speed: 125)
+            ],
+            powerUpFrequency: 8.0,
+            specialMechanics: [.teleporters], // Teleporters represent the stargates
+            isUnlocked: false
+        ))
+        
         // Level 3: Forest Valley
         levels.append(LevelData(
             id: "level_3",

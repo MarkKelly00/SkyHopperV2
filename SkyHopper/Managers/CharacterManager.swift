@@ -13,6 +13,7 @@ class CharacterManager {
         case eagle
         case duck
         case dragon
+        case f22Raptor // New F22 Raptor for Stargate Escape level
     }
     
     struct Aircraft {
@@ -116,6 +117,16 @@ class CharacterManager {
                 unlockCost: 25000, // Most expensive
                 isUnlocked: false,
                 specialAbility: "Fire Breath - Burn through one obstacle per run"
+            ),
+            Aircraft(
+                type: .f22Raptor,
+                name: "F-22 Raptor",
+                description: "Advanced stealth tactical fighter with superior maneuverability",
+                speed: 1.6, // Fastest aircraft
+                size: CGSize(width: 60, height: 20), // Long and sleek
+                unlockCost: 15000,
+                isUnlocked: false,
+                specialAbility: "Stealth Mode - Temporarily invisible to obstacles"
             )
         ]
     }
@@ -184,6 +195,8 @@ class CharacterManager {
             return createJetSprite()
         case .rocketPack:
             return createRocketPackSprite()
+        case .f22Raptor:
+            return createF22RaptorSprite()
         default:
             // Fallback to helicopter for now, extend later
             return createHelicopterSprite()
@@ -370,5 +383,175 @@ class CharacterManager {
         rocketPack.physicsBody = physicsBody
         
         return rocketPack
+    }
+    
+        private func createF22RaptorSprite() -> SKSpriteNode {
+        // Create a more pixelated-looking F-22 Raptor based on the reference image
+        let raptor = SKSpriteNode(color: .clear, size: CGSize(width: 60, height: 20))
+        raptor.name = "player"
+
+        // Main body - dark gray color
+        let bodyPath = UIBezierPath()
+        bodyPath.move(to: CGPoint(x: -28, y: -2)) // Back left
+        bodyPath.addLine(to: CGPoint(x: -24, y: -4)) // Bottom curve
+        bodyPath.addLine(to: CGPoint(x: -8, y: -4)) // Bottom straight
+        bodyPath.addLine(to: CGPoint(x: 15, y: 0)) // Nose point
+        bodyPath.addLine(to: CGPoint(x: -8, y: 4)) // Top straight
+        bodyPath.addLine(to: CGPoint(x: -24, y: 4)) // Top curve
+        bodyPath.close()
+
+        let body = SKShapeNode(path: bodyPath.cgPath)
+        body.fillColor = UIColor(red: 0.25, green: 0.25, blue: 0.3, alpha: 1.0) // Stealth dark gray
+        body.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        body.lineWidth = 1.0
+        body.name = "playerBody"
+        raptor.addChild(body)
+
+        // Wings - angular, pixelated style
+        let wingsPath = UIBezierPath()
+        // Left wing
+        wingsPath.move(to: CGPoint(x: -10, y: 0)) // Wing root
+        wingsPath.addLine(to: CGPoint(x: -20, y: 8)) // Wing tip back
+        wingsPath.addLine(to: CGPoint(x: -12, y: 8)) // Wing middle
+        wingsPath.addLine(to: CGPoint(x: 0, y: 3)) // Wing front
+        wingsPath.addLine(to: CGPoint(x: -10, y: 0)) // Back to root
+        
+        // Right wing - mirrored
+        wingsPath.move(to: CGPoint(x: -10, y: 0)) // Wing root
+        wingsPath.addLine(to: CGPoint(x: -20, y: -8)) // Wing tip back
+        wingsPath.addLine(to: CGPoint(x: -12, y: -8)) // Wing middle
+        wingsPath.addLine(to: CGPoint(x: 0, y: -3)) // Wing front
+        wingsPath.addLine(to: CGPoint(x: -10, y: 0)) // Back to root
+
+        let wings = SKShapeNode(path: wingsPath.cgPath)
+        wings.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.35, alpha: 1.0) // Slightly lighter than body
+        wings.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        wings.lineWidth = 1.0
+        wings.name = "playerWings"
+        raptor.addChild(wings)
+
+        // Cockpit - blue tinted canopy
+        let cockpitPath = UIBezierPath()
+        cockpitPath.move(to: CGPoint(x: 0, y: 0)) // Front of cockpit
+        cockpitPath.addLine(to: CGPoint(x: -6, y: 2)) // Top back
+        cockpitPath.addLine(to: CGPoint(x: -12, y: 2)) // Back top
+        cockpitPath.addLine(to: CGPoint(x: -12, y: -2)) // Back bottom
+        cockpitPath.addLine(to: CGPoint(x: -6, y: -2)) // Bottom back
+        cockpitPath.addLine(to: CGPoint(x: 0, y: 0)) // Back to front
+        cockpitPath.close()
+
+        let cockpit = SKShapeNode(path: cockpitPath.cgPath)
+        cockpit.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 0.8) // Blue tinted glass
+        cockpit.strokeColor = UIColor(red: 0.2, green: 0.2, blue: 0.3, alpha: 1.0) // Dark outline
+        cockpit.lineWidth = 1.0
+        cockpit.position = CGPoint(x: 8, y: 0) // Position near front
+        cockpit.name = "playerCockpit"
+        raptor.addChild(cockpit)
+
+        // Tail fins - angular pixelated style
+        let tailPath = UIBezierPath()
+        // Left tail
+        tailPath.move(to: CGPoint(x: -20, y: 2)) // Tail base
+        tailPath.addLine(to: CGPoint(x: -25, y: 8)) // Tail top
+        tailPath.addLine(to: CGPoint(x: -28, y: 8)) // Tail back
+        tailPath.addLine(to: CGPoint(x: -28, y: 2)) // Back to base
+        tailPath.close()
+        
+        // Right tail
+        tailPath.move(to: CGPoint(x: -20, y: -2)) // Tail base
+        tailPath.addLine(to: CGPoint(x: -25, y: -8)) // Tail top
+        tailPath.addLine(to: CGPoint(x: -28, y: -8)) // Tail back
+        tailPath.addLine(to: CGPoint(x: -28, y: -2)) // Back to base
+        tailPath.close()
+
+        let tails = SKShapeNode(path: tailPath.cgPath)
+        tails.fillColor = UIColor(red: 0.27, green: 0.27, blue: 0.32, alpha: 1.0) // Slightly different than body
+        tails.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        tails.lineWidth = 1.0
+        tails.name = "playerTails"
+        raptor.addChild(tails)
+
+        // Exhaust nozzles
+        let nozzlePath = UIBezierPath()
+        nozzlePath.move(to: CGPoint(x: -28, y: 2)) // Top left
+        nozzlePath.addLine(to: CGPoint(x: -30, y: 2)) // Top right
+        nozzlePath.addLine(to: CGPoint(x: -30, y: -2)) // Bottom right
+        nozzlePath.addLine(to: CGPoint(x: -28, y: -2)) // Bottom left
+        nozzlePath.close()
+
+        let nozzles = SKShapeNode(path: nozzlePath.cgPath)
+        nozzles.fillColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0) // Dark exhaust
+        nozzles.strokeColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0) // Almost black
+        nozzles.lineWidth = 1.0
+        nozzles.name = "playerNozzles"
+        raptor.addChild(nozzles)
+
+        // Afterburner effects
+        let afterburnerPath = UIBezierPath()
+        afterburnerPath.move(to: CGPoint(x: -30, y: 1)) // Top left
+        afterburnerPath.addLine(to: CGPoint(x: -38, y: 0)) // Tip
+        afterburnerPath.addLine(to: CGPoint(x: -30, y: -1)) // Bottom left
+        afterburnerPath.close()
+
+        let afterburner = SKShapeNode(path: afterburnerPath.cgPath)
+        afterburner.fillColor = UIColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 0.8) // Orange flame
+        afterburner.strokeColor = UIColor(red: 1.0, green: 0.3, blue: 0.0, alpha: 0.6) // Red-orange outline
+        afterburner.lineWidth = 0.5
+        afterburner.name = "playerAfterburner"
+
+        // Create a shorter inner flame
+        let innerFlamePath = UIBezierPath()
+        innerFlamePath.move(to: CGPoint(x: -30, y: 0.6)) // Top left
+        innerFlamePath.addLine(to: CGPoint(x: -35, y: 0)) // Tip
+        innerFlamePath.addLine(to: CGPoint(x: -30, y: -0.6)) // Bottom left
+        innerFlamePath.close()
+
+        let innerFlame = SKShapeNode(path: innerFlamePath.cgPath)
+        innerFlame.fillColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.9) // Yellow core
+        innerFlame.strokeColor = UIColor.clear
+        innerFlame.name = "innerFlame"
+        afterburner.addChild(innerFlame)
+
+        // Animate afterburner
+        let scaleUp = SKAction.scale(to: 1.1, duration: 0.05)
+        let scaleDown = SKAction.scale(to: 0.9, duration: 0.05)
+        let sequence = SKAction.sequence([scaleUp, scaleDown])
+        let repeatForever = SKAction.repeatForever(sequence)
+        afterburner.run(repeatForever)
+        
+        // Slight color pulsing for inner flame
+        let colorChange = SKAction.sequence([
+            SKAction.colorize(with: .yellow, colorBlendFactor: 0.7, duration: 0.1),
+            SKAction.colorize(with: .orange, colorBlendFactor: 0.3, duration: 0.1)
+        ])
+        let colorRepeat = SKAction.repeatForever(colorChange)
+        innerFlame.run(colorRepeat)
+
+        raptor.addChild(afterburner)
+
+        // Add detail lines to show panel sections on the aircraft
+        let detailsPath = UIBezierPath()
+        // Body panel lines
+        detailsPath.move(to: CGPoint(x: -16, y: 1))
+        detailsPath.addLine(to: CGPoint(x: -16, y: -1))
+        detailsPath.move(to: CGPoint(x: -4, y: 2))
+        detailsPath.addLine(to: CGPoint(x: -4, y: -2))
+        
+        let details = SKShapeNode(path: detailsPath.cgPath)
+        details.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 0.7)
+        details.lineWidth = 0.5
+        raptor.addChild(details)
+
+        // Physics body - adjust to match visual shape
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 50, height: 16))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.affectedByGravity = false
+        physicsBody.categoryBitMask = 1 // Will be replaced by GameScene's actual masks
+        physicsBody.contactTestBitMask = 2 | 4 | 8 // For obstacles, score, and powerups
+        physicsBody.collisionBitMask = 2 // Only collide with obstacles
+        raptor.physicsBody = physicsBody
+
+        return raptor
     }
 }
