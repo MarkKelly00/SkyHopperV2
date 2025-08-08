@@ -98,9 +98,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Set default background color
         backgroundColor = UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
-        
-        // Add clouds for background decoration
-        addClouds()
+        // Note: Theme-specific backgrounds (clouds, stars, bubbles) are now
+        // added by MapManager.applyTheme(to:), not here.
     }
     
     private func setupPhysics() {
@@ -248,7 +247,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 case .forest: aircraftType = .biplane
                 case .mountain: aircraftType = .eagle
                 case .underwater: aircraftType = .duck
-                case .space: aircraftType = .rocketPack
+                case .space: aircraftType = .ufo
                 case .desert: aircraftType = .f22Raptor // Should never reach this due to earlier check
                 case .halloween, .christmas, .summer: aircraftType = .fighterJet
                 default: aircraftType = .helicopter // Fallback

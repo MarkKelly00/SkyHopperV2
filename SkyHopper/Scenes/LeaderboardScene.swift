@@ -7,6 +7,8 @@ class LeaderboardScene: SKScene {
     private var titleLabel: SKLabelNode!
     private var backButton: SKShapeNode!
     private var mapTabs: [SKShapeNode] = []
+    private var tabsContainer = SKNode()
+    private var lastTouchX: CGFloat?
     private var leaderboardContainer: SKNode!
     private var scrollView: SKNode!
     
@@ -91,6 +93,7 @@ class LeaderboardScene: SKScene {
         addChild(backButton)
         
         // Create map tabs
+        addChild(tabsContainer)
         createMapTabs()
         
         // Create leaderboard container
@@ -124,7 +127,7 @@ class LeaderboardScene: SKScene {
             tab.addChild(label)
             
             mapTabs.append(tab)
-            addChild(tab)
+            tabsContainer.addChild(tab)
         }
     }
     
@@ -343,6 +346,7 @@ class LeaderboardScene: SKScene {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         let touchedNode = atPoint(location)
+        lastTouchX = location.x
         
         if touchedNode.name == "backButton" || touchedNode.parent?.name == "backButton" {
             // Return to main menu
@@ -360,6 +364,45 @@ class LeaderboardScene: SKScene {
                 loadLeaderboard(for: maps[index].0)
             }
         }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first, let last = lastTouchX else { return }
+        let p = touch.location(in: self)
+        let dx = p.x - last
+        tabsContainer.position.x += dx
+        lastTouchX = p.x
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        lastTouchX = nil
+        snapTabsToNearest()
+    }
+
+    private func snapTabsToNearest() {
+        // Snap tabs so the nearest tab centers under the middle of the screen
+        guard let first = mapTabs.first else { return }
+        // Compute target centers in world space
+        let desiredX = size.width / 2
+        // Find tab whose converted position is closest to center
+        var bestIndex = currentMapIndex
+        var bestDist = CGFloat.greatestFiniteMagnitude
+        for (idx, tab) in mapTabs.enumerated() {
+            let worldX = tabsContainer.convert(tab.position, to: self).x
+            let d = abs(worldX - desiredX)
+            if d < bestDist {
+                bestDist = d
+                bestIndex = idx
+            }
+        }
+        currentMapIndex = bestIndex
+        updateTabSelection()
+        loadLeaderboard(for: maps[bestIndex].0)
+        // Animate container so selected tab is centered
+        let selected = mapTabs[bestIndex]
+        let selectedWorldX = tabsContainer.convert(selected.position, to: self).x
+        let shift = desiredX - selectedWorldX
+        tabsContainer.run(SKAction.moveBy(x: shift, y: 0, duration: 0.2))
     }
 }
 

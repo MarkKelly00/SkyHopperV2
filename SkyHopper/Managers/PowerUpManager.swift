@@ -571,10 +571,10 @@ class PowerUpManager {
                 if let playerNode = findPlayerNode() {
                     deactivateShield(for: playerNode)
                 } else {
-                    deactivateShield()
+            deactivateShield()
                 }
-                return false
-            }
+            return false
+        }
             return true
             
         } else {
@@ -612,7 +612,7 @@ class PowerUpManager {
             }
             
             // Return true since we successfully absorbed the hit without deactivating
-            return true
+        return true
         }
     }
     
@@ -899,7 +899,7 @@ class PowerUpManager {
         
         // Shrink the selected obstacles
         for obstacle in targetObstacles {
-            // Store original scale
+        // Store original scale
             let originalWidth = obstacle.frame.width
             let originalHeight = obstacle.frame.height
             

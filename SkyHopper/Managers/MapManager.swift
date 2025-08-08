@@ -234,19 +234,176 @@ class MapManager {
     
     // Apply map theme to game scene
     func applyTheme(to scene: SKScene) {
-        // Set background color
+        // Clear old background/effects
+        scene.enumerateChildNodes(withName: "bg_*") { node, _ in node.removeFromParent() }
+        scene.enumerateChildNodes(withName: "effect_*") { node, _ in node.removeFromParent() }
+
+        // Set base background color
         scene.backgroundColor = currentMap.backgroundColor
-        
-        // Find and update ground color
+
+        // Update ground color
         scene.enumerateChildNodes(withName: "ground") { node, _ in
             if let shapeNode = node as? SKShapeNode {
                 shapeNode.fillColor = self.currentMap.groundColor
                 shapeNode.strokeColor = self.currentMap.groundColor.darker()
             }
         }
-        
-        // Apply any special effects
+
+        // Build theme-specific background layers
+        switch currentMap {
+        case .city: buildCityBackground(in: scene)
+        case .forest: buildForestBackground(in: scene)
+        case .mountain: buildMountainBackground(in: scene)
+        case .desert: buildDesertBackground(in: scene)
+        case .underwater: buildUnderwaterBackground(in: scene)
+        case .space: buildSpaceBackground(in: scene)
+        case .halloween: buildForestBackground(in: scene)
+        case .christmas: buildMountainBackground(in: scene)
+        case .summer: buildCityBackground(in: scene)
+        }
+
+        // Apply special particle/effects for the theme
         addSpecialEffects(to: scene)
+    }
+
+    // MARK: - Background builders
+
+    private func buildCityBackground(in scene: SKScene) {
+        // Soft blurred clouds parallax
+        addSoftClouds(to: scene, layer: -5, density: 6, speed: 20)
+        addSoftClouds(to: scene, layer: -6, density: 4, speed: 28)
+    }
+
+    private func buildForestBackground(in scene: SKScene) {
+        // Tree line silhouettes + soft clouds
+        addParallaxHills(to: scene, color: UIColor(red:0.2, green:0.4, blue:0.2, alpha:1), y: 120, z: -6)
+        addParallaxHills(to: scene, color: UIColor(red:0.15, green:0.3, blue:0.15, alpha:1), y: 90, z: -7)
+        addSoftClouds(to: scene, layer: -5, density: 5, speed: 24)
+    }
+
+    private func buildMountainBackground(in scene: SKScene) {
+        // Mountain silhouettes + snow
+        addParallaxHills(to: scene, color: UIColor(red:0.5, green:0.55, blue:0.6, alpha:1), y: 140, z: -6)
+        addParallaxHills(to: scene, color: UIColor(red:0.4, green:0.45, blue:0.5, alpha:1), y: 110, z: -7)
+        addSoftClouds(to: scene, layer: -5, density: 4, speed: 22)
+    }
+
+    private func buildDesertBackground(in scene: SKScene) {
+        // Distant dunes and heat haze are approximated via dust + warm gradient already
+        addParallaxHills(to: scene, color: UIColor(red:0.85, green:0.72, blue:0.45, alpha:1), y: 90, z: -6)
+    }
+
+    private func buildUnderwaterBackground(in scene: SKScene) {
+        // Water gradient shader + rising bubbles
+        let water = SKSpriteNode(color: .clear, size: scene.size)
+        water.anchorPoint = .zero
+        water.position = .zero
+        water.zPosition = -50
+        water.name = "bg_water"
+        water.shader = SKShader(source: """
+        void main() {
+          vec2 uv = v_tex_coord;
+          float t = u_time * 0.25;
+          float wave = sin((uv.y + t) * 22.0) * 0.02 + cos((uv.x - t) * 17.0) * 0.02;
+          vec3 top = vec3(0.0, 0.5, 0.8);
+          vec3 bottom = vec3(0.0, 0.2, 0.45);
+          vec3 col = mix(bottom, top, uv.y) + wave;
+          gl_FragColor = vec4(col, 1.0);
+        }
+        """)
+        scene.addChild(water)
+        addBubblesEffect(to: scene)
+    }
+
+    private func buildSpaceBackground(in scene: SKScene) {
+        // Gradient to near-black
+        let grad = SKSpriteNode(color: .clear, size: scene.size)
+        grad.anchorPoint = .zero
+        grad.position = .zero
+        grad.zPosition = -50
+        grad.name = "bg_space"
+        grad.shader = SKShader(source: """
+        void main() {
+          vec2 uv = v_tex_coord;
+          vec3 top = vec3(0.02, 0.02, 0.08);
+          vec3 bottom = vec3(0.0, 0.0, 0.0);
+          gl_FragColor = vec4(mix(bottom, top, uv.y), 1.0);
+        }
+        """)
+        scene.addChild(grad)
+        addStarsEffect(to: scene)
+        // Nebula blobs
+        for _ in 0..<3 {
+            let nebula = SKShapeNode(circleOfRadius: CGFloat.random(in: 60...120))
+            nebula.fillColor = [
+                UIColor(red:0.5, green:0.2, blue:0.7, alpha:0.25),
+                UIColor(red:0.2, green:0.7, blue:0.7, alpha:0.25)
+            ].randomElement()!
+            nebula.strokeColor = .clear
+            nebula.position = CGPoint(x: CGFloat.random(in: 0...scene.size.width), y: CGFloat.random(in: scene.size.height*0.4...scene.size.height*0.9))
+            nebula.zPosition = -49
+            nebula.name = "bg_nebula"
+            let glow = SKEffectNode()
+            glow.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 8])
+            glow.addChild(nebula.copy() as! SKNode)
+            glow.position = nebula.position
+            glow.zPosition = -49
+            scene.addChild(glow)
+        }
+    }
+
+    // Helpers
+    private func addParallaxHills(to scene: SKScene, color: UIColor, y: CGFloat, z: CGFloat) {
+        let hill = SKShapeNode()
+        let path = UIBezierPath()
+        let width = scene.size.width
+        path.move(to: CGPoint(x: 0, y: y))
+        for i in 0...6 {
+            let step = width / 6
+            let x = CGFloat(i) * step
+            let h = CGFloat.random(in: -20...20)
+            path.addLine(to: CGPoint(x: x, y: y + h))
+        }
+        path.addLine(to: CGPoint(x: width, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: 0))
+        path.close()
+        hill.path = path.cgPath
+        hill.fillColor = color
+        hill.strokeColor = color.darker()
+        hill.alpha = 0.8
+        hill.zPosition = z
+        hill.name = "bg_hill"
+        scene.addChild(hill)
+    }
+
+    private func addSoftClouds(to scene: SKScene, layer: CGFloat, density: Int, speed: CGFloat) {
+        for _ in 0..<density {
+            let cloud = createSoftCloudNode()
+            cloud.position = CGPoint(x: CGFloat.random(in: 0...scene.size.width), y: CGFloat.random(in: scene.size.height*0.6...scene.size.height))
+            cloud.zPosition = layer
+            cloud.name = "bg_cloud"
+            scene.addChild(cloud)
+            // drift
+            let move = SKAction.moveBy(x: -scene.size.width - 200, y: CGFloat.random(in: -20...20), duration: TimeInterval(CGFloat.random(in: 20...30)))
+            let reset = SKAction.moveTo(x: scene.size.width + 100, duration: 0)
+            let seq = SKAction.sequence([move, reset])
+            cloud.run(SKAction.repeatForever(seq))
+        }
+    }
+
+    private func createSoftCloudNode() -> SKNode {
+        let container = SKEffectNode()
+        container.shouldRasterize = true
+        container.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 6])
+        for _ in 0..<Int.random(in: 4...7) {
+            let r = CGFloat.random(in: 12...28)
+            let puff = SKShapeNode(circleOfRadius: r)
+            puff.fillColor = UIColor(white: CGFloat.random(in: 0.92...1.0), alpha: 1)
+            puff.strokeColor = .clear
+            puff.position = CGPoint(x: CGFloat.random(in: -30...30), y: CGFloat.random(in: -8...8))
+            container.addChild(puff)
+        }
+        return container
     }
     
     private func addSpecialEffects(to scene: SKScene) {

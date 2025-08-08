@@ -12,6 +12,7 @@ class CharacterManager {
         case mustangPlane
         case biplane
         case eagle
+        case ufo
         case duck
         case dragon
         case f22Raptor // New F22 Raptor for Stargate Escape level
@@ -93,8 +94,8 @@ class CharacterManager {
                 type: .biplane,
                 name: "Barnstormer",
                 description: "Old-school biplane with charm",
-                speed: 0.9, // Slower
-                size: CGSize(width: 50, height: 35),
+                speed: 1.0,
+                size: CGSize(width: 56, height: 34),
                 unlockCost: 2000,
                 isUnlocked: false,
                 specialAbility: "Lucky Clover - Higher chance of power-up spawns"
@@ -104,10 +105,20 @@ class CharacterManager {
                 name: "Mighty Eagle",
                 description: "Majestic bird with natural flying ability",
                 speed: 1.2,
-                size: CGSize(width: 45, height: 30),
+                size: CGSize(width: 52, height: 32),
                 unlockCost: 10000,
                 isUnlocked: false,
                 specialAbility: "Wind Rider - Less affected by obstacle patterns"
+            ),
+            Aircraft(
+                type: .ufo,
+                name: "Cosmo Disc",
+                description: "Smooth hovering craft with perfect balance",
+                speed: 1.1,
+                size: CGSize(width: 56, height: 26),
+                unlockCost: 6000,
+                isUnlocked: false,
+                specialAbility: "Tractor Beam - Attract nearby coins briefly"
             ),
             Aircraft(
                 type: .duck,
@@ -214,11 +225,13 @@ class CharacterManager {
         case .rocketPack:
             sprite = createRocketPackSprite()
         case .biplane:
-            sprite = createBiplaneSprite()
+            sprite = createBiplaneSpriteImproved()
         case .duck:
             sprite = createDuckSprite()
         case .eagle:
-            sprite = createEagleSprite()
+            sprite = createEagleSpriteImproved()
+        case .ufo:
+            sprite = createUfoSprite()
         case .f22Raptor:
             sprite = createF22RaptorSprite()
         case .dragon:
@@ -643,40 +656,69 @@ class CharacterManager {
     
     // Implementation for the biplane aircraft
     private func createBiplaneSprite() -> SKSpriteNode {
-        // For now, create a simple biplane representation
-        let biplane = SKSpriteNode(color: .clear, size: CGSize(width: 50, height: 35))
-        biplane.name = "player"
+        let plane = SKSpriteNode(color: .clear, size: CGSize(width: 56, height: 34))
+        plane.name = "player"
         
-        // Simple biplane body
-        let body = SKShapeNode(rectOf: CGSize(width: 30, height: 10), cornerRadius: 3)
-        body.fillColor = UIColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1.0) // Brown wood color
-        body.strokeColor = UIColor.black
-        body.name = "playerBody"
-        biplane.addChild(body)
+        // Fuselage
+        let fuselage = SKShapeNode(rectOf: CGSize(width: 44, height: 12), cornerRadius: 4)
+        fuselage.fillColor = UIColor(red: 0.9, green: 0.2, blue: 0.1, alpha: 1.0)
+        fuselage.strokeColor = UIColor(red: 0.6, green: 0.1, blue: 0.08, alpha: 1.0)
+        fuselage.position = CGPoint(x: 2, y: 0)
+        plane.addChild(fuselage)
         
-        // Simple wings (two sets for biplane)
-        let topWing = SKShapeNode(rectOf: CGSize(width: 45, height: 5), cornerRadius: 2)
-        topWing.fillColor = UIColor(red: 0.7, green: 0.5, blue: 0.3, alpha: 1.0)
-        topWing.strokeColor = UIColor.black
-        topWing.position = CGPoint(x: 0, y: 10)
-        biplane.addChild(topWing)
+        // Engine cowl
+        let cowl = SKShapeNode(circleOfRadius: 8)
+        cowl.fillColor = UIColor(white: 0.85, alpha: 1.0)
+        cowl.strokeColor = UIColor(white: 0.6, alpha: 1.0)
+        cowl.position = CGPoint(x: 20, y: 0)
+        plane.addChild(cowl)
         
-        let bottomWing = SKShapeNode(rectOf: CGSize(width: 45, height: 5), cornerRadius: 2)
-        bottomWing.fillColor = UIColor(red: 0.7, green: 0.5, blue: 0.3, alpha: 1.0)
-        bottomWing.strokeColor = UIColor.black
-        bottomWing.position = CGPoint(x: 0, y: -5)
-        biplane.addChild(bottomWing)
+        // Upper wing
+        let upperWing = SKShapeNode(rectOf: CGSize(width: 40, height: 6), cornerRadius: 3)
+        upperWing.fillColor = UIColor(red: 0.9, green: 0.2, blue: 0.1, alpha: 1.0)
+        upperWing.strokeColor = fuselage.strokeColor
+        upperWing.position = CGPoint(x: 0, y: 8)
+        plane.addChild(upperWing)
         
-        // Physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 20))
-        physicsBody.isDynamic = true
-        physicsBody.allowsRotation = false
-        physicsBody.categoryBitMask = 0x1 << 0
-        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
-        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
-        biplane.physicsBody = physicsBody
+        // Lower wing
+        let lowerWing = SKShapeNode(rectOf: CGSize(width: 42, height: 6), cornerRadius: 3)
+        lowerWing.fillColor = upperWing.fillColor
+        lowerWing.strokeColor = fuselage.strokeColor
+        lowerWing.position = CGPoint(x: -2, y: -8)
+        plane.addChild(lowerWing)
         
-        return biplane
+        // Struts
+        for x in [-10, 10] {
+            let strut = SKShapeNode(rectOf: CGSize(width: 3, height: 14), cornerRadius: 1)
+            strut.fillColor = UIColor(white: 0.3, alpha: 1.0)
+            strut.strokeColor = .clear
+            strut.position = CGPoint(x: x, y: 0)
+            plane.addChild(strut)
+        }
+        
+        // Tail and fin
+        let tail = SKShapeNode(rectOf: CGSize(width: 12, height: 6), cornerRadius: 2)
+        tail.fillColor = fuselage.fillColor
+        tail.strokeColor = fuselage.strokeColor
+        tail.position = CGPoint(x: -22, y: 3)
+        plane.addChild(tail)
+        
+        // Propeller
+        let prop = SKShapeNode(rectOf: CGSize(width: 2, height: 18), cornerRadius: 1)
+        prop.fillColor = UIColor(white: 0.2, alpha: 1.0)
+        prop.strokeColor = .clear
+        prop.position = CGPoint(x: 28, y: 0)
+        plane.addChild(prop)
+        let spin = SKAction.repeatForever(SKAction.rotate(byAngle: .pi, duration: 0.06))
+        prop.run(spin)
+        
+        // Physics
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: 44, height: 14))
+        body.isDynamic = true
+        body.allowsRotation = false
+        plane.physicsBody = body
+        
+        return plane
     }
     
     // Implementation for the duck aircraft
@@ -719,40 +761,115 @@ class CharacterManager {
     
     // Implementation for the eagle aircraft
     private func createEagleSprite() -> SKSpriteNode {
-        // Simple eagle sprite
-        let eagle = SKSpriteNode(color: .clear, size: CGSize(width: 45, height: 30))
+        let eagle = SKSpriteNode(color: .clear, size: CGSize(width: 52, height: 32))
         eagle.name = "player"
         
-        // Eagle body
-        let body = SKShapeNode(ellipseOf: CGSize(width: 25, height: 15))
-        body.fillColor = UIColor.brown
-        body.strokeColor = UIColor.black
+        // Body (brown)
+        let body = SKShapeNode(ellipseOf: CGSize(width: 36, height: 20))
+        body.fillColor = UIColor(red: 0.72, green: 0.55, blue: 0.35, alpha: 1.0)
+        body.strokeColor = UIColor(red: 0.45, green: 0.35, blue: 0.2, alpha: 1.0)
         eagle.addChild(body)
         
-        // Eagle wings
-        let wings = SKShapeNode(rectOf: CGSize(width: 45, height: 8), cornerRadius: 2)
-        wings.fillColor = UIColor(red: 0.6, green: 0.4, blue: 0.0, alpha: 1.0)
-        wings.strokeColor = UIColor.black
-        wings.position = CGPoint(x: 0, y: 0)
-        eagle.addChild(wings)
-        
-        // Eagle head
-        let head = SKShapeNode(circleOfRadius: 8)
-        head.fillColor = UIColor.white
-        head.strokeColor = UIColor.black
-        head.position = CGPoint(x: 15, y: 5)
+        // Head (white)
+        let head = SKShapeNode(ellipseOf: CGSize(width: 16, height: 14))
+        head.fillColor = .white
+        head.strokeColor = UIColor(white: 0.85, alpha: 1.0)
+        head.position = CGPoint(x: 18, y: 2)
         eagle.addChild(head)
         
-        // Physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 15))
-        physicsBody.isDynamic = true
-        physicsBody.allowsRotation = false
-        physicsBody.categoryBitMask = 0x1 << 0
-        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
-        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
-        eagle.physicsBody = physicsBody
+        // Beak (yellow)
+        let beakPath = UIBezierPath()
+        beakPath.move(to: CGPoint(x: 0, y: 0))
+        beakPath.addLine(to: CGPoint(x: 10, y: 3))
+        beakPath.addLine(to: CGPoint(x: 10, y: -3))
+        beakPath.close()
+        let beak = SKShapeNode(path: beakPath.cgPath)
+        beak.fillColor = UIColor(red: 0.98, green: 0.8, blue: 0.2, alpha: 1.0)
+        beak.strokeColor = UIColor(red: 0.8, green: 0.65, blue: 0.1, alpha: 1.0)
+        beak.position = CGPoint(x: 24, y: 2)
+        eagle.addChild(beak)
+        
+        // Eye
+        let eye = SKShapeNode(circleOfRadius: 2.2)
+        eye.fillColor = .black
+        eye.strokeColor = .white
+        eye.position = CGPoint(x: 20, y: 4)
+        eagle.addChild(eye)
+        
+        // Wing (flapping)
+        let wingPath = UIBezierPath(roundedRect: CGRect(x: -18, y: -6, width: 22, height: 12), cornerRadius: 6)
+        let wing = SKShapeNode(path: wingPath.cgPath)
+        wing.fillColor = body.fillColor
+        wing.strokeColor = body.strokeColor
+        wing.position = CGPoint(x: -4, y: 2)
+        eagle.addChild(wing)
+        let flap = SKAction.sequence([
+            SKAction.rotate(byAngle: 0.18, duration: 0.18),
+            SKAction.rotate(byAngle: -0.36, duration: 0.36),
+            SKAction.rotate(byAngle: 0.18, duration: 0.18)
+        ])
+        wing.run(SKAction.repeatForever(flap))
+        
+        // Tail
+        let tail = SKShapeNode()
+        let tailPath = UIBezierPath()
+        tailPath.move(to: CGPoint(x: -20, y: 0))
+        tailPath.addLine(to: CGPoint(x: -28, y: 5))
+        tailPath.addLine(to: CGPoint(x: -28, y: -5))
+        tailPath.close()
+        tail.path = tailPath.cgPath
+        tail.fillColor = body.fillColor
+        tail.strokeColor = body.strokeColor
+        eagle.addChild(tail)
+        
+        // Physics
+        let pb = SKPhysicsBody(rectangleOf: CGSize(width: 38, height: 18))
+        pb.isDynamic = true
+        pb.allowsRotation = false
+        eagle.physicsBody = pb
         
         return eagle
+    }
+
+    private func createUfoSprite() -> SKSpriteNode {
+        let ufo = SKSpriteNode(color: .clear, size: CGSize(width: 56, height: 26))
+        ufo.name = "player"
+        
+        // Saucer base
+        let base = SKShapeNode(ellipseOf: CGSize(width: 56, height: 18))
+        base.fillColor = UIColor(white: 0.8, alpha: 1.0)
+        base.strokeColor = UIColor(white: 0.5, alpha: 1.0)
+        ufo.addChild(base)
+        
+        // Dome
+        let dome = SKShapeNode(ellipseOf: CGSize(width: 28, height: 14))
+        dome.fillColor = UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 0.9)
+        dome.strokeColor = UIColor(white: 0.85, alpha: 1.0)
+        dome.position = CGPoint(x: 0, y: 6)
+        ufo.addChild(dome)
+        
+        // Lights
+        for x in stride(from: -20, through: 20, by: 10) {
+            let light = SKShapeNode(circleOfRadius: 2.2)
+            light.fillColor = UIColor.yellow
+            light.strokeColor = .clear
+            light.position = CGPoint(x: CGFloat(x), y: -2)
+            base.addChild(light)
+            let pulse = SKAction.sequence([SKAction.fadeAlpha(to: 0.4, duration: 0.4), SKAction.fadeAlpha(to: 1.0, duration: 0.4)])
+            light.run(SKAction.repeatForever(pulse))
+        }
+        
+        // Hover animation
+        let hover = SKAction.sequence([SKAction.moveBy(x: 0, y: 4, duration: 0.6), SKAction.moveBy(x: 0, y: -4, duration: 0.6)])
+        ufo.run(SKAction.repeatForever(hover))
+        
+        // Physics
+        let pb = SKPhysicsBody(ellipseOf: CGSize(width: 50, height: 16))
+        pb.isDynamic = true
+        pb.allowsRotation = false
+        ufo.physicsBody = pb
+        
+        return ufo
     }
     
     // Implementation for the dragon aircraft
