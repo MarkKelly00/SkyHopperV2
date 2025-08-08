@@ -364,8 +364,4 @@ class LeaderboardScene: SKScene {
 }
 
 // Helper extension for Bool
-extension Bool {
-    static func random(percentage: Int) -> Bool {
-        return Int.random(in: 0..<100) < percentage
-    }
-}
+// Note: Bool.random(percentage:) is defined in GameScene.swift; avoid re-declaration here

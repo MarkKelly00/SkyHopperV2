@@ -121,6 +121,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Create score display
         createScoreDisplay()
     }
+
+    // Convenience helper to reinitialize core game elements after a reset
+    private func setupGame() {
+        // Recreate scene basics
+        setupScene()
+        setupPhysics()
+        loadLevelSettings()
+        mapManager.applyTheme(to: self)
+        setupGameElements()
+        
+        // Display tap to start prompt again
+        displayTapToStartMessage()
+    }
     
     private func loadLevelSettings() {
         // Find level data if levelId is provided, otherwise use default
@@ -1500,7 +1513,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                                y: position.y + size.height/2 + 100)
         
         // Swinging animation
-        vine.anchorPoint = CGPoint(x: 0.5, y: 1.0)
+        // SKNode has no anchorPoint; position the vine so its top is at the pivot
+        // The rope shape inside is already centered, so just ensure we place the node appropriately
         let swing = SKAction.sequence([
             SKAction.rotate(byAngle: 0.3, duration: 2.0),
             SKAction.rotate(byAngle: -0.6, duration: 4.0),
