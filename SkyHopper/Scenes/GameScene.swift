@@ -563,15 +563,30 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         
-        // Check for desert level
-        let isDesertLevel = currentLevel?.id == "desert_escape"
+        // Route to theme-specific obstacle creators
+        if let theme = currentLevel?.mapTheme {
+            switch theme {
+            case .desert:
+                createDesertObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
+            case .mountain:
+                createMountainObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
+            case .underwater:
+                createUnderwaterObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
+            case .space:
+                createSpaceObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
+            case .forest:
+                createJungleObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
+            default:
+                break
+            }
+        }
         
-        if isDesertLevel {
-            // For desert level, create pyramids attached to the ground
-            createDesertObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
-            return // Score node is created inside createDesertObstacles
-        } else {
-            // Standard Flappy Bird style for other levels
+        // Standard Flappy Bird style for other levels
         // Calculate gap position
         let gapPosition = CGFloat.random(in: 150...(size.height - 150))
         
@@ -628,7 +643,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Update daily challenges
         playerData.updateChallengeProgress(id: "obstacles", value: distance * 2) // 2 obstacles per spawn
-        }
     }
     
     private func createObstacle(size: CGSize, position: CGPoint) -> SKNode {
@@ -933,6 +947,869 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Track obstacles created for statistics
         playerData.recordDistance(pyramidCount)
         playerData.updateChallengeProgress(id: "obstacles", value: distance + pyramidCount)
+    }
+    
+    // Mountain obstacles: ground-attached triangular peaks (like pyramids), with snow caps and optional icicle hazards
+    private func createMountainObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Create 1-2 mountain peaks similar to City Beginnings difficulty for 1-star maps
+        let peakCount = Int.random(in: 1...2)
+        let gapXOffset = CGFloat.random(in: -obstacleWidth...obstacleWidth) * 0.3
+        
+        for i in 0..<peakCount {
+            let width = obstacleWidth + CGFloat.random(in: -5...15)
+            // For Summit Surge (1-star difficulty), use similar heights to City Beginnings
+            let maxHeight = size.height * 0.55 // Less tall than original
+            let minHeight = size.height * 0.2
+            let height = i == 0 ? 
+                CGFloat.random(in: minHeight + 30...maxHeight) : 
+                CGFloat.random(in: minHeight...maxHeight - 30)
+            
+            let xOffset: CGFloat = (peakCount > 1 ? 
+                (i == 0 ? gapXOffset - obstacleWidth * 0.8 : gapXOffset + obstacleWidth * 0.8) : 
+                gapXOffset)
+            
+            let position = CGPoint(x: size.width + 40 + xOffset, y: height / 2)
+            
+            // Create mountain obstacle with custom appearance
+            let mountain = createMountainPeak(size: CGSize(width: width, height: height), position: position)
+            addChild(mountain)
+            
+            // Movement animation
+            let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+            let removeAction = SKAction.removeFromParent()
+            mountain.run(SKAction.sequence([moveAction, removeAction]))
+            
+            // 20% chance to add icicle hazards for extra difficulty
+            if Bool.random(percentage: 20) && height > 100 {
+                createIcicleHazard(near: mountain, at: position)
+            }
+        }
+        
+        // Score node
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        addChild(scoreNode)
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        scoreNode.run(SKAction.sequence([moveAction, .removeFromParent()]))
+    }
+    
+    // Underwater obstacles: seabed rocks and coral reefs; sharks swim by like portals
+    private func createUnderwaterObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Create seabed rocks - these attach to the bottom like pyramids
+        let rockHeight = CGFloat.random(in: 80...180)
+        let rock = createUnderwaterRock(size: CGSize(width: obstacleWidth * 1.2, height: rockHeight), 
+                                        position: CGPoint(x: size.width + 40, y: rockHeight / 2))
+        addChild(rock)
+        
+        // Create coral reef pillars at different heights (2-star difficulty like Stargate)
+        if Bool.random(percentage: 70) {
+            let reefHeight = CGFloat.random(in: 100...200)
+            let reefY = rockHeight + CGFloat.random(in: 60...120) + reefHeight / 2
+            
+            // Make sure reef doesn't go too high
+            if reefY < size.height - 100 {
+                let reef = createCoralReef(size: CGSize(width: obstacleWidth * 0.8, height: reefHeight), 
+                                          position: CGPoint(x: size.width + 40 + CGFloat.random(in: -20...20), y: reefY))
+                addChild(reef)
+                let moveReef = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+                reef.run(SKAction.sequence([moveReef, .removeFromParent()]))
+            }
+        }
+        
+        let moveRock = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        rock.run(SKAction.sequence([moveRock, .removeFromParent()]))
+        
+        // 35% chance to spawn shark hazard (like portals in Stargate)
+        if Bool.random(percentage: 35) { 
+            createSharkHazard() 
+        }
+        
+        // Score node
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        addChild(scoreNode)
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        scoreNode.run(SKAction.sequence([moveAction, .removeFromParent()]))
+    }
+    
+    private func createSharkHazard() {
+        // Create menacing shark with open mouth and teeth (like portals in Stargate)
+        let shark = SKNode()
+        shark.name = "shark_hazard"
+        shark.zPosition = 16
+        
+        // Shark body - elongated oval shape
+        let bodyPath = UIBezierPath(ovalIn: CGRect(x: -40, y: -12, width: 80, height: 24))
+        let body = SKShapeNode(path: bodyPath.cgPath)
+        body.fillColor = UIColor(red: 0.4, green: 0.45, blue: 0.5, alpha: 1.0) // Dark gray-blue
+        body.strokeColor = UIColor(red: 0.25, green: 0.3, blue: 0.35, alpha: 1.0)
+        body.lineWidth = 2
+        shark.addChild(body)
+        
+        // Dorsal fin (triangular)
+        let finPath = UIBezierPath()
+        finPath.move(to: CGPoint(x: -8, y: 12))
+        finPath.addLine(to: CGPoint(x: 8, y: 12))
+        finPath.addLine(to: CGPoint(x: 0, y: 24))
+        finPath.close()
+        let fin = SKShapeNode(path: finPath.cgPath)
+        fin.fillColor = UIColor(red: 0.35, green: 0.4, blue: 0.45, alpha: 1.0)
+        fin.strokeColor = UIColor(red: 0.2, green: 0.25, blue: 0.3, alpha: 1.0)
+        fin.position = CGPoint(x: -5, y: 0)
+        shark.addChild(fin)
+        
+        // Tail fin
+        let tailPath = UIBezierPath()
+        tailPath.move(to: CGPoint(x: -40, y: 0))
+        tailPath.addLine(to: CGPoint(x: -50, y: 10))
+        tailPath.addLine(to: CGPoint(x: -48, y: 0))
+        tailPath.addLine(to: CGPoint(x: -50, y: -10))
+        tailPath.close()
+        let tail = SKShapeNode(path: tailPath.cgPath)
+        tail.fillColor = body.fillColor
+        tail.strokeColor = body.strokeColor
+        shark.addChild(tail)
+        
+        // Open mouth with teeth (the danger zone)
+        let mouthPath = UIBezierPath()
+        mouthPath.move(to: CGPoint(x: 40, y: 0))
+        mouthPath.addLine(to: CGPoint(x: 25, y: 8))
+        mouthPath.addLine(to: CGPoint(x: 20, y: 0))
+        mouthPath.addLine(to: CGPoint(x: 25, y: -8))
+        mouthPath.close()
+        let mouth = SKShapeNode(path: mouthPath.cgPath)
+        mouth.fillColor = UIColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 0.9) // Red mouth interior
+        mouth.strokeColor = UIColor.white
+        shark.addChild(mouth)
+        
+        // Add teeth
+        for i in 0..<3 {
+            let toothTop = SKShapeNode()
+            let toothPath = UIBezierPath()
+            toothPath.move(to: CGPoint(x: 0, y: 0))
+            toothPath.addLine(to: CGPoint(x: -2, y: -4))
+            toothPath.addLine(to: CGPoint(x: 2, y: -4))
+            toothPath.close()
+            toothTop.path = toothPath.cgPath
+            toothTop.fillColor = .white
+            toothTop.strokeColor = .clear
+            toothTop.position = CGPoint(x: 24 + CGFloat(i * 5), y: 6)
+            shark.addChild(toothTop)
+            
+            let toothBottom = SKShapeNode()
+            let toothPathB = UIBezierPath()
+            toothPathB.move(to: CGPoint(x: 0, y: 0))
+            toothPathB.addLine(to: CGPoint(x: -2, y: 4))
+            toothPathB.addLine(to: CGPoint(x: 2, y: 4))
+            toothPathB.close()
+            toothBottom.path = toothPathB.cgPath
+            toothBottom.fillColor = .white
+            toothBottom.strokeColor = .clear
+            toothBottom.position = CGPoint(x: 24 + CGFloat(i * 5), y: -6)
+            shark.addChild(toothBottom)
+        }
+        
+        // Eye
+        let eye = SKShapeNode(circleOfRadius: 3)
+        eye.fillColor = .black
+        eye.strokeColor = .white
+        eye.lineWidth = 1
+        eye.position = CGPoint(x: 15, y: 6)
+        shark.addChild(eye)
+        
+        // Position shark in middle areas of screen
+        let y = CGFloat.random(in: size.height * 0.3...size.height * 0.7)
+        shark.position = CGPoint(x: size.width + 100, y: y)
+        
+        // Physics body for collision
+        let physics = SKPhysicsBody(rectangleOf: CGSize(width: 80, height: 30))
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        shark.physicsBody = physics
+        
+        // Add slight up-down swimming motion
+        let swimUp = SKAction.moveBy(x: 0, y: 15, duration: 1.0)
+        let swimDown = SKAction.moveBy(x: 0, y: -15, duration: 1.0)
+        let swimSequence = SKAction.sequence([swimUp, swimDown])
+        shark.run(SKAction.repeatForever(swimSequence))
+        
+        addChild(shark)
+        
+        // Move across screen
+        let move = SKAction.moveTo(x: -150, duration: TimeInterval((size.width + 250) / obstacleSpeed))
+        shark.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+    
+    // Space obstacles: realistic asteroids, space debris, and satellite wreckage (3-star difficulty)
+    private func createSpaceObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Faster movement for 3-star difficulty
+        let speedMultiplier: CGFloat = 1.3
+        
+        // Spawn 2-3 asteroids for increased difficulty
+        let asteroidCount = Int.random(in: 2...3)
+        for i in 0..<asteroidCount {
+            let asteroid = createAsteroid()
+            
+            // Position asteroids at different heights
+            let yRange = size.height - 200
+            let yPos = 100 + (yRange / CGFloat(asteroidCount)) * CGFloat(i) + CGFloat.random(in: -30...30)
+            asteroid.position = CGPoint(x: size.width + 60 + CGFloat(i * 40), y: yPos)
+            
+            addChild(asteroid)
+            
+            // Faster movement for 3-star maps
+            let moveDuration = TimeInterval(size.width / (obstacleSpeed * speedMultiplier))
+            let move = SKAction.moveBy(x: -(size.width + 150), y: 0, duration: moveDuration)
+            asteroid.run(SKAction.sequence([move, .removeFromParent()]))
+        }
+        
+        // Add space debris/satellite parts
+        if Bool.random(percentage: 60) {
+            let debris = createSpaceDebris()
+            debris.position = CGPoint(x: size.width + 100, y: CGFloat.random(in: 120...(size.height - 120)))
+            addChild(debris)
+            
+            let moveDuration = TimeInterval(size.width / (obstacleSpeed * speedMultiplier))
+            let moveDebris = SKAction.moveBy(x: -(size.width + 150), y: 0, duration: moveDuration)
+            debris.run(SKAction.sequence([moveDebris, .removeFromParent()]))
+        }
+        
+        // 30% chance for shooting star/comet hazard
+        if Bool.random(percentage: 30) { 
+            createShootingStarHazard() 
+        }
+        
+        // Score node
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        addChild(scoreNode)
+        
+        let moveDuration = TimeInterval(size.width / (obstacleSpeed * speedMultiplier))
+        let moveAction = SKAction.moveBy(x: -(size.width + 150), y: 0, duration: moveDuration)
+        scoreNode.run(SKAction.sequence([moveAction, .removeFromParent()]))
+    }
+    
+    // Create realistic asteroid obstacles
+    private func createAsteroid() -> SKNode {
+        let asteroid = SKNode()
+        asteroid.name = "obstacle"
+        asteroid.zPosition = 15
+        
+        // Random asteroid size
+        let radius = CGFloat.random(in: 25...45)
+        
+        // Create irregular asteroid shape
+        let path = UIBezierPath()
+        let segments = 8
+        for i in 0..<segments {
+            let angle = (CGFloat(i) / CGFloat(segments)) * CGFloat.pi * 2.0
+            let radiusVariation = radius + CGFloat.random(in: -8...8)
+            let x = cos(angle) * radiusVariation
+            let y = sin(angle) * radiusVariation
+            
+            if i == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        path.close()
+        
+        let asteroidShape = SKShapeNode(path: path.cgPath)
+        asteroidShape.fillColor = UIColor(red: 0.6, green: 0.55, blue: 0.5, alpha: 1.0) // Gray-brown
+        asteroidShape.strokeColor = UIColor(red: 0.4, green: 0.35, blue: 0.3, alpha: 1.0)
+        asteroidShape.lineWidth = 2
+        asteroid.addChild(asteroidShape)
+        
+        // Add crater details
+        for _ in 0..<3 {
+            let craterRadius = CGFloat.random(in: 3...7)
+            let crater = SKShapeNode(circleOfRadius: craterRadius)
+            crater.fillColor = UIColor(red: 0.3, green: 0.25, blue: 0.2, alpha: 0.5)
+            crater.strokeColor = .clear
+            crater.position = CGPoint(x: CGFloat.random(in: -radius/2...radius/2),
+                                     y: CGFloat.random(in: -radius/2...radius/2))
+            asteroid.addChild(crater)
+        }
+        
+        // Slow rotation
+        let rotate = SKAction.rotate(byAngle: CGFloat.pi * 2, duration: 8.0)
+        asteroid.run(SKAction.repeatForever(rotate))
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(circleOfRadius: radius)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        asteroid.physicsBody = physicsBody
+        
+        return asteroid
+    }
+    
+    // Create space debris/satellite parts
+    private func createSpaceDebris() -> SKNode {
+        let debris = SKNode()
+        debris.name = "obstacle"
+        debris.zPosition = 15
+        
+        // Create metallic debris piece
+        let width = CGFloat.random(in: 30...50)
+        let height = CGFloat.random(in: 15...25)
+        
+        let debrisShape = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 3)
+        debrisShape.fillColor = UIColor(red: 0.7, green: 0.75, blue: 0.8, alpha: 1.0) // Metallic
+        debrisShape.strokeColor = UIColor(red: 0.5, green: 0.55, blue: 0.6, alpha: 1.0)
+        debrisShape.lineWidth = 1
+        debris.addChild(debrisShape)
+        
+        // Add solar panel or antenna details
+        if Bool.random() {
+            // Solar panel
+            let panel = SKShapeNode(rectOf: CGSize(width: width * 0.8, height: 3))
+            panel.fillColor = UIColor(red: 0.1, green: 0.1, blue: 0.3, alpha: 0.9) // Dark blue panel
+            panel.strokeColor = .clear
+            panel.position = CGPoint(x: 0, y: 0)
+            debris.addChild(panel)
+        } else {
+            // Antenna
+            let antenna = SKShapeNode(rectOf: CGSize(width: 2, height: 15))
+            antenna.fillColor = UIColor(red: 0.8, green: 0.8, blue: 0.8, alpha: 1.0)
+            antenna.strokeColor = .clear
+            antenna.position = CGPoint(x: width/3, y: height/2 + 7)
+            debris.addChild(antenna)
+        }
+        
+        // Tumbling motion
+        let tumble = SKAction.rotate(byAngle: CGFloat.pi * 2, duration: 6.0)
+        debris.run(SKAction.repeatForever(tumble))
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: width, height: height))
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        debris.physicsBody = physicsBody
+        
+        return debris
+    }
+    
+    // Create shooting star hazard
+    private func createShootingStarHazard() {
+        let shootingStar = SKNode()
+        shootingStar.name = "shooting_star_hazard"
+        shootingStar.zPosition = 16
+        
+        // Star head
+        let starHead = SKShapeNode(circleOfRadius: 6)
+        starHead.fillColor = UIColor(red: 1.0, green: 1.0, blue: 0.8, alpha: 1.0) // Bright yellow-white
+        starHead.strokeColor = UIColor(red: 1.0, green: 0.9, blue: 0.6, alpha: 1.0)
+        starHead.lineWidth = 2
+        starHead.glowWidth = 4
+        shootingStar.addChild(starHead)
+        
+        // Comet tail
+        let tailPath = UIBezierPath()
+        tailPath.move(to: CGPoint(x: 0, y: 0))
+        tailPath.addLine(to: CGPoint(x: -30, y: 3))
+        tailPath.addLine(to: CGPoint(x: -40, y: 0))
+        tailPath.addLine(to: CGPoint(x: -30, y: -3))
+        tailPath.close()
+        
+        let tail = SKShapeNode(path: tailPath.cgPath)
+        tail.fillColor = UIColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 0.7)
+        tail.strokeColor = .clear
+        shootingStar.addChild(tail)
+        
+        // Position and movement
+        shootingStar.position = CGPoint(x: size.width + 60, y: CGFloat.random(in: size.height*0.6...size.height*0.9))
+        
+        // Physics
+        let physics = SKPhysicsBody(circleOfRadius: 8)
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        shootingStar.physicsBody = physics
+        
+        addChild(shootingStar)
+        
+        // Fast diagonal movement
+        let moveX = -(size.width + 200)
+        let moveY = -CGFloat.random(in: 100...200)
+        let move = SKAction.moveBy(x: moveX, y: moveY, duration: TimeInterval(size.width / (obstacleSpeed * 1.5)))
+        shootingStar.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+    
+    // Jungle/Forest obstacles: trees, vines, and wildlife (2-star difficulty like Stargate)
+    private func createJungleObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Create tree trunks from ground (similar pattern to pyramids)
+        let treeCount = Int.random(in: 1...2)
+        let gapXOffset = CGFloat.random(in: -obstacleWidth...obstacleWidth) * 0.4
+        
+        for i in 0..<treeCount {
+            let width = obstacleWidth * 0.9 + CGFloat.random(in: -5...10)
+            let maxHeight = size.height * 0.6 // Medium difficulty
+            let minHeight = size.height * 0.25
+            let height = i == 0 ? 
+                CGFloat.random(in: minHeight + 40...maxHeight) : 
+                CGFloat.random(in: minHeight...maxHeight - 40)
+            
+            let xOffset: CGFloat = (treeCount > 1 ? 
+                (i == 0 ? gapXOffset - obstacleWidth * 0.9 : gapXOffset + obstacleWidth * 0.9) : 
+                gapXOffset)
+            
+            let position = CGPoint(x: size.width + 40 + xOffset, y: height / 2)
+            
+            // Create tree obstacle
+            let tree = createJungleTree(size: CGSize(width: width, height: height), position: position)
+            addChild(tree)
+            
+            // Movement
+            let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+            tree.run(SKAction.sequence([moveAction, .removeFromParent()]))
+            
+            // 25% chance to add swinging vine hazard
+            if Bool.random(percentage: 25) && i == 0 {
+                createVineHazard(near: tree, at: position)
+            }
+        }
+        
+        // 30% chance to spawn a bird/parrot hazard
+        if Bool.random(percentage: 30) {
+            createBirdHazard()
+        }
+        
+        // Score node
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        addChild(scoreNode)
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        scoreNode.run(SKAction.sequence([moveAction, .removeFromParent()]))
+    }
+    
+    // Create jungle tree obstacle
+    private func createJungleTree(size: CGSize, position: CGPoint) -> SKNode {
+        let tree = SKSpriteNode(color: .clear, size: size)
+        tree.position = position
+        tree.zPosition = 15
+        tree.name = "obstacle"
+        
+        // Tree trunk
+        let trunkPath = UIBezierPath(roundedRect: CGRect(x: -size.width/2, y: -size.height/2, 
+                                                         width: size.width, height: size.height), 
+                                    cornerRadius: size.width * 0.1)
+        
+        let trunk = SKShapeNode(path: trunkPath.cgPath)
+        trunk.fillColor = UIColor(red: 0.4, green: 0.25, blue: 0.1, alpha: 1.0) // Brown trunk
+        trunk.strokeColor = UIColor(red: 0.3, green: 0.15, blue: 0.05, alpha: 1.0)
+        trunk.lineWidth = 2
+        tree.addChild(trunk)
+        
+        // Add tree bark texture
+        for i in 0..<5 {
+            let barkLine = SKShapeNode(rectOf: CGSize(width: size.width * 0.8, height: 2))
+            barkLine.fillColor = UIColor(red: 0.3, green: 0.2, blue: 0.08, alpha: 0.5)
+            barkLine.strokeColor = .clear
+            barkLine.position = CGPoint(x: 0, y: -size.height/2 + CGFloat(i) * (size.height/5) + 10)
+            tree.addChild(barkLine)
+        }
+        
+        // Add leafy canopy on top
+        if size.height > 100 {
+            for _ in 0..<3 {
+                let leafCluster = SKShapeNode(circleOfRadius: CGFloat.random(in: 15...25))
+                leafCluster.fillColor = UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 0.9) // Green leaves
+                leafCluster.strokeColor = UIColor(red: 0.1, green: 0.4, blue: 0.1, alpha: 1.0)
+                leafCluster.lineWidth = 1
+                leafCluster.position = CGPoint(x: CGFloat.random(in: -size.width/3...size.width/3),
+                                              y: size.height/2 + CGFloat.random(in: 0...20))
+                tree.addChild(leafCluster)
+            }
+        }
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        tree.physicsBody = physicsBody
+        
+        return tree
+    }
+    
+    // Create swinging vine hazard
+    private func createVineHazard(near tree: SKNode, at position: CGPoint) {
+        let vine = SKNode()
+        vine.name = "vine_hazard"
+        vine.zPosition = 16
+        
+        // Create vine rope
+        let vineLength: CGFloat = 60
+        let vineShape = SKShapeNode(rectOf: CGSize(width: 4, height: vineLength), cornerRadius: 2)
+        vineShape.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.2, alpha: 1.0) // Dark green vine
+        vineShape.strokeColor = UIColor(red: 0.2, green: 0.3, blue: 0.1, alpha: 1.0)
+        vineShape.position = CGPoint(x: 0, y: -vineLength/2)
+        vine.addChild(vineShape)
+        
+        // Add leaves
+        for i in 0..<3 {
+            let leaf = SKShapeNode(ellipseOf: CGSize(width: 8, height: 12))
+            leaf.fillColor = UIColor(red: 0.3, green: 0.6, blue: 0.3, alpha: 0.9)
+            leaf.strokeColor = .clear
+            leaf.position = CGPoint(x: CGFloat.random(in: -3...3), 
+                                   y: -CGFloat(i) * 20)
+            vine.addChild(leaf)
+        }
+        
+        // Position vine hanging from above the tree
+        vine.position = CGPoint(x: position.x + CGFloat.random(in: -30...30),
+                               y: position.y + size.height/2 + 100)
+        
+        // Swinging animation
+        vine.anchorPoint = CGPoint(x: 0.5, y: 1.0)
+        let swing = SKAction.sequence([
+            SKAction.rotate(byAngle: 0.3, duration: 2.0),
+            SKAction.rotate(byAngle: -0.6, duration: 4.0),
+            SKAction.rotate(byAngle: 0.3, duration: 2.0)
+        ])
+        vine.run(SKAction.repeatForever(swing))
+        
+        // Physics
+        let physics = SKPhysicsBody(rectangleOf: CGSize(width: 10, height: vineLength))
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        vine.physicsBody = physics
+        
+        addChild(vine)
+        
+        // Movement
+        let move = SKAction.moveTo(x: -100, duration: TimeInterval((size.width + 200) / obstacleSpeed))
+        vine.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+    
+    // Create bird/parrot hazard
+    private func createBirdHazard() {
+        let bird = SKNode()
+        bird.name = "bird_hazard"
+        bird.zPosition = 16
+        
+        // Bird body
+        let body = SKShapeNode(ellipseOf: CGSize(width: 20, height: 15))
+        body.fillColor = UIColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0) // Red parrot
+        body.strokeColor = UIColor(red: 0.7, green: 0.1, blue: 0.1, alpha: 1.0)
+        bird.addChild(body)
+        
+        // Wings
+        let wingPath = UIBezierPath()
+        wingPath.move(to: CGPoint(x: -10, y: 0))
+        wingPath.addLine(to: CGPoint(x: -20, y: 5))
+        wingPath.addLine(to: CGPoint(x: -15, y: -5))
+        wingPath.close()
+        
+        let leftWing = SKShapeNode(path: wingPath.cgPath)
+        leftWing.fillColor = body.fillColor
+        leftWing.strokeColor = body.strokeColor
+        bird.addChild(leftWing)
+        
+        let rightWing = SKShapeNode(path: wingPath.cgPath)
+        rightWing.xScale = -1
+        rightWing.fillColor = body.fillColor
+        rightWing.strokeColor = body.strokeColor
+        bird.addChild(rightWing)
+        
+        // Beak
+        let beak = SKShapeNode()
+        let beakPath = UIBezierPath()
+        beakPath.move(to: CGPoint(x: 10, y: 0))
+        beakPath.addLine(to: CGPoint(x: 15, y: 2))
+        beakPath.addLine(to: CGPoint(x: 15, y: -2))
+        beakPath.close()
+        beak.path = beakPath.cgPath
+        beak.fillColor = UIColor.orange
+        beak.strokeColor = .clear
+        bird.addChild(beak)
+        
+        // Wing flapping animation
+        let flapUp = SKAction.rotate(byAngle: 0.2, duration: 0.2)
+        let flapDown = SKAction.rotate(byAngle: -0.4, duration: 0.2)
+        let flapReset = SKAction.rotate(byAngle: 0.2, duration: 0.2)
+        let flap = SKAction.sequence([flapUp, flapDown, flapReset])
+        leftWing.run(SKAction.repeatForever(flap))
+        rightWing.run(SKAction.repeatForever(flap))
+        
+        // Position
+        bird.position = CGPoint(x: size.width + 80, y: CGFloat.random(in: size.height*0.4...size.height*0.8))
+        
+        // Physics
+        let physics = SKPhysicsBody(circleOfRadius: 12)
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        bird.physicsBody = physics
+        
+        addChild(bird)
+        
+        // Swooping movement
+        let moveX = -(size.width + 200)
+        let swoopY = sin(CGFloat.random(in: 0...CGFloat.pi)) * 30
+        let move = SKAction.moveBy(x: moveX, y: swoopY, duration: TimeInterval((size.width + 200) / obstacleSpeed))
+        bird.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+    
+    // Helper function to create mountain peak obstacles with snow caps
+    private func createMountainPeak(size: CGSize, position: CGPoint) -> SKNode {
+        let mountain = SKSpriteNode(color: .clear, size: size)
+        mountain.position = position
+        mountain.zPosition = 15
+        mountain.name = "obstacle"
+        
+        // Create triangular mountain shape
+        let mountainPath = UIBezierPath()
+        mountainPath.move(to: CGPoint(x: -size.width/2, y: -size.height/2))
+        mountainPath.addLine(to: CGPoint(x: size.width/2, y: -size.height/2))
+        mountainPath.addLine(to: CGPoint(x: 0, y: size.height/2))
+        mountainPath.close()
+        
+        let mountainShape = SKShapeNode(path: mountainPath.cgPath)
+        mountainShape.fillColor = UIColor(red: 0.5, green: 0.5, blue: 0.55, alpha: 1.0) // Gray mountain
+        mountainShape.strokeColor = UIColor(red: 0.35, green: 0.35, blue: 0.4, alpha: 1.0)
+        mountainShape.lineWidth = 2
+        mountain.addChild(mountainShape)
+        
+        // Add snow cap on top (white triangle at peak)
+        let snowCapHeight = size.height * 0.3
+        let snowPath = UIBezierPath()
+        snowPath.move(to: CGPoint(x: -size.width/4, y: size.height/2 - snowCapHeight))
+        snowPath.addLine(to: CGPoint(x: size.width/4, y: size.height/2 - snowCapHeight))
+        snowPath.addLine(to: CGPoint(x: 0, y: size.height/2))
+        snowPath.close()
+        
+        let snowCap = SKShapeNode(path: snowPath.cgPath)
+        snowCap.fillColor = UIColor(red: 0.95, green: 0.95, blue: 1.0, alpha: 1.0) // Snow white
+        snowCap.strokeColor = UIColor(red: 0.85, green: 0.85, blue: 0.9, alpha: 1.0)
+        snowCap.lineWidth = 1
+        mountain.addChild(snowCap)
+        
+        // Add some rock texture lines
+        for i in 0..<4 {
+            let progress = CGFloat(i) / 4.0
+            let lineY = -size.height/2 + (size.height * 0.7 * progress)
+            let lineWidth = size.width * (1.0 - progress * 0.5)
+            
+            let rockLine = SKShapeNode(rectOf: CGSize(width: lineWidth, height: 2))
+            rockLine.fillColor = UIColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 0.5)
+            rockLine.strokeColor = .clear
+            rockLine.position = CGPoint(x: 0, y: lineY)
+            mountain.addChild(rockLine)
+        }
+        
+        // Physics body - triangular
+        let physicsPath = CGMutablePath()
+        physicsPath.move(to: CGPoint(x: -size.width/2, y: -size.height/2))
+        physicsPath.addLine(to: CGPoint(x: size.width/2, y: -size.height/2))
+        physicsPath.addLine(to: CGPoint(x: 0, y: size.height/2))
+        physicsPath.closeSubpath()
+        
+        let physicsBody = SKPhysicsBody(polygonFrom: physicsPath)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        mountain.physicsBody = physicsBody
+        
+        return mountain
+    }
+    
+    // Create icicle hazards that hang from mountain peaks
+    private func createIcicleHazard(near mountain: SKNode, at position: CGPoint) {
+        let icicle = SKNode()
+        icicle.name = "icicle_hazard"
+        icicle.zPosition = 16
+        
+        // Create icicle shape (inverted triangle)
+        let iciclePath = UIBezierPath()
+        iciclePath.move(to: CGPoint(x: -8, y: 0))
+        iciclePath.addLine(to: CGPoint(x: 8, y: 0))
+        iciclePath.addLine(to: CGPoint(x: 0, y: -25))
+        iciclePath.close()
+        
+        let icicleShape = SKShapeNode(path: iciclePath.cgPath)
+        icicleShape.fillColor = UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 0.9) // Ice blue
+        icicleShape.strokeColor = UIColor(red: 0.6, green: 0.8, blue: 1.0, alpha: 1.0)
+        icicleShape.lineWidth = 1
+        icicle.addChild(icicleShape)
+        
+        // Position icicle hanging from near the peak
+        icicle.position = CGPoint(x: position.x + CGFloat.random(in: -20...20), 
+                                 y: position.y + CGFloat.random(in: 40...80))
+        
+        // Physics body
+        let physics = SKPhysicsBody(polygonFrom: iciclePath.cgPath)
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        icicle.physicsBody = physics
+        
+        // Add slight swaying motion
+        let sway = SKAction.sequence([
+            SKAction.rotate(byAngle: 0.05, duration: 1.5),
+            SKAction.rotate(byAngle: -0.1, duration: 3.0),
+            SKAction.rotate(byAngle: 0.05, duration: 1.5)
+        ])
+        icicle.run(SKAction.repeatForever(sway))
+        
+        addChild(icicle)
+        
+        // Move with same speed as obstacles
+        let move = SKAction.moveTo(x: -100, duration: TimeInterval((size.width + 200) / obstacleSpeed))
+        icicle.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+    
+    // Create underwater rock obstacles (rounded, seaweed-covered)
+    private func createUnderwaterRock(size: CGSize, position: CGPoint) -> SKNode {
+        let rock = SKSpriteNode(color: .clear, size: size)
+        rock.position = position
+        rock.zPosition = 15
+        rock.name = "obstacle"
+        
+        // Create rounded rock shape
+        let rockPath = UIBezierPath(roundedRect: CGRect(x: -size.width/2, y: -size.height/2, 
+                                                        width: size.width, height: size.height), 
+                                    cornerRadius: size.width * 0.3)
+        
+        let rockShape = SKShapeNode(path: rockPath.cgPath)
+        rockShape.fillColor = UIColor(red: 0.3, green: 0.25, blue: 0.2, alpha: 1.0) // Dark brown rock
+        rockShape.strokeColor = UIColor(red: 0.2, green: 0.15, blue: 0.1, alpha: 1.0)
+        rockShape.lineWidth = 2
+        rock.addChild(rockShape)
+        
+        // Add seaweed on top
+        for _ in 0..<3 {
+            let seaweedX = CGFloat.random(in: -size.width/3...size.width/3)
+            let seaweed = SKShapeNode(rectOf: CGSize(width: 4, height: 20), cornerRadius: 2)
+            seaweed.fillColor = UIColor(red: 0.1, green: 0.5, blue: 0.2, alpha: 0.8) // Green seaweed
+            seaweed.strokeColor = .clear
+            seaweed.position = CGPoint(x: seaweedX, y: size.height/2 + 10)
+            
+            // Animate seaweed swaying
+            let sway = SKAction.sequence([
+                SKAction.rotate(byAngle: 0.1, duration: 2.0),
+                SKAction.rotate(byAngle: -0.2, duration: 4.0),
+                SKAction.rotate(byAngle: 0.1, duration: 2.0)
+            ])
+            seaweed.run(SKAction.repeatForever(sway))
+            rock.addChild(seaweed)
+        }
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        rock.physicsBody = physicsBody
+        
+        return rock
+    }
+    
+    // Create coral reef obstacles (colorful, branching)
+    private func createCoralReef(size: CGSize, position: CGPoint) -> SKNode {
+        let reef = SKSpriteNode(color: .clear, size: size)
+        reef.position = position
+        reef.zPosition = 15
+        reef.name = "obstacle"
+        
+        // Main coral body
+        let coralPath = UIBezierPath(roundedRect: CGRect(x: -size.width/2, y: -size.height/2, 
+                                                         width: size.width, height: size.height), 
+                                     cornerRadius: size.width * 0.2)
+        
+        let coralShape = SKShapeNode(path: coralPath.cgPath)
+        // Random coral colors
+        let colors = [
+            UIColor(red: 1.0, green: 0.4, blue: 0.3, alpha: 0.9), // Coral red
+            UIColor(red: 1.0, green: 0.6, blue: 0.2, alpha: 0.9), // Orange
+            UIColor(red: 0.9, green: 0.3, blue: 0.6, alpha: 0.9), // Pink
+            UIColor(red: 0.6, green: 0.3, blue: 0.8, alpha: 0.9)  // Purple
+        ]
+        coralShape.fillColor = colors.randomElement()!
+        coralShape.strokeColor = coralShape.fillColor.darker(by: 0.2)
+        coralShape.lineWidth = 2
+        reef.addChild(coralShape)
+        
+        // Add coral branches
+        for i in 0..<4 {
+            let branchHeight = CGFloat.random(in: 15...25)
+            let branchX = CGFloat(i - 2) * (size.width / 5)
+            
+            let branch = SKShapeNode(ellipseOf: CGSize(width: 8, height: branchHeight))
+            branch.fillColor = coralShape.fillColor
+            branch.strokeColor = .clear
+            branch.position = CGPoint(x: branchX, y: size.height/2 + branchHeight/2 - 5)
+            reef.addChild(branch)
+        }
+        
+        // Add some small fish swimming around
+        if Bool.random() {
+            let fish = SKShapeNode(ellipseOf: CGSize(width: 12, height: 6))
+            fish.fillColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.9) // Yellow fish
+            fish.strokeColor = .clear
+            fish.position = CGPoint(x: CGFloat.random(in: -20...20), 
+                                   y: CGFloat.random(in: -10...10))
+            
+            // Simple swimming animation
+            let swim = SKAction.sequence([
+                SKAction.moveBy(x: 15, y: 5, duration: 2.0),
+                SKAction.moveBy(x: -15, y: -5, duration: 2.0)
+            ])
+            fish.run(SKAction.repeatForever(swim))
+            reef.addChild(fish)
+        }
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        reef.physicsBody = physicsBody
+        
+        return reef
     }
     
     private func spawnPowerUp() {
@@ -1790,6 +2667,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             // Submit score to Game Center
             gameCenterManager.submitScore(score)
             
+            // Also submit to map-specific leaderboard
+            if let mapId = levelId ?? currentLevel?.id {
+                gameCenterManager.submitMapScore(score, for: mapId)
+            }
+            
             // Show new high score message
             let newHighScoreLabel = SKLabelNode(text: "New High Score!")
             newHighScoreLabel.fontName = "AvenirNext-Bold"
@@ -1896,6 +2778,29 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             node.removeFromParent()
         }
         
+        // Clean up any stargate portal related nodes
+        enumerateChildNodes(withName: "stargate_portal") { node, _ in
+            node.removeFromParent()
+        }
+        
+        enumerateChildNodes(withName: "tempTargetNode") { node, _ in
+            node.removeFromParent()
+        }
+        
+        // Remove any lingering hazards
+        enumerateChildNodes(withName: "*_hazard") { node, _ in
+            node.removeFromParent()
+        }
+        
+        // Remove any emitter nodes (particle effects)
+        enumerateChildNodes(withName: "//SKEmitterNode") { node, _ in
+            node.removeFromParent()
+        }
+        
+        // Clean up any nodes that might be in the middle of animations
+        self.removeAllActions()
+        self.removeAllChildren()
+        
         // Reset game state
         isGameStarted = false
         isGameOver = false
@@ -1905,16 +2810,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         invincibilityCount = 0
         isSpeedBoostActive = false
         
-        // Recreate the player with the appropriate aircraft for the level
-        createPlayer()
-        
-        // Position player in starting position
-        player.position = CGPoint(x: size.width * 0.3, y: size.height * 0.5)
-        player.physicsBody?.velocity = CGVector.zero
-        player.physicsBody?.affectedByGravity = false
-        
-        // Update score display
-        updateScore()
+        // Recreate the game scene elements
+        setupGame()
         
         // Reset power-up states
         powerUpManager.resetAllPowerUps(in: self)

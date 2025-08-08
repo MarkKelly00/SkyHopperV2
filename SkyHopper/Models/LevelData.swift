@@ -138,7 +138,7 @@ struct LevelData {
             ],
             powerUpFrequency: 12.0,
             specialMechanics: [],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 2.5: Stargate Escape
@@ -170,7 +170,7 @@ struct LevelData {
             ],
             powerUpFrequency: 10.0,
             specialMechanics: [.movingObstacles],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 4: Forest Challenge
@@ -186,7 +186,7 @@ struct LevelData {
             ],
             powerUpFrequency: 8.0,
             specialMechanics: [.movingObstacles, .windGusts],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 5: Mountain Pass
@@ -202,7 +202,7 @@ struct LevelData {
             ],
             powerUpFrequency: 10.0,
             specialMechanics: [.fogEffects],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 6: Mountain Summit
@@ -218,7 +218,7 @@ struct LevelData {
             ],
             powerUpFrequency: 8.0,
             specialMechanics: [.windGusts, .fogEffects],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 7: Underwater Adventure
@@ -234,7 +234,7 @@ struct LevelData {
             ],
             powerUpFrequency: 7.0,
             specialMechanics: [.movingObstacles, .gravitationalFields],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 8: Deep Sea
@@ -250,7 +250,7 @@ struct LevelData {
             ],
             powerUpFrequency: 6.0,
             specialMechanics: [.fogEffects, .gravitationalFields],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 9: Space Frontier
@@ -266,7 +266,7 @@ struct LevelData {
             ],
             powerUpFrequency: 8.0,
             specialMechanics: [.movingObstacles, .teleporters],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 10: Cosmic Challenge
@@ -282,7 +282,7 @@ struct LevelData {
             ],
             powerUpFrequency: 5.0,
             specialMechanics: [.movingObstacles, .shrinkingGaps, .teleporters, .inverseControls],
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Seasonal Levels

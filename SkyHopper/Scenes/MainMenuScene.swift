@@ -435,7 +435,11 @@ class MainMenuScene: SKScene {
     
     private func handleLeaderboardButton() {
         animateButtonPress(leaderboardButton) {
-            self.gameCenterManager.showLeaderboard()
+            // Use custom leaderboard scene instead of Game Center default
+            let transition = SKTransition.fade(withDuration: 0.5)
+            let leaderboardScene = LeaderboardScene(size: self.size)
+            leaderboardScene.scaleMode = .aspectFill
+            self.view?.presentScene(leaderboardScene, transition: transition)
         }
     }
     
