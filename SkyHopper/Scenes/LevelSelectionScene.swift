@@ -41,8 +41,9 @@ class LevelSelectionScene: SKScene {
         // Title - moved down to account for notch
         let titleLabel = SKLabelNode(text: "Select Level")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 40
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 140) // Moved even further down for notch
+        titleLabel.fontSize = 32
+        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 110)
+        titleLabel.zPosition = 20
         addChild(titleLabel)
         
         // Page indicator

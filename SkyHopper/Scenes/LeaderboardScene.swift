@@ -68,12 +68,11 @@ class LeaderboardScene: SKScene {
     
     private func setupUI() {
         // Title
-        titleLabel = SKLabelNode(text: "LEADERBOARDS")
+        titleLabel = SKLabelNode(text: "Leaderboards")
         titleLabel.fontName = "AvenirNext-Heavy"
-        titleLabel.fontSize = 36
+        titleLabel.fontSize = 30
         titleLabel.fontColor = .white
-        // Moved down to avoid notch
-        titleLabel.position = CGPoint(x: size.width/2, y: size.height - 110)
+        titleLabel.position = CGPoint(x: size.width/2, y: size.height - 90)
         addChild(titleLabel)
         
         // Back button
@@ -81,8 +80,7 @@ class LeaderboardScene: SKScene {
         backButton.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.5, alpha: 0.8)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        // Keep below notch area
-        backButton.position = CGPoint(x: 70, y: size.height - 110)
+        backButton.position = CGPoint(x: 70, y: size.height - 90)
         backButton.name = "backButton"
         
         let backLabel = SKLabelNode(text: "BACK")
@@ -105,34 +103,34 @@ class LeaderboardScene: SKScene {
     }
     
     private func createMapTabs() {
-        let minTabWidth: CGFloat = 120
         let tabHeight: CGFloat = 40
         let tabSpacing: CGFloat = 5
-        var currentX: CGFloat = 20
+        var xCursor: CGFloat = 20
         
         for (index, map) in maps.enumerated() {
-            // Create label first to size the tab to its content
+            // Dynamic width based on label size
+            let padding: CGFloat = 24
             let label = SKLabelNode(text: map.1)
             label.fontName = "AvenirNext-Bold"
             label.fontSize = 14
             label.fontColor = .white
             label.verticalAlignmentMode = .center
-            let tabWidth = max(minTabWidth, label.frame.width + 28)
-            
-            let tab = SKShapeNode(rectOf: CGSize(width: tabWidth, height: tabHeight), cornerRadius: 5)
+
+            let tabWidth = max(120, label.frame.width + padding)
+            let tab = SKShapeNode(rectOf: CGSize(width: tabWidth, height: tabHeight), cornerRadius: 6)
             tab.fillColor = index == currentMapIndex ? 
                 UIColor(red: 0.4, green: 0.6, blue: 0.9, alpha: 0.9) : 
                 UIColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 0.7)
             tab.strokeColor = .white
             tab.lineWidth = index == currentMapIndex ? 2 : 1
-            tab.position = CGPoint(x: currentX + tabWidth/2, y: size.height - 150)
+            tab.position = CGPoint(x: xCursor + tabWidth/2, y: size.height - 140)
             tab.name = "tab_\(index)"
-            
             tab.addChild(label)
             
             mapTabs.append(tab)
             tabsContainer.addChild(tab)
-            currentX += tabWidth + tabSpacing
+
+            xCursor += tabWidth + tabSpacing
         }
     }
     

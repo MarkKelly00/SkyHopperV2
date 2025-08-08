@@ -33,7 +33,7 @@ class ShopScene: SKScene {
         // Set background color
         backgroundColor = MapManager.shared.currentMap.backgroundColor
         
-        // Add background elements
+        // Add background elements behind UI
         addCloudsBackground()
     }
     
@@ -41,9 +41,9 @@ class ShopScene: SKScene {
         // Title
         let titleLabel = SKLabelNode(text: "Shop")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 40
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
-        titleLabel.zPosition = 10
+        titleLabel.fontSize = 32
+        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 100)
+        titleLabel.zPosition = 20
         addChild(titleLabel)
         
         // Back button
@@ -61,7 +61,7 @@ class ShopScene: SKScene {
         backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 80, y: size.height - 40)
+        backButton.position = CGPoint(x: 80, y: size.height - 100)
         backButton.zPosition = 10
         backButton.name = "backButton"
         

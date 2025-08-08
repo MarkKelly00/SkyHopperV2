@@ -27,17 +27,17 @@ class CharacterSelectionScene: SKScene {
         // Set background color
         backgroundColor = MapManager.shared.currentMap.backgroundColor
         
-        // Add background elements (ensure behind tiles)
+        // Add background elements behind UI
         addCloudsBackground()
     }
     
     private func setupUI() {
-        // Title (lower to avoid notch)
+        // Title
         titleLabel = SKLabelNode(text: "Characters")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 40
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 120)
-        titleLabel.zPosition = 10
+        titleLabel.fontSize = 32
+        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 100)
+        titleLabel.zPosition = 20
         addChild(titleLabel)
         
         // Back button
@@ -58,8 +58,7 @@ class CharacterSelectionScene: SKScene {
         backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        // Keep back button clear of the notch
-        backButton.position = CGPoint(x: 80, y: size.height - 120)
+        backButton.position = CGPoint(x: 80, y: size.height - 40)
         backButton.zPosition = 10
         backButton.name = "backButton"
         
@@ -110,12 +109,11 @@ class CharacterSelectionScene: SKScene {
         }
         characterNodes.removeAll()
         
-        // Setup grid layout
+        // Setup grid layout (higher and scrollable window)
         let startX = size.width * 0.2
-        // Raise grid and tighten spacing for better visibility; enable more items per screen
-        let startY = size.height * 0.68
+        let startY = size.height * 0.70
         let xSpacing = size.width * 0.3
-        let ySpacing = size.height * 0.22
+        let ySpacing = size.height * 0.23
         
         for (index, aircraft) in characters.enumerated() {
             let row = index / 3
@@ -142,12 +140,13 @@ class CharacterSelectionScene: SKScene {
         frame.fillColor = isSelected ? .white : UIColor(white: 0.8, alpha: 0.5)
         frame.strokeColor = isSelected ? .yellow : .white
         frame.lineWidth = isSelected ? 3 : 1
+        frame.zPosition = 1
         containerNode.addChild(frame)
         
         // Create character sprite
         let characterSprite = characterManager.createAircraftSprite(for: aircraft.type)
         characterSprite.setScale(0.8)
-        characterSprite.zPosition = 1
+        characterSprite.zPosition = 2
         containerNode.addChild(characterSprite)
         
         // Add name label
@@ -283,14 +282,14 @@ class CharacterSelectionScene: SKScene {
     // MARK: - Background
     
     private func addCloudsBackground() {
-        // Add clouds in the background
-        for _ in 0..<10 {
+        // Add clouds behind UI
+        for _ in 0..<6 {
             let cloud = createCloud()
             cloud.position = CGPoint(
                 x: CGFloat.random(in: 0...size.width),
                 y: CGFloat.random(in: 0...size.height)
             )
-            cloud.zPosition = -5
+            cloud.zPosition = -10
             addChild(cloud)
         }
     }
