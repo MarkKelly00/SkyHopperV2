@@ -32,11 +32,11 @@ class CharacterSelectionScene: SKScene {
     }
     
     private func setupUI() {
-        // Title
+        // Title (lower to avoid notch)
         titleLabel = SKLabelNode(text: "Characters")
         titleLabel.fontName = "AvenirNext-Bold"
         titleLabel.fontSize = 40
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
+        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 120)
         titleLabel.zPosition = 10
         addChild(titleLabel)
         
@@ -58,7 +58,7 @@ class CharacterSelectionScene: SKScene {
         backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 80, y: size.height - 40)
+        backButton.position = CGPoint(x: 80, y: size.height - 120)
         backButton.zPosition = 10
         backButton.name = "backButton"
         
@@ -109,9 +109,9 @@ class CharacterSelectionScene: SKScene {
         }
         characterNodes.removeAll()
         
-        // Setup grid layout
+        // Setup grid layout (raise grid a bit; allow more scroll area later if needed)
         let startX = size.width * 0.2
-        let startY = size.height * 0.6
+        let startY = size.height * 0.65
         let xSpacing = size.width * 0.3
         let ySpacing = size.height * 0.25
         
@@ -281,14 +281,14 @@ class CharacterSelectionScene: SKScene {
     // MARK: - Background
     
     private func addCloudsBackground() {
-        // Add clouds in the background
+        // Add clouds in the background behind UI
         for _ in 0..<10 {
             let cloud = createCloud()
             cloud.position = CGPoint(
                 x: CGFloat.random(in: 0...size.width),
                 y: CGFloat.random(in: 0...size.height)
             )
-            cloud.zPosition = -5
+            cloud.zPosition = -20
             addChild(cloud)
         }
     }

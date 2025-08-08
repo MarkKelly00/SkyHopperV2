@@ -68,11 +68,12 @@ class LeaderboardScene: SKScene {
     
     private func setupUI() {
         // Title
-        titleLabel = SKLabelNode(text: "LEADERBOARDS")
+        titleLabel = SKLabelNode(text: "Leaderboards")
         titleLabel.fontName = "AvenirNext-Heavy"
-        titleLabel.fontSize = 36
+        titleLabel.fontSize = 34
         titleLabel.fontColor = .white
-        titleLabel.position = CGPoint(x: size.width/2, y: size.height - 60)
+        // Position lower to avoid notch
+        titleLabel.position = CGPoint(x: size.width/2, y: size.height - 110)
         addChild(titleLabel)
         
         // Back button
@@ -80,7 +81,8 @@ class LeaderboardScene: SKScene {
         backButton.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.5, alpha: 0.8)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 70, y: size.height - 60)
+        // Position lower to avoid notch
+        backButton.position = CGPoint(x: 70, y: size.height - 110)
         backButton.name = "backButton"
         
         let backLabel = SKLabelNode(text: "BACK")
@@ -103,7 +105,8 @@ class LeaderboardScene: SKScene {
     }
     
     private func createMapTabs() {
-        let tabWidth: CGFloat = 120
+        // Wider tabs to fit map names better
+        let tabWidth: CGFloat = 180
         let tabHeight: CGFloat = 40
         let tabSpacing: CGFloat = 5
         let startX = (size.width - (CGFloat(maps.count) * (tabWidth + tabSpacing))) / 2 + tabWidth/2
@@ -121,9 +124,11 @@ class LeaderboardScene: SKScene {
             
             let label = SKLabelNode(text: map.1)
             label.fontName = "AvenirNext-Bold"
-            label.fontSize = 12
+            label.fontSize = 14
             label.fontColor = .white
             label.verticalAlignmentMode = .center
+            label.preferredMaxLayoutWidth = tabWidth - 20
+            label.numberOfLines = 2
             tab.addChild(label)
             
             mapTabs.append(tab)
