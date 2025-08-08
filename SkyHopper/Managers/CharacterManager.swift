@@ -225,11 +225,11 @@ class CharacterManager {
         case .rocketPack:
             sprite = createRocketPackSprite()
         case .biplane:
-            sprite = createBiplaneSpriteImproved()
+            sprite = createBiplaneSprite()
         case .duck:
             sprite = createDuckSprite()
         case .eagle:
-            sprite = createEagleSpriteImproved()
+            sprite = createEagleSprite()
         case .ufo:
             sprite = createUfoSprite()
         case .f22Raptor:
@@ -863,8 +863,8 @@ class CharacterManager {
         let hover = SKAction.sequence([SKAction.moveBy(x: 0, y: 4, duration: 0.6), SKAction.moveBy(x: 0, y: -4, duration: 0.6)])
         ufo.run(SKAction.repeatForever(hover))
         
-        // Physics
-        let pb = SKPhysicsBody(ellipseOf: CGSize(width: 50, height: 16))
+        // Physics (approximate as rectangle for compatibility)
+        let pb = SKPhysicsBody(rectangleOf: CGSize(width: 50, height: 16))
         pb.isDynamic = true
         pb.allowsRotation = false
         ufo.physicsBody = pb
