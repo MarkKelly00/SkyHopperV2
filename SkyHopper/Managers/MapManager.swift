@@ -237,6 +237,11 @@ class MapManager {
         // Clear old background/effects
         scene.enumerateChildNodes(withName: "bg_*") { node, _ in node.removeFromParent() }
         scene.enumerateChildNodes(withName: "effect_*") { node, _ in node.removeFromParent() }
+        // Stop any background spawning actions to avoid duplicates across transitions
+        scene.removeAction(forKey: "spawnLeaves")
+        scene.removeAction(forKey: "spawnSnow")
+        scene.removeAction(forKey: "spawnBubbles")
+        scene.removeAction(forKey: "spawnDust")
 
         // Set base background color
         scene.backgroundColor = currentMap.backgroundColor
@@ -312,6 +317,7 @@ class MapManager {
         }
         """)
         scene.addChild(water)
+        // Add only the underwater bubbles effect (no clouds)
         addBubblesEffect(to: scene)
     }
 
@@ -332,8 +338,8 @@ class MapManager {
         """)
         scene.addChild(grad)
         addStarsEffect(to: scene)
-        // Nebula blobs
-        for _ in 0..<3 {
+        // Nebula blobs (reduced for performance)
+        for _ in 0..<2 {
             let nebula = SKShapeNode(circleOfRadius: CGFloat.random(in: 60...120))
             nebula.fillColor = [
                 UIColor(red:0.5, green:0.2, blue:0.7, alpha:0.25),

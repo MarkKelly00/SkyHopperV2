@@ -80,7 +80,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Load level settings first so they're available when creating game elements
         loadLevelSettings()
         
-        // Apply map theme
+        // Ensure the map manager reflects the current level theme before applying visuals
+        if let theme = currentLevel?.mapTheme { mapManager.currentMap = theme }
         mapManager.applyTheme(to: self)
         
         // Now create game elements with correct level settings
@@ -248,9 +249,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 case .mountain: aircraftType = .eagle
                 case .underwater: aircraftType = .duck
                 case .space: aircraftType = .ufo
-                case .desert: aircraftType = .f22Raptor // Should never reach this due to earlier check
+                case .desert: aircraftType = .f22Raptor
                 case .halloween, .christmas, .summer: aircraftType = .fighterJet
-                default: aircraftType = .helicopter // Fallback
                 }
             } else {
                 // Default if we can't determine map theme
@@ -1015,33 +1015,34 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Underwater obstacles: seabed rocks and coral reefs; sharks swim by like portals
     private func createUnderwaterObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
-        // Create seabed rocks - these attach to the bottom like pyramids
-        let rockHeight = CGFloat.random(in: 80...180)
-        let rock = createUnderwaterRock(size: CGSize(width: obstacleWidth * 1.2, height: rockHeight), 
-                                        position: CGPoint(x: size.width + 40, y: rockHeight / 2))
-        addChild(rock)
-        
-        // Create coral reef pillars at different heights (2-star difficulty like Stargate)
-        if Bool.random(percentage: 70) {
-            let reefHeight = CGFloat.random(in: 100...200)
-            let reefY = rockHeight + CGFloat.random(in: 60...120) + reefHeight / 2
-            
-            // Make sure reef doesn't go too high
-            if reefY < size.height - 100 {
-                let reef = createCoralReef(size: CGSize(width: obstacleWidth * 0.8, height: reefHeight), 
-                                          position: CGPoint(x: size.width + 40 + CGFloat.random(in: -20...20), y: reefY))
-                addChild(reef)
-                let moveReef = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
-                reef.run(SKAction.sequence([moveReef, .removeFromParent()]))
+        // Spawn 1-2 obstacles across varied depths
+        let clusterCount = Int.random(in: 1...2)
+        for i in 0..<clusterCount {
+            let baseY = CGFloat.random(in: size.height*0.18...size.height*0.55)
+            // Rock
+            let rockHeight = CGFloat.random(in: 80...160)
+            let rock = createUnderwaterRock(size: CGSize(width: obstacleWidth * 1.2, height: rockHeight),
+                                            position: CGPoint(x: size.width + 40 + CGFloat(i*30), y: baseY))
+            addChild(rock)
+            let moveRock = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+            rock.run(SKAction.sequence([moveRock, .removeFromParent()]))
+            // Optional reef above
+            if Bool.random(percentage: 60) {
+                let reefHeight = CGFloat.random(in: 90...170)
+                let reefY = baseY + rockHeight/2 + CGFloat.random(in: 60...120)
+                if reefY < size.height - 110 {
+                    let reef = createCoralReef(size: CGSize(width: obstacleWidth * 0.8, height: reefHeight),
+                                               position: CGPoint(x: size.width + 40 + CGFloat.random(in: -20...40), y: reefY))
+                    addChild(reef)
+                    let moveReef = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+                    reef.run(SKAction.sequence([moveReef, .removeFromParent()]))
+                }
             }
         }
         
-        let moveRock = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
-        rock.run(SKAction.sequence([moveRock, .removeFromParent()]))
-        
-        // 35% chance to spawn shark hazard (like portals in Stargate)
-        if Bool.random(percentage: 35) { 
-            createSharkHazard() 
+        // 45% chance to spawn shark hazard (more challenging)
+        if Bool.random(percentage: 45) {
+            createSharkHazard()
         }
         
         // Score node
@@ -1460,16 +1461,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             tree.addChild(barkLine)
         }
         
-        // Add leafy canopy on top
+        // Add leafy canopy with soft blurred clusters
         if size.height > 100 {
-            for _ in 0..<3 {
-                let leafCluster = SKShapeNode(circleOfRadius: CGFloat.random(in: 15...25))
-                leafCluster.fillColor = UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 0.9) // Green leaves
-                leafCluster.strokeColor = UIColor(red: 0.1, green: 0.4, blue: 0.1, alpha: 1.0)
-                leafCluster.lineWidth = 1
-                leafCluster.position = CGPoint(x: CGFloat.random(in: -size.width/3...size.width/3),
-                                              y: size.height/2 + CGFloat.random(in: 0...20))
-                tree.addChild(leafCluster)
+            let canopy = SKEffectNode()
+            canopy.shouldRasterize = true
+            canopy.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 6])
+            canopy.position = CGPoint(x: 0, y: size.height/2 + 8)
+            tree.addChild(canopy)
+            for _ in 0..<Int.random(in: 5...8) {
+                let r = CGFloat.random(in: 14...26)
+                let cluster = SKShapeNode(circleOfRadius: r)
+                let base = UIColor(red: 0.18, green: 0.58, blue: 0.22, alpha: 1.0)
+                cluster.fillColor = base.lighter(by: CGFloat.random(in: 0.0...0.15))
+                cluster.strokeColor = .clear
+                cluster.position = CGPoint(x: CGFloat.random(in: -size.width/3...size.width/3),
+                                           y: CGFloat.random(in: -4...18))
+                canopy.addChild(cluster)
             }
         }
         
