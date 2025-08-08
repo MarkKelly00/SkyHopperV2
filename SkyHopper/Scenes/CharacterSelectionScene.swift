@@ -27,7 +27,7 @@ class CharacterSelectionScene: SKScene {
         // Set background color
         backgroundColor = MapManager.shared.currentMap.backgroundColor
         
-        // Add background elements
+        // Add background elements (ensure behind tiles)
         addCloudsBackground()
     }
     
@@ -58,6 +58,7 @@ class CharacterSelectionScene: SKScene {
         backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
         backButton.strokeColor = .white
         backButton.lineWidth = 2
+        // Keep back button clear of the notch
         backButton.position = CGPoint(x: 80, y: size.height - 120)
         backButton.zPosition = 10
         backButton.name = "backButton"
@@ -109,11 +110,12 @@ class CharacterSelectionScene: SKScene {
         }
         characterNodes.removeAll()
         
-        // Setup grid layout (raise grid a bit; allow more scroll area later if needed)
+        // Setup grid layout
         let startX = size.width * 0.2
-        let startY = size.height * 0.65
+        // Raise grid and tighten spacing for better visibility; enable more items per screen
+        let startY = size.height * 0.68
         let xSpacing = size.width * 0.3
-        let ySpacing = size.height * 0.25
+        let ySpacing = size.height * 0.22
         
         for (index, aircraft) in characters.enumerated() {
             let row = index / 3
@@ -281,14 +283,14 @@ class CharacterSelectionScene: SKScene {
     // MARK: - Background
     
     private func addCloudsBackground() {
-        // Add clouds in the background behind UI
+        // Add clouds in the background
         for _ in 0..<10 {
             let cloud = createCloud()
             cloud.position = CGPoint(
                 x: CGFloat.random(in: 0...size.width),
                 y: CGFloat.random(in: 0...size.height)
             )
-            cloud.zPosition = -20
+            cloud.zPosition = -5
             addChild(cloud)
         }
     }
