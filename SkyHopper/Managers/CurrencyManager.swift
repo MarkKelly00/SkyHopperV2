@@ -96,6 +96,8 @@ class CurrencyManager {
         switch mapTheme {
         case .city:
             return 1.0
+        case .desert:
+            return 1.3 // Slightly higher than forest but lower than mountain
         case .forest:
             return 1.2
         case .mountain:

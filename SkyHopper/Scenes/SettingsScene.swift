@@ -100,28 +100,30 @@ class SettingsScene: SKScene {
         soundToggle.name = "soundToggle"
         addChild(soundToggle)
         
+        // The Map Default aircraft option has been moved to the Character Selection screen
+        
         // Other Options Section
         let otherLabel = SKLabelNode(text: "Other Options")
         otherLabel.fontName = "AvenirNext-Bold"
         otherLabel.fontSize = 28
-        otherLabel.position = CGPoint(x: size.width / 2, y: size.height - 340)
+        otherLabel.position = CGPoint(x: size.width / 2, y: size.height - 410)
         otherLabel.zPosition = 10
         addChild(otherLabel)
         
         // Privacy Policy
-        privacyButton = createButton(title: "Privacy Policy", position: CGPoint(x: size.width / 2, y: size.height - 400))
+        privacyButton = createButton(title: "Privacy Policy", position: CGPoint(x: size.width / 2, y: size.height - 470))
         privacyButton.name = "privacyButton"
         addChild(privacyButton)
         
         // Credits
-        creditsButton = createButton(title: "Credits", position: CGPoint(x: size.width / 2, y: size.height - 470))
+        creditsButton = createButton(title: "Credits", position: CGPoint(x: size.width / 2, y: size.height - 540))
         creditsButton.name = "creditsButton"
         addChild(creditsButton)
         
         // Reset Game Data
         resetButton = createButton(
             title: "Reset Game Data", 
-            position: CGPoint(x: size.width / 2, y: size.height - 570),
+            position: CGPoint(x: size.width / 2, y: size.height - 610),
             color: UIColor(red: 0.9, green: 0.3, blue: 0.3, alpha: 1.0)
         )
         resetButton.name = "resetButton"
@@ -196,6 +198,8 @@ class SettingsScene: SKScene {
         // Show feedback
         showMessage(!newState ? "Sound Effects Enabled" : "Sound Effects Disabled")
     }
+    
+    // Map Default aircraft setting has been moved to Character Selection
     
     private func updateToggleSwitch(_ toggleSwitch: SKShapeNode, isOn: Bool) {
         let switchWidth: CGFloat = 80
@@ -485,6 +489,8 @@ class SettingsScene: SKScene {
                     toggleSound()
                     return
                 }
+                
+                // Map default option has been moved to Character Selection
                 
                 if node.name == "privacyButton" || node.parent?.name == "privacyButton" {
                     showPrivacyPolicy()

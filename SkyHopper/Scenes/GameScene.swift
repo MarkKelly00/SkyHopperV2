@@ -76,13 +76,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     override func didMove(to view: SKView) {
         setupScene()
         setupPhysics()
-        setupGameElements()
         
-        // Load level settings
+        // Load level settings first so they're available when creating game elements
         loadLevelSettings()
         
         // Apply map theme
         mapManager.applyTheme(to: self)
+        
+        // Now create game elements with correct level settings
+        setupGameElements()
         
         // Display tap to start message
         displayTapToStartMessage()
@@ -167,8 +169,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     private func createGround() {
         ground = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: 60))
+        
+        // Set ground color based on level theme
+        if currentLevel?.id == "desert_escape" {
+            // Desert sand color for Stargate Escape level
+            ground.fillColor = UIColor(red: 0.95, green: 0.85, blue: 0.6, alpha: 1.0)
+            ground.strokeColor = UIColor(red: 0.9, green: 0.8, blue: 0.5, alpha: 1.0)
+        } else if let mapTheme = currentLevel?.mapTheme {
+            // Get ground color from map theme
+            ground.fillColor = mapTheme.groundColor
+            ground.strokeColor = mapTheme.groundColor.darker()
+        } else {
+            // Default ground color (green grass)
         ground.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.3, alpha: 1.0)
         ground.strokeColor = UIColor(red: 0.2, green: 0.4, blue: 0.2, alpha: 1.0)
+        }
+        
         ground.zPosition = 10
         ground.name = "ground"
         
@@ -184,14 +200,71 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func createPlayer() {
-        // Get selected aircraft from CharacterManager
-        player = characterManager.createAircraftSprite(for: characterManager.selectedAircraft)
+        // Force F22 Raptor for Desert level regardless of selected aircraft
+        let isDesertLevel = currentLevel?.id == "desert_escape" || currentLevel?.mapTheme == .desert
+        
+        // Select appropriate aircraft based on level and user preferences
+        var aircraftType: CharacterManager.AircraftType
+        
+        // Handle special case for desert level (Stargate Escape)
+        if isDesertLevel {
+            print("Desert level detected - using F22 Raptor")
+            // Always use F22 Raptor for the desert level, regardless of whether it's unlocked
+            aircraftType = .f22Raptor
+            
+            // Create the F22 directly to bypass unlock checks
+            player = createF22RaptorSpriteDirectly()
+            
+            // Position player
+            player.position = CGPoint(x: size.width * 0.3, y: size.height * 0.5)
+            player.zPosition = 20
+            
+            // Set up physics body
+            setupPlayerPhysics()
+            
+            addChild(player)
+            return
+        } 
+        
+        // If the player has selected the mapDefault option, choose aircraft based on level theme
+        if characterManager.selectedAircraft == .mapDefault {
+            // Determine appropriate aircraft for current map theme
+            if let mapTheme = currentLevel?.mapTheme {
+                switch mapTheme {
+                case .city: aircraftType = .helicopter
+                case .forest: aircraftType = .biplane
+                case .mountain: aircraftType = .eagle
+                case .underwater: aircraftType = .duck
+                case .space: aircraftType = .rocketPack
+                case .desert: aircraftType = .f22Raptor // Should never reach this due to earlier check
+                case .halloween, .christmas, .summer: aircraftType = .fighterJet
+                default: aircraftType = .helicopter // Fallback
+                }
+            } else {
+                // Default if we can't determine map theme
+                aircraftType = .helicopter
+            }
+        } else {
+            // User has selected a specific aircraft
+            aircraftType = characterManager.selectedAircraft
+        }
+        
+        // Create the appropriate aircraft sprite with physics enabled for gameplay
+        // If the aircraft is not unlocked and we're not in the desert level,
+        // CharacterManager will fallback to the default aircraft
+        player = characterManager.createAircraftSprite(for: aircraftType, enablePhysics: true)
         
         // Position player
         player.position = CGPoint(x: size.width * 0.3, y: size.height * 0.5)
         player.zPosition = 20
         
         // Make sure the physics body is set properly for the game
+        setupPlayerPhysics()
+        
+        addChild(player)
+    }
+    
+    private func setupPlayerPhysics() {
         if let physics = player.physicsBody {
             physics.affectedByGravity = false  // Start with no gravity until game begins
             physics.allowsRotation = false
@@ -199,8 +272,163 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             physics.contactTestBitMask = obstacleCategory | groundCategory | scoreCategory | powerUpCategory
             physics.collisionBitMask = obstacleCategory | groundCategory
         }
+    }
+    
+    // Create F22 directly to bypass character manager unlock restrictions
+    private func createF22RaptorSpriteDirectly() -> SKSpriteNode {
+        let raptor = SKSpriteNode(color: .clear, size: CGSize(width: 60, height: 20))
+        raptor.name = "player"
+
+        // Main body - dark gray color
+        let bodyPath = UIBezierPath()
+        bodyPath.move(to: CGPoint(x: -28, y: -2)) // Back left
+        bodyPath.addLine(to: CGPoint(x: -24, y: -4)) // Bottom curve
+        bodyPath.addLine(to: CGPoint(x: -8, y: -4)) // Bottom straight
+        bodyPath.addLine(to: CGPoint(x: 15, y: 0)) // Nose point
+        bodyPath.addLine(to: CGPoint(x: -8, y: 4)) // Top straight
+        bodyPath.addLine(to: CGPoint(x: -24, y: 4)) // Top curve
+        bodyPath.close()
+
+        let body = SKShapeNode(path: bodyPath.cgPath)
+        body.fillColor = UIColor(red: 0.25, green: 0.25, blue: 0.3, alpha: 1.0) // Stealth dark gray
+        body.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        body.lineWidth = 1.0
+        body.name = "playerBody"
+        raptor.addChild(body)
+
+        // Wings - angular, pixelated style
+        let wingsPath = UIBezierPath()
+        // Left wing
+        wingsPath.move(to: CGPoint(x: -10, y: 0)) // Wing root
+        wingsPath.addLine(to: CGPoint(x: -20, y: 8)) // Wing tip back
+        wingsPath.addLine(to: CGPoint(x: -12, y: 8)) // Wing middle
+        wingsPath.addLine(to: CGPoint(x: 0, y: 3)) // Wing front
+        wingsPath.addLine(to: CGPoint(x: -10, y: 0)) // Back to root
         
-        addChild(player)
+        // Right wing - mirrored
+        wingsPath.move(to: CGPoint(x: -10, y: 0)) // Wing root
+        wingsPath.addLine(to: CGPoint(x: -20, y: -8)) // Wing tip back
+        wingsPath.addLine(to: CGPoint(x: -12, y: -8)) // Wing middle
+        wingsPath.addLine(to: CGPoint(x: 0, y: -3)) // Wing front
+        wingsPath.addLine(to: CGPoint(x: -10, y: 0)) // Back to root
+
+        let wings = SKShapeNode(path: wingsPath.cgPath)
+        wings.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.35, alpha: 1.0) // Slightly lighter than body
+        wings.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        wings.lineWidth = 1.0
+        wings.name = "playerWings"
+        raptor.addChild(wings)
+
+        // Cockpit - blue tinted canopy
+        let cockpitPath = UIBezierPath()
+        cockpitPath.move(to: CGPoint(x: 0, y: 0)) // Front of cockpit
+        cockpitPath.addLine(to: CGPoint(x: -6, y: 2)) // Top back
+        cockpitPath.addLine(to: CGPoint(x: -12, y: 2)) // Back top
+        cockpitPath.addLine(to: CGPoint(x: -12, y: -2)) // Back bottom
+        cockpitPath.addLine(to: CGPoint(x: -6, y: -2)) // Bottom back
+        cockpitPath.addLine(to: CGPoint(x: 0, y: 0)) // Back to front
+        cockpitPath.close()
+
+        let cockpit = SKShapeNode(path: cockpitPath.cgPath)
+        cockpit.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 0.8) // Blue tinted glass
+        cockpit.strokeColor = UIColor(red: 0.2, green: 0.2, blue: 0.3, alpha: 1.0) // Dark outline
+        cockpit.lineWidth = 1.0
+        cockpit.position = CGPoint(x: 8, y: 0) // Position near front
+        cockpit.name = "playerCockpit"
+        raptor.addChild(cockpit)
+
+        // Tail fins - angular pixelated style
+        let tailPath = UIBezierPath()
+        // Left tail
+        tailPath.move(to: CGPoint(x: -20, y: 2)) // Tail base
+        tailPath.addLine(to: CGPoint(x: -25, y: 8)) // Tail top
+        tailPath.addLine(to: CGPoint(x: -28, y: 8)) // Tail back
+        tailPath.addLine(to: CGPoint(x: -28, y: 2)) // Back to base
+        tailPath.close()
+        
+        // Right tail
+        tailPath.move(to: CGPoint(x: -20, y: -2)) // Tail base
+        tailPath.addLine(to: CGPoint(x: -25, y: -8)) // Tail top
+        tailPath.addLine(to: CGPoint(x: -28, y: -8)) // Tail back
+        tailPath.addLine(to: CGPoint(x: -28, y: -2)) // Back to base
+        tailPath.close()
+
+        let tails = SKShapeNode(path: tailPath.cgPath)
+        tails.fillColor = UIColor(red: 0.27, green: 0.27, blue: 0.32, alpha: 1.0) // Slightly different than body
+        tails.strokeColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 1.0) // Darker outline
+        tails.lineWidth = 1.0
+        tails.name = "playerTails"
+        raptor.addChild(tails)
+
+        // Exhaust nozzles
+        let nozzlePath = UIBezierPath()
+        nozzlePath.move(to: CGPoint(x: -28, y: 2)) // Top left
+        nozzlePath.addLine(to: CGPoint(x: -30, y: 2)) // Top right
+        nozzlePath.addLine(to: CGPoint(x: -30, y: -2)) // Bottom right
+        nozzlePath.addLine(to: CGPoint(x: -28, y: -2)) // Bottom left
+        nozzlePath.close()
+
+        let nozzles = SKShapeNode(path: nozzlePath.cgPath)
+        nozzles.fillColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0) // Dark exhaust
+        nozzles.strokeColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0) // Almost black
+        nozzles.lineWidth = 1.0
+        nozzles.name = "playerNozzles"
+        raptor.addChild(nozzles)
+
+        // Afterburner effects
+        let afterburnerPath = UIBezierPath()
+        afterburnerPath.move(to: CGPoint(x: -30, y: 1)) // Top left
+        afterburnerPath.addLine(to: CGPoint(x: -38, y: 0)) // Tip
+        afterburnerPath.addLine(to: CGPoint(x: -30, y: -1)) // Bottom left
+        afterburnerPath.close()
+
+        let afterburner = SKShapeNode(path: afterburnerPath.cgPath)
+        afterburner.fillColor = UIColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 0.8) // Orange flame
+        afterburner.strokeColor = UIColor(red: 1.0, green: 0.3, blue: 0.0, alpha: 0.6) // Red-orange outline
+        afterburner.lineWidth = 0.5
+        afterburner.name = "playerAfterburner"
+
+        // Create a shorter inner flame
+        let innerFlamePath = UIBezierPath()
+        innerFlamePath.move(to: CGPoint(x: -30, y: 0.6)) // Top left
+        innerFlamePath.addLine(to: CGPoint(x: -35, y: 0)) // Tip
+        innerFlamePath.addLine(to: CGPoint(x: -30, y: -0.6)) // Bottom left
+        innerFlamePath.close()
+
+        let innerFlame = SKShapeNode(path: innerFlamePath.cgPath)
+        innerFlame.fillColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.9) // Yellow core
+        innerFlame.strokeColor = UIColor.clear
+        innerFlame.name = "innerFlame"
+        afterburner.addChild(innerFlame)
+
+        // Animate afterburner
+        let scaleUp = SKAction.scale(to: 1.1, duration: 0.05)
+        let scaleDown = SKAction.scale(to: 0.9, duration: 0.05)
+        let sequence = SKAction.sequence([scaleUp, scaleDown])
+        let repeatForever = SKAction.repeatForever(sequence)
+        afterburner.run(repeatForever)
+        
+        // Slight color pulsing for inner flame
+        let colorChange = SKAction.sequence([
+            SKAction.colorize(with: .yellow, colorBlendFactor: 0.7, duration: 0.1),
+            SKAction.colorize(with: .orange, colorBlendFactor: 0.3, duration: 0.1)
+        ])
+        let colorRepeat = SKAction.repeatForever(colorChange)
+        innerFlame.run(colorRepeat)
+
+        raptor.addChild(afterburner)
+
+        // Always add physics body for the F22 Raptor in GameScene - it's needed for gameplay
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 50, height: 16))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.affectedByGravity = false
+        physicsBody.categoryBitMask = playerCategory
+        physicsBody.contactTestBitMask = obstacleCategory | groundCategory | scoreCategory | powerUpCategory
+        physicsBody.collisionBitMask = obstacleCategory | groundCategory
+        raptor.physicsBody = physicsBody
+
+        return raptor
     }
     
     private func createScoreDisplay() {
@@ -213,9 +441,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         scoreLabel.zPosition = 50
         addChild(scoreLabel)
         
-        // High score label
-        let highScore = UserDefaults.standard.integer(forKey: "highScore")
-        highScoreLabel = SKLabelNode(text: "Best: \(highScore)")
+        // High score label (per-map)
+        var bestForMap = 0
+        if let levelId = self.levelId {
+            bestForMap = PlayerData.shared.mapHighScores[levelId] ?? 0
+        } else if let lvlId = currentLevel?.id {
+            bestForMap = PlayerData.shared.mapHighScores[lvlId] ?? 0
+        } else {
+            bestForMap = UserDefaults.standard.integer(forKey: "highScore")
+        }
+        highScoreLabel = SKLabelNode(text: "Best: \(bestForMap)")
         highScoreLabel.fontName = "AvenirNext-Bold"
         highScoreLabel.fontSize = 24
         highScoreLabel.horizontalAlignmentMode = .right
@@ -337,45 +572,45 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             return // Score node is created inside createDesertObstacles
         } else {
             // Standard Flappy Bird style for other levels
-            // Calculate gap position
-            let gapPosition = CGFloat.random(in: 150...(size.height - 150))
-            
-            // Create top obstacle
-            let topObstacleHeight = gapPosition - (gapHeight / 2)
+        // Calculate gap position
+        let gapPosition = CGFloat.random(in: 150...(size.height - 150))
+        
+        // Create top obstacle
+        let topObstacleHeight = gapPosition - (gapHeight / 2)
             let topObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: topObstacleHeight), position: CGPoint(x: size.width + 40, y: size.height - (topObstacleHeight / 2)))
-            
+        
             // Create bottom obstacle - always create it for proper Flappy Bird-style gaps
-            let bottomObstacleY = gapPosition + (gapHeight / 2)
-            let bottomObstacleHeight = size.height - bottomObstacleY
+        let bottomObstacleY = gapPosition + (gapHeight / 2)
+        let bottomObstacleHeight = size.height - bottomObstacleY
             let bottomObstacle = createObstacle(size: CGSize(width: obstacleWidth, height: bottomObstacleHeight), position: CGPoint(x: size.width + 40, y: bottomObstacleY + (bottomObstacleHeight / 2)))
-            
+        
             // Create score node that spans the entire height of the screen
-            let scoreNode = SKNode()
+        let scoreNode = SKNode()
             scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2) // Center vertically
         
-        // Make the score detection zone cover the full height of the screen
-        // This ensures the player gets points regardless of whether they go through, above or below the obstacles
-        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+            // Make the score detection zone cover the full height of the screen
+            // This ensures the player gets points regardless of whether they go through, above or below the obstacles
+            let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
         scorePhysics.isDynamic = false
         scorePhysics.categoryBitMask = scoreCategory
         scorePhysics.contactTestBitMask = playerCategory
         scorePhysics.collisionBitMask = 0 // Don't collide with anything
-        
-        // Set precise collision detection flag for better accuracy
-        scorePhysics.usesPreciseCollisionDetection = true
-        
+            
+            // Set precise collision detection flag for better accuracy
+            scorePhysics.usesPreciseCollisionDetection = true
+            
         scoreNode.physicsBody = scorePhysics
         scoreNode.name = "scoreNode"
         
-        // Optional visualization for debug - comment out in production
-        // let visualizer = SKShapeNode(rectOf: CGSize(width: 15, height: gapHeight))
-        // visualizer.fillColor = .green
-        // visualizer.alpha = 0.3
-        // scoreNode.addChild(visualizer)
+            // Optional visualization for debug - comment out in production
+            // let visualizer = SKShapeNode(rectOf: CGSize(width: 15, height: gapHeight))
+            // visualizer.fillColor = .green
+            // visualizer.alpha = 0.3
+            // scoreNode.addChild(visualizer)
         
         // Add the obstacles and score node to the scene
         addChild(topObstacle)
-        addChild(bottomObstacle) // Always add bottom obstacle for Flappy Bird-style gameplay
+            addChild(bottomObstacle) // Always add bottom obstacle for Flappy Bird-style gameplay
         addChild(scoreNode)
         
         // Animate obstacle movement
@@ -387,12 +622,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bottomObstacle.run(sequence)
         scoreNode.run(sequence)
         
-        // Note: distance is now incremented in handlePlayerScoreCollision
-        // Track obstacles created
+            // Note: distance is now incremented in handlePlayerScoreCollision
+            // Track obstacles created
         playerData.recordDistance(1)
         
         // Update daily challenges
         playerData.updateChallengeProgress(id: "obstacles", value: distance * 2) // 2 obstacles per spawn
+        }
     }
     
     private func createObstacle(size: CGSize, position: CGPoint) -> SKNode {
@@ -462,20 +698,31 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         } else {
             // Regular obstacles for other levels (city buildings, etc.)
-            if size.height > 50 {
-                let stripeCount = Int(size.height / 40)
-                for i in 0..<stripeCount {
-                    let stripe = SKShapeNode(rectOf: CGSize(width: size.width, height: 3))
-                    stripe.fillColor = .darkGray
-                    stripe.strokeColor = .clear
-                    stripe.position = CGPoint(x: 0, y: -size.height/2 + CGFloat(i * 40) + 20)
-                    obstacle.addChild(stripe)
+        if size.height > 50 {
+            let stripeCount = Int(size.height / 40)
+            for i in 0..<stripeCount {
+                let stripe = SKShapeNode(rectOf: CGSize(width: size.width, height: 3))
+                stripe.fillColor = .darkGray
+                stripe.strokeColor = .clear
+                stripe.position = CGPoint(x: 0, y: -size.height/2 + CGFloat(i * 40) + 20)
+                obstacle.addChild(stripe)
                 }
             }
         }
         
         // Create physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        // Use a triangular physics body for desert pyramids so collisions match visuals
+        let physicsBody: SKPhysicsBody
+        if isDesertLevel && size.height > 100 {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: -size.width / 2, y: -size.height / 2))
+            path.addLine(to: CGPoint(x: size.width / 2, y: -size.height / 2))
+            path.addLine(to: CGPoint(x: 0, y: size.height / 2))
+            path.closeSubpath()
+            physicsBody = SKPhysicsBody(polygonFrom: path)
+        } else {
+            physicsBody = SKPhysicsBody(rectangleOf: size)
+        }
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
@@ -957,13 +1204,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             ])
             obstacle?.run(flash)
             
-            // Show hit count
-            showTemporaryMessage("Shield hit! \(invincibilityCount) left")
+            // Show hit count (extra life protection)
+            showTemporaryMessage("Extra life active: \(invincibilityCount) left")
             
             // Check if invincibility is over
             if invincibilityCount <= 0 {
                 isInvincible = false
-                player.childNode(withName: "shield")?.removeFromParent()
+                // Remove the revival shield indicator created during extra life usage
+                player.childNode(withName: "revivalShield")?.removeFromParent()
             }
             
             return
@@ -1060,13 +1308,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             suckEffect.particleSpeed = 30
             suckEffect.particleSpeedRange = 20
             suckEffect.particleColor = UIColor(red: 0.0, green: 0.5, blue: 1.0, alpha: 0.7)
-            suckEffect.targetNode = portal
+            // Create a temporary target node instead of using the portal directly
+            let targetNode = SKNode()
+            targetNode.position = portal.convert(CGPoint.zero, to: self)
+            targetNode.name = "tempTargetNode"
+            addChild(targetNode)
+            suckEffect.targetNode = targetNode
             suckEffect.particleAction = SKAction.move(to: CGPoint.zero, duration: 0.7)
             addChild(suckEffect)
             
-            // Remove the effect after a delay
+            // Remove the effect and temporary target after a delay
             let waitAction = SKAction.wait(forDuration: 1.0)
             suckEffect.run(SKAction.sequence([waitAction, SKAction.removeFromParent()]))
+            targetNode.run(SKAction.sequence([SKAction.wait(forDuration: 1.5), SKAction.removeFromParent()]))
             
             // Enhance portal visuals
             portal.run(SKAction.scale(by: 1.5, duration: 0.5))
@@ -1154,11 +1408,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         restartButton.run(SKAction.sequence([SKAction.wait(forDuration: 1.1), fadeIn]))
         mainMenuButton.run(SKAction.sequence([SKAction.wait(forDuration: 1.4), fadeIn]))
         
-        // Update high score if needed
-        let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
-        if score > currentHighScore {
-            UserDefaults.standard.set(score, forKey: "highScore")
-            highScoreLabel.text = "Best: \(score)"
+        // Update per-map high score if needed
+        if let levelId = self.levelId ?? currentLevel?.id {
+            let currentBest = PlayerData.shared.mapHighScores[levelId] ?? 0
+            if score > currentBest {
+                _ = PlayerData.shared.updateMapHighScore(score, for: levelId)
+                highScoreLabel.text = "Best: \(score)"
+            }
+        } else {
+            // Fallback to global if no level context
+            let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
+            if score > currentHighScore {
+                UserDefaults.standard.set(score, forKey: "highScore")
+                highScoreLabel.text = "Best: \(score)"
+            }
         }
         
         // Add subtle stargate background effect
@@ -1574,9 +1837,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Respawn the player at the same position but with a brief invincibility period
         player.physicsBody?.velocity = CGVector.zero
         
-        // Make player temporarily invincible
+        // Make player temporarily invincible for ONE hit only (extra life semantics)
         isInvincible = true
-        invincibilityCount = 3
+        invincibilityCount = 1
         
         // Add temporary invincibility visual (different from shield)
         let revival = SKShapeNode(circleOfRadius: 30)
@@ -1628,11 +1891,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             node.removeFromParent()
         }
         
-        // Remove shield if present
-        player.childNode(withName: "shield")?.removeFromParent()
-        
-        // Remove extra life indicator if present
-        player.childNode(withName: "extraLifeIndicator")?.removeFromParent()
+        // Remove all player sprites to avoid duplicates
+        enumerateChildNodes(withName: "player") { node, _ in
+            node.removeFromParent()
+        }
         
         // Reset game state
         isGameStarted = false
@@ -1643,7 +1905,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         invincibilityCount = 0
         isSpeedBoostActive = false
         
-        // Reset player position
+        // Recreate the player with the appropriate aircraft for the level
+        createPlayer()
+        
+        // Position player in starting position
         player.position = CGPoint(x: size.width * 0.3, y: size.height * 0.5)
         player.physicsBody?.velocity = CGVector.zero
         player.physicsBody?.affectedByGravity = false

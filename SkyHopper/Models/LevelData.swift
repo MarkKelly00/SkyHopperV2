@@ -154,7 +154,7 @@ struct LevelData {
             ],
             powerUpFrequency: 8.0,
             specialMechanics: [.teleporters], // Teleporters represent the stargates
-            isUnlocked: false
+            isUnlocked: true
         ))
         
         // Level 3: Forest Valley

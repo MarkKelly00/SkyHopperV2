@@ -734,8 +734,11 @@ class PowerUpManager {
         
         // Find the player node in the scene (to visualize the extra life)
         if let player = findPlayerNode() {
-            
-            // Create a red shield to visualize the extra life
+            // Remove any previous indicators
+            player.childNode(withName: "extraLifeIndicator")?.removeFromParent()
+            player.childNode(withName: "revivalShield")?.removeFromParent()
+
+            // Create a red shield to visualize the extra life (heart + red bubble)
             let extraLifeNode = SKNode()
             extraLifeNode.name = "extraLifeIndicator"
             extraLifeNode.zPosition = 20
@@ -746,7 +749,7 @@ class PowerUpManager {
             heart.fillColor = UIColor.red.withAlphaComponent(0.3)
             heart.strokeColor = UIColor.red
             heart.lineWidth = 1.5
-            heart.alpha = 0.7
+            heart.alpha = 0.9
             extraLifeNode.addChild(heart)
             
             // Create heart symbol
@@ -760,11 +763,13 @@ class PowerUpManager {
             // Position the extra life indicator above the player
             extraLifeNode.position = CGPoint(x: 0, y: 30)
             
-            // Add pulsating animation
+            // Add pulsating animation to the heart
             let scaleUp = SKAction.scale(to: 1.2, duration: 0.5)
             let scaleDown = SKAction.scale(to: 0.8, duration: 0.5)
             let pulse = SKAction.sequence([scaleUp, scaleDown])
             extraLifeNode.run(SKAction.repeatForever(pulse))
+
+            // Per request, don't add a red bubble; the heart indicator alone conveys extra life
         }
         
         return true

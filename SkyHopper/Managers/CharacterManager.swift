@@ -5,6 +5,7 @@ class CharacterManager {
     static let shared = CharacterManager()
     
     enum AircraftType: String, CaseIterable {
+        case mapDefault // Special case that adapts to current map theme
         case helicopter
         case fighterJet
         case rocketPack
@@ -27,8 +28,8 @@ class CharacterManager {
         let specialAbility: String
     }
     
-    var selectedAircraft: AircraftType = .helicopter
-    var unlockedAircraft: [AircraftType] = [.helicopter]
+    var selectedAircraft: AircraftType = .mapDefault
+    var unlockedAircraft: [AircraftType] = [.mapDefault, .helicopter]
     
     var allAircraft: [Aircraft] = []
     
@@ -39,12 +40,22 @@ class CharacterManager {
     private func setupAircraft() {
         allAircraft = [
             Aircraft(
+                type: .mapDefault,
+                name: "Map Default",
+                description: "Aircraft automatically changes based on the current map theme",
+                speed: 1.0, // Standard speed, actual speed will depend on the map's aircraft
+                size: CGSize(width: 50, height: 30),
+                unlockCost: 0, // Always free and unlocked
+                isUnlocked: true,
+                specialAbility: "Chameleon - Adapts to the current environment"
+            ),
+            Aircraft(
                 type: .helicopter,
                 name: "Sky Chopper",
                 description: "The classic helicopter with balanced stats",
                 speed: 1.0,
                 size: CGSize(width: 50, height: 30),
-                unlockCost: 0, // Free starter
+                unlockCost: 500, // Now costs coins since it's not the default
                 isUnlocked: true,
                 specialAbility: "None - Balanced starter craft"
             ),
@@ -187,23 +198,98 @@ class CharacterManager {
     }
     
     // Create aircraft sprite methods for GameScene to use
-    func createAircraftSprite(for type: AircraftType) -> SKSpriteNode {
+    func createAircraftSprite(for type: AircraftType, enablePhysics: Bool = false) -> SKSpriteNode {
+        // For mapDefault, we'll create a special sprite that shows it's a multi-aircraft option
+        if type == .mapDefault {
+            return createMapDefaultSprite(enablePhysics: enablePhysics)
+        }
+        
+        let sprite: SKSpriteNode
+        
         switch type {
         case .helicopter:
-            return createHelicopterSprite()
+            sprite = createHelicopterSprite()
         case .fighterJet:
-            return createJetSprite()
+            sprite = createJetSprite()
         case .rocketPack:
-            return createRocketPackSprite()
+            sprite = createRocketPackSprite()
+        case .biplane:
+            sprite = createBiplaneSprite()
+        case .duck:
+            sprite = createDuckSprite()
+        case .eagle:
+            sprite = createEagleSprite()
         case .f22Raptor:
-            return createF22RaptorSprite()
+            sprite = createF22RaptorSprite()
+        case .dragon:
+            sprite = createDragonSprite()
+        case .mustangPlane:
+            sprite = createMustangSprite()
         default:
-            // Fallback to helicopter for now, extend later
-            return createHelicopterSprite()
+            // Fallback to helicopter as a safe default
+            sprite = createHelicopterSprite()
         }
+        
+        // Disable physics for menu displays if not explicitly enabled
+        if !enablePhysics && sprite.physicsBody != nil {
+            sprite.physicsBody = nil
+        }
+        
+        return sprite
     }
     
     // These methods would be expanded to create proper sprites
+    // Special sprite for the Map Default option
+    private func createMapDefaultSprite(enablePhysics: Bool = false) -> SKSpriteNode {
+        let container = SKSpriteNode(color: .clear, size: CGSize(width: 50, height: 30))
+        container.name = "player"
+        
+        // Create a visual representation showing multiple aircraft silhouettes
+        // Base shape - slightly transparent blue rectangle
+        let baseShape = SKShapeNode(rectOf: CGSize(width: 40, height: 20), cornerRadius: 5)
+        baseShape.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 0.5)
+        baseShape.strokeColor = UIColor.white
+        baseShape.lineWidth = 2
+        baseShape.alpha = 0.8
+        container.addChild(baseShape)
+        
+        // Add a map icon
+        let mapIcon = SKLabelNode(text: "🗺️")
+        mapIcon.fontSize = 15
+        mapIcon.verticalAlignmentMode = .center
+        mapIcon.horizontalAlignmentMode = .center
+        mapIcon.position = CGPoint(x: -10, y: 0)
+        container.addChild(mapIcon)
+        
+        // Add an aircraft icon
+        let aircraftIcon = SKLabelNode(text: "✈️")
+        aircraftIcon.fontSize = 15
+        aircraftIcon.verticalAlignmentMode = .center
+        aircraftIcon.horizontalAlignmentMode = .center
+        aircraftIcon.position = CGPoint(x: 10, y: 0)
+        container.addChild(aircraftIcon)
+        
+        // Add physics body only if enabled (for gameplay, not menus)
+        if enablePhysics {
+            let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 40, height: 20))
+            physicsBody.isDynamic = true
+            physicsBody.allowsRotation = false
+            physicsBody.categoryBitMask = 0x1 << 0  // Player category
+            physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2  // Obstacle and ground categories
+            physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2  // Obstacle and ground categories
+            container.physicsBody = physicsBody
+        }
+        
+        // Add a subtle animation to emphasize its special nature
+        let pulse = SKAction.sequence([
+            SKAction.scale(to: 1.05, duration: 0.5),
+            SKAction.scale(to: 0.95, duration: 0.5)
+        ])
+        container.run(SKAction.repeatForever(pulse))
+        
+        return container
+    }
+    
     private func createHelicopterSprite() -> SKSpriteNode {
         let helicopter = SKSpriteNode(color: .clear, size: CGSize(width: 50, height: 30))
         helicopter.name = "player"
@@ -553,5 +639,195 @@ class CharacterManager {
         raptor.physicsBody = physicsBody
 
         return raptor
+    }
+    
+    // Implementation for the biplane aircraft
+    private func createBiplaneSprite() -> SKSpriteNode {
+        // For now, create a simple biplane representation
+        let biplane = SKSpriteNode(color: .clear, size: CGSize(width: 50, height: 35))
+        biplane.name = "player"
+        
+        // Simple biplane body
+        let body = SKShapeNode(rectOf: CGSize(width: 30, height: 10), cornerRadius: 3)
+        body.fillColor = UIColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1.0) // Brown wood color
+        body.strokeColor = UIColor.black
+        body.name = "playerBody"
+        biplane.addChild(body)
+        
+        // Simple wings (two sets for biplane)
+        let topWing = SKShapeNode(rectOf: CGSize(width: 45, height: 5), cornerRadius: 2)
+        topWing.fillColor = UIColor(red: 0.7, green: 0.5, blue: 0.3, alpha: 1.0)
+        topWing.strokeColor = UIColor.black
+        topWing.position = CGPoint(x: 0, y: 10)
+        biplane.addChild(topWing)
+        
+        let bottomWing = SKShapeNode(rectOf: CGSize(width: 45, height: 5), cornerRadius: 2)
+        bottomWing.fillColor = UIColor(red: 0.7, green: 0.5, blue: 0.3, alpha: 1.0)
+        bottomWing.strokeColor = UIColor.black
+        bottomWing.position = CGPoint(x: 0, y: -5)
+        biplane.addChild(bottomWing)
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 20))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.categoryBitMask = 0x1 << 0
+        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
+        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
+        biplane.physicsBody = physicsBody
+        
+        return biplane
+    }
+    
+    // Implementation for the duck aircraft
+    private func createDuckSprite() -> SKSpriteNode {
+        // Simple duck sprite
+        let duck = SKSpriteNode(color: .clear, size: CGSize(width: 40, height: 35))
+        duck.name = "player"
+        
+        // Duck body
+        let body = SKShapeNode(ellipseOf: CGSize(width: 30, height: 20))
+        body.fillColor = UIColor.yellow
+        body.strokeColor = UIColor.black
+        duck.addChild(body)
+        
+        // Duck head
+        let head = SKShapeNode(circleOfRadius: 12)
+        head.fillColor = UIColor.yellow
+        head.strokeColor = UIColor.black
+        head.position = CGPoint(x: 15, y: 5)
+        duck.addChild(head)
+        
+        // Duck bill
+        let bill = SKShapeNode(rectOf: CGSize(width: 12, height: 8), cornerRadius: 2)
+        bill.fillColor = UIColor.orange
+        bill.strokeColor = UIColor.black
+        bill.position = CGPoint(x: 25, y: 5)
+        duck.addChild(bill)
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(circleOfRadius: 17)
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.categoryBitMask = 0x1 << 0
+        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
+        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
+        duck.physicsBody = physicsBody
+        
+        return duck
+    }
+    
+    // Implementation for the eagle aircraft
+    private func createEagleSprite() -> SKSpriteNode {
+        // Simple eagle sprite
+        let eagle = SKSpriteNode(color: .clear, size: CGSize(width: 45, height: 30))
+        eagle.name = "player"
+        
+        // Eagle body
+        let body = SKShapeNode(ellipseOf: CGSize(width: 25, height: 15))
+        body.fillColor = UIColor.brown
+        body.strokeColor = UIColor.black
+        eagle.addChild(body)
+        
+        // Eagle wings
+        let wings = SKShapeNode(rectOf: CGSize(width: 45, height: 8), cornerRadius: 2)
+        wings.fillColor = UIColor(red: 0.6, green: 0.4, blue: 0.0, alpha: 1.0)
+        wings.strokeColor = UIColor.black
+        wings.position = CGPoint(x: 0, y: 0)
+        eagle.addChild(wings)
+        
+        // Eagle head
+        let head = SKShapeNode(circleOfRadius: 8)
+        head.fillColor = UIColor.white
+        head.strokeColor = UIColor.black
+        head.position = CGPoint(x: 15, y: 5)
+        eagle.addChild(head)
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 15))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.categoryBitMask = 0x1 << 0
+        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
+        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
+        eagle.physicsBody = physicsBody
+        
+        return eagle
+    }
+    
+    // Implementation for the dragon aircraft
+    private func createDragonSprite() -> SKSpriteNode {
+        // Simple dragon sprite
+        let dragon = SKSpriteNode(color: .clear, size: CGSize(width: 50, height: 35))
+        dragon.name = "player"
+        
+        // Dragon body
+        let body = SKShapeNode(ellipseOf: CGSize(width: 35, height: 20))
+        body.fillColor = UIColor(red: 0.0, green: 0.5, blue: 0.0, alpha: 1.0) // Green
+        body.strokeColor = UIColor.black
+        dragon.addChild(body)
+        
+        // Dragon wings
+        let wings = SKShapeNode(rectOf: CGSize(width: 40, height: 15), cornerRadius: 5)
+        wings.fillColor = UIColor(red: 0.0, green: 0.6, blue: 0.0, alpha: 0.7)
+        wings.strokeColor = UIColor.black
+        wings.position = CGPoint(x: -5, y: 5)
+        dragon.addChild(wings)
+        
+        // Dragon head
+        let head = SKShapeNode(rectOf: CGSize(width: 20, height: 15), cornerRadius: 5)
+        head.fillColor = UIColor(red: 0.0, green: 0.5, blue: 0.0, alpha: 1.0)
+        head.strokeColor = UIColor.black
+        head.position = CGPoint(x: 15, y: 0)
+        dragon.addChild(head)
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 35, height: 20))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.categoryBitMask = 0x1 << 0
+        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
+        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
+        dragon.physicsBody = physicsBody
+        
+        return dragon
+    }
+    
+    // Implementation for the mustang aircraft
+    private func createMustangSprite() -> SKSpriteNode {
+        // Simple mustang plane sprite
+        let mustang = SKSpriteNode(color: .clear, size: CGSize(width: 55, height: 25))
+        mustang.name = "player"
+        
+        // Mustang body
+        let body = SKShapeNode(rectOf: CGSize(width: 40, height: 10), cornerRadius: 5)
+        body.fillColor = UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0) // Silver
+        body.strokeColor = UIColor.black
+        mustang.addChild(body)
+        
+        // Mustang wings
+        let wings = SKShapeNode(rectOf: CGSize(width: 30, height: 15), cornerRadius: 2)
+        wings.fillColor = UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0)
+        wings.strokeColor = UIColor.black
+        wings.position = CGPoint(x: 0, y: 0)
+        mustang.addChild(wings)
+        
+        // Tail
+        let tail = SKShapeNode(rectOf: CGSize(width: 10, height: 15), cornerRadius: 2)
+        tail.fillColor = UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0)
+        tail.strokeColor = UIColor.black
+        tail.position = CGPoint(x: -20, y: 0)
+        mustang.addChild(tail)
+        
+        // Physics body
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 40, height: 10))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.categoryBitMask = 0x1 << 0
+        physicsBody.contactTestBitMask = 0x1 << 1 | 0x1 << 2
+        physicsBody.collisionBitMask = 0x1 << 1 | 0x1 << 2
+        mustang.physicsBody = physicsBody
+        
+        return mustang
     }
 }

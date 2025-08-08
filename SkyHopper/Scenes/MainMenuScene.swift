@@ -269,8 +269,11 @@ class MainMenuScene: SKScene {
     }
     
     private func setupAnimations() {
-        // Create animated helicopter
-        helicopterNode = CharacterManager.shared.createAircraftSprite(for: CharacterManager.shared.selectedAircraft)
+        // Create animated craft for the main menu
+        // If user selected Map Default, always show helicopter on main menu for clarity
+        let selected = CharacterManager.shared.selectedAircraft
+        let typeForMenu: CharacterManager.AircraftType = (selected == .mapDefault) ? .helicopter : selected
+        helicopterNode = CharacterManager.shared.createAircraftSprite(for: typeForMenu)
         helicopterNode.position = CGPoint(x: size.width / 5, y: size.height * 2 / 3)
         helicopterNode.zPosition = 5
         helicopterNode.xScale = 1.5
