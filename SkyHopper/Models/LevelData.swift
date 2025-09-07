@@ -221,10 +221,10 @@ struct LevelData {
             isUnlocked: true
         ))
         
-        // Level 7: Underwater Adventure
+        // Level 7: Reef Void
         levels.append(LevelData(
             id: "level_7",
-            name: "Underwater Adventure",
+            name: "Reef Void",
             description: "Submerged flying with modified physics and moving seaweed obstacles.",
             mapTheme: .underwater,
             difficulty: 3,

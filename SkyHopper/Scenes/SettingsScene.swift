@@ -12,6 +12,7 @@ class SettingsScene: SKScene {
     private var privacyButton: SKShapeNode!
     private var creditsButton: SKShapeNode!
     private var resetButton: SKShapeNode!
+    private var topBar = SKNode()
     
     // MARK: - Scene Lifecycle
     
@@ -29,48 +30,24 @@ class SettingsScene: SKScene {
     }
     
     private func setupUI() {
-        // Back button first (to be under the title)
-        createBackButton()
-        
-        // Title (positioned to not overlap with back button)
-        let titleLabel = SKLabelNode(text: "Settings")
-        titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 40
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
-        titleLabel.zPosition = 10
-        addChild(titleLabel)
+        // Top bar via helper (creates title + back button + currency row)
+        topBar = SafeAreaTopBar.build(in: self, title: "Settings") { [weak self] in
+            self?.handleBackButton()
+        }
         
         // Create settings options
         createSettingsOptions()
     }
     
-    private func createBackButton() {
-        backButton = SKShapeNode(rectOf: CGSize(width: 100, height: 40), cornerRadius: 10)
-        backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
-        backButton.strokeColor = .white
-        backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 75, y: size.height - 50) // Adjusted position to avoid overlap
-        backButton.zPosition = 5 // Lower zPosition than title
-        backButton.name = "backButton"
-        
-        let backLabel = SKLabelNode(text: "Back")
-        backLabel.fontName = "AvenirNext-Bold"
-        backLabel.fontSize = 20
-        backLabel.fontColor = .white
-        backLabel.verticalAlignmentMode = .center
-        backLabel.horizontalAlignmentMode = .center
-        backLabel.zPosition = 1
-        backButton.addChild(backLabel)
-        
-        addChild(backButton)
-    }
-    
     private func createSettingsOptions() {
+        // Get topBar metrics for layout
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        
         // Sound Settings Section
         let soundLabel = SKLabelNode(text: "Sound Settings")
         soundLabel.fontName = "AvenirNext-Bold"
         soundLabel.fontSize = 28
-        soundLabel.position = CGPoint(x: size.width / 2, y: size.height - 160)
+        soundLabel.position = CGPoint(x: size.width / 2, y: topBarBottomY - 40)
         soundLabel.zPosition = 10
         addChild(soundLabel)
         
@@ -78,12 +55,12 @@ class SettingsScene: SKScene {
         let musicLabel = SKLabelNode(text: "Music")
         musicLabel.fontName = "AvenirNext-Medium"
         musicLabel.fontSize = 22
-        musicLabel.position = CGPoint(x: size.width / 4, y: size.height - 210)
+        musicLabel.position = CGPoint(x: size.width / 4, y: topBarBottomY - 90)
         musicLabel.zPosition = 10
         addChild(musicLabel)
         
         // Pass a default value here since we can't access private property directly
-        musicToggle = createToggleSwitch(position: CGPoint(x: size.width * 3 / 4, y: size.height - 210), isOn: true)
+        musicToggle = createToggleSwitch(position: CGPoint(x: size.width * 3 / 4, y: topBarBottomY - 90), isOn: true)
         musicToggle.name = "musicToggle"
         addChild(musicToggle)
         
@@ -91,12 +68,12 @@ class SettingsScene: SKScene {
         let effectsLabel = SKLabelNode(text: "Sound Effects")
         effectsLabel.fontName = "AvenirNext-Medium"
         effectsLabel.fontSize = 22
-        effectsLabel.position = CGPoint(x: size.width / 4, y: size.height - 260)
+        effectsLabel.position = CGPoint(x: size.width / 4, y: topBarBottomY - 140)
         effectsLabel.zPosition = 10
         addChild(effectsLabel)
         
         // Pass a default value here since we can't access private property directly
-        soundToggle = createToggleSwitch(position: CGPoint(x: size.width * 3 / 4, y: size.height - 260), isOn: true)
+        soundToggle = createToggleSwitch(position: CGPoint(x: size.width * 3 / 4, y: topBarBottomY - 140), isOn: true)
         soundToggle.name = "soundToggle"
         addChild(soundToggle)
         
@@ -106,24 +83,24 @@ class SettingsScene: SKScene {
         let otherLabel = SKLabelNode(text: "Other Options")
         otherLabel.fontName = "AvenirNext-Bold"
         otherLabel.fontSize = 28
-        otherLabel.position = CGPoint(x: size.width / 2, y: size.height - 410)
+        otherLabel.position = CGPoint(x: size.width / 2, y: topBarBottomY - 220)
         otherLabel.zPosition = 10
         addChild(otherLabel)
         
         // Privacy Policy
-        privacyButton = createButton(title: "Privacy Policy", position: CGPoint(x: size.width / 2, y: size.height - 470))
+        privacyButton = createButton(title: "Privacy Policy", position: CGPoint(x: size.width / 2, y: topBarBottomY - 280))
         privacyButton.name = "privacyButton"
         addChild(privacyButton)
         
         // Credits
-        creditsButton = createButton(title: "Credits", position: CGPoint(x: size.width / 2, y: size.height - 540))
+        creditsButton = createButton(title: "Credits", position: CGPoint(x: size.width / 2, y: topBarBottomY - 350))
         creditsButton.name = "creditsButton"
         addChild(creditsButton)
         
         // Reset Game Data
         resetButton = createButton(
             title: "Reset Game Data", 
-            position: CGPoint(x: size.width / 2, y: size.height - 610),
+            position: CGPoint(x: size.width / 2, y: topBarBottomY - 420),
             color: UIColor(red: 0.9, green: 0.3, blue: 0.3, alpha: 1.0)
         )
         resetButton.name = "resetButton"

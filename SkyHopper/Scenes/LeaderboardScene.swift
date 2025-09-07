@@ -8,6 +8,7 @@ class LeaderboardScene: SKScene {
     private var backButton: SKShapeNode!
     private var mapTabs: [SKShapeNode] = []
     private var tabsContainer = SKNode()
+    private var topBar = SKNode()
     private var lastTouchX: CGFloat?
     private var leaderboardContainer: SKNode!
     private var scrollView: SKNode!
@@ -43,7 +44,15 @@ class LeaderboardScene: SKScene {
     override func didMove(to view: SKView) {
         setupBackground()
         setupUI()
+        #if DEBUG
+        UILinter.run(scene: self, topBar: topBar)
+        #endif
         loadLeaderboard(for: maps[currentMapIndex].0)
+    }
+
+    private func safeTopInset() -> CGFloat {
+        // Approximate if not available
+        return view?.safeAreaInsets.top ?? 44
     }
     
     private func setupBackground() {
@@ -67,71 +76,70 @@ class LeaderboardScene: SKScene {
     }
     
     private func setupUI() {
-        // Title
-        titleLabel = SKLabelNode(text: "Leaderboards")
-        titleLabel.fontName = "AvenirNext-Heavy"
-        titleLabel.fontSize = 30
-        titleLabel.fontColor = .white
-        titleLabel.position = CGPoint(x: size.width/2, y: size.height - 90)
-        addChild(titleLabel)
+        // Title + Back via SafeAreaTopBar
+        topBar.removeFromParent()
+        topBar = SafeAreaTopBar.build(in: self, title: "LEADERBOARDS") { [weak self] in
+            // Return to main menu
+            let transition = SKTransition.fade(withDuration: 0.5)
+            let mainMenu = MainMenuScene(size: self?.size ?? CGSize(width: 390, height: 844))
+            mainMenu.scaleMode = .aspectFill
+            self?.view?.presentScene(mainMenu, transition: transition)
+        }
         
-        // Back button
-        backButton = SKShapeNode(rectOf: CGSize(width: 100, height: 40), cornerRadius: 8)
-        backButton.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.5, alpha: 0.8)
-        backButton.strokeColor = .white
-        backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 70, y: size.height - 90)
-        backButton.name = "backButton"
-        
-        let backLabel = SKLabelNode(text: "BACK")
-        backLabel.fontName = "AvenirNext-Bold"
-        backLabel.fontSize = 18
-        backLabel.fontColor = .white
-        backLabel.verticalAlignmentMode = .center
-        backButton.addChild(backLabel)
-        
-        addChild(backButton)
-        
-        // Create map tabs
+        // Create map tabs below title by 12pt
         addChild(tabsContainer)
+        if let bottomY = topBar.userData?["topBarBottomY"] as? CGFloat {
+            // Place tabs just below title
+            tabsContainer.position.y = bottomY - UIConstants.Spacing.large
+        }
         createMapTabs()
         
         // Create leaderboard container
         leaderboardContainer = SKNode()
-        leaderboardContainer.position = CGPoint(x: 0, y: 100)
+        // Place content 12pt below tabs if available
+        if let bottomY = topBar.userData?["topBarBottomY"] as? CGFloat {
+            leaderboardContainer.position = CGPoint(x: 0, y: bottomY - (UIConstants.Spacing.large * 2) - 40)
+        } else {
+            leaderboardContainer.position = CGPoint(x: 0, y: size.height - 200)
+        }
         addChild(leaderboardContainer)
     }
     
     private func createMapTabs() {
+        // Clear existing
+        mapTabs.forEach { $0.removeFromParent() }
+        mapTabs.removeAll()
+        
         let tabHeight: CGFloat = 40
-        let tabSpacing: CGFloat = 5
-        var xCursor: CGFloat = 20
+        let tabSpacing: CGFloat = 12
+        var x: CGFloat = 0
         
         for (index, map) in maps.enumerated() {
-            // Dynamic width based on label size
-            let padding: CGFloat = 24
             let label = SKLabelNode(text: map.1)
             label.fontName = "AvenirNext-Bold"
             label.fontSize = 14
             label.fontColor = .white
             label.verticalAlignmentMode = .center
-
-            let tabWidth = max(120, label.frame.width + padding)
-            let tab = SKShapeNode(rectOf: CGSize(width: tabWidth, height: tabHeight), cornerRadius: 6)
-            tab.fillColor = index == currentMapIndex ? 
-                UIColor(red: 0.4, green: 0.6, blue: 0.9, alpha: 0.9) : 
+            
+            // Size tab to fit text nicely
+            let labelWidth = min(max(100, label.frame.width + 28), 220)
+            let tab = SKShapeNode(rectOf: CGSize(width: labelWidth, height: tabHeight), cornerRadius: UIConstants.Radius.medium)
+            tab.fillColor = index == currentMapIndex ?
+                UIColor(red: 0.4, green: 0.6, blue: 0.9, alpha: 0.9) :
                 UIColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 0.7)
             tab.strokeColor = .white
             tab.lineWidth = index == currentMapIndex ? 2 : 1
-            tab.position = CGPoint(x: xCursor + tabWidth/2, y: size.height - 140)
+            // Position at container origin (we offset container earlier)
+            tab.position = CGPoint(x: x + labelWidth/2, y: 0)
             tab.name = "tab_\(index)"
             tab.addChild(label)
             
             mapTabs.append(tab)
             tabsContainer.addChild(tab)
-
-            xCursor += tabWidth + tabSpacing
+            x += labelWidth + tabSpacing
         }
+        // Center tabs horizontally
+        tabsContainer.position.x = (size.width - x) / 2
     }
     
     private func updateTabSelection() {

@@ -10,7 +10,8 @@ class ShopScene: SKScene {
     private var coinsLabel: SKLabelNode!
     private var gemsLabel: SKLabelNode!
     private var shopItems: [SKNode] = []
-    
+    private var decorLayer = SKNode()
+    private var topBar = SKNode()
     // Tab control
     private var tabButtons: [SKShapeNode] = []
     private enum ShopTab {
@@ -27,92 +28,83 @@ class ShopScene: SKScene {
         setupScene()
         setupUI()
         showTabContent(.coins)
+        #if DEBUG
+        UILinter.run(scene: self, topBar: topBar)
+        #endif
     }
     
     private func setupScene() {
         // Set background color
         backgroundColor = MapManager.shared.currentMap.backgroundColor
         
-        // Add background elements behind UI
-        addCloudsBackground()
+        // Decor layer behind UI
+        decorLayer.removeFromParent()
+        decorLayer = SKNode()
+        decorLayer.zPosition = UIConstants.Z.decor
+        addChild(decorLayer)
+        addCloudsBackground(into: decorLayer)
     }
     
     private func setupUI() {
-        // Title
-        let titleLabel = SKLabelNode(text: "Shop")
-        titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 32
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 100)
-        titleLabel.zPosition = 20
-        addChild(titleLabel)
-        
-        // Back button
-        createBackButton()
-        
-        // Display currency
-        setupCurrencyDisplay()
-        
-        // Setup tab buttons
+        // Top bar via helper (creates title + currency row)
+        topBar.removeFromParent()
+        topBar = SafeAreaTopBar.build(in: self, title: "Shop") { [weak self] in
+            self?.handleBackButton()
+        }
+
+        // Back button / currency row handled by topBar
         createTabButtons()
     }
     
     private func createBackButton() {
-        backButton = SKShapeNode(rectOf: CGSize(width: 100, height: 40), cornerRadius: 10)
-        backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 1.0)
-        backButton.strokeColor = .white
-        backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 80, y: size.height - 100)
-        backButton.zPosition = 10
-        backButton.name = "backButton"
-        
-        let backLabel = SKLabelNode(text: "Back")
-        backLabel.fontName = "AvenirNext-Bold"
-        backLabel.fontSize = 20
-        backLabel.fontColor = .white
-        backLabel.verticalAlignmentMode = .center
-        backLabel.horizontalAlignmentMode = .center
-        backLabel.zPosition = 1
-        backButton.addChild(backLabel)
-        
-        addChild(backButton)
+        // Back handled by SafeAreaTopBar
     }
     
     private func setupCurrencyDisplay() {
         // Coins display
+        let safe = SafeAreaLayout(scene: self)
+
+        // Right-aligned currency stack anchored to safe area to avoid Dynamic Island overlap
+        let rightX = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
+        let topY = safe.safeTopY(offset: UIConstants.Spacing.xsmall + 6)
+
         let coinsIcon = SKLabelNode(text: "🪙")
-        coinsIcon.fontSize = 24
-        coinsIcon.position = CGPoint(x: size.width - 130, y: size.height - 40)
-        coinsIcon.zPosition = 10
+        coinsIcon.fontSize = 22
+        coinsIcon.position = CGPoint(x: rightX - 90, y: topY)
+        coinsIcon.zPosition = UIConstants.Z.ui
         addChild(coinsIcon)
-        
+
         coinsLabel = SKLabelNode(text: "\(currencyManager.getCoins())")
         coinsLabel.fontName = "AvenirNext-Medium"
-        coinsLabel.fontSize = 20
+        coinsLabel.fontSize = 18
         coinsLabel.horizontalAlignmentMode = .left
-        coinsLabel.position = CGPoint(x: size.width - 110, y: size.height - 40)
-        coinsLabel.zPosition = 10
+        coinsLabel.position = CGPoint(x: rightX - 70, y: topY - 2)
+        coinsLabel.zPosition = UIConstants.Z.ui
         addChild(coinsLabel)
-        
-        // Gems display
+
+        // Gems display to the right of coins
         let gemsIcon = SKLabelNode(text: "💎")
-        gemsIcon.fontSize = 24
-        gemsIcon.position = CGPoint(x: size.width - 70, y: size.height - 40)
-        gemsIcon.zPosition = 10
+        gemsIcon.fontSize = 22
+        gemsIcon.position = CGPoint(x: rightX - 30, y: topY)
+        gemsIcon.zPosition = UIConstants.Z.ui
         addChild(gemsIcon)
-        
+
         gemsLabel = SKLabelNode(text: "\(currencyManager.getGems())")
         gemsLabel.fontName = "AvenirNext-Medium"
-        gemsLabel.fontSize = 20
+        gemsLabel.fontSize = 18
         gemsLabel.horizontalAlignmentMode = .left
-        gemsLabel.position = CGPoint(x: size.width - 50, y: size.height - 40)
-        gemsLabel.zPosition = 10
+        gemsLabel.position = CGPoint(x: rightX - 8, y: topY - 2)
+        gemsLabel.zPosition = UIConstants.Z.ui
         addChild(gemsLabel)
     }
     
     private func createTabButtons() {
+        // Get topBar metrics for proper positioning
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        
         let tabWidth = size.width / 4
-        let _: CGFloat = 40 // Was tabHeight but unused
-        let tabY = size.height - 140
+        let tabHeight: CGFloat = 40
+        let tabY = topBarBottomY - tabHeight/2 - UIConstants.Spacing.small
         
         // Create tab buttons
         let tabConfigs = [
@@ -206,7 +198,13 @@ class ShopScene: SKScene {
             ("Mega Pack", 12000, 19.99)
         ]
         
-        let startY = size.height - 220
+        // Get topBar metrics for proper positioning
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabHeight: CGFloat = 60
+        // Add more spacing between tabs and content to prevent overlap
+        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
+        
+        let startY = contentTopY
         let spacing = 120.0
         
         for (index, package) in packages.enumerated() {
@@ -234,7 +232,13 @@ class ShopScene: SKScene {
             ("Double Time", "2x power-up duration", 1500, "⏱️")
         ]
         
-        let startY = size.height - 220
+        // Get topBar metrics for proper positioning
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabHeight: CGFloat = 60
+        // Add more spacing between tabs and content to prevent overlap
+        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
+        
+        let startY = contentTopY
         let spacing = 120.0
         
         for (index, package) in packages.enumerated() {
@@ -252,11 +256,17 @@ class ShopScene: SKScene {
     }
     
     private func showCharactersShop() {
+        // Get topBar metrics for proper positioning
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabHeight: CGFloat = 60
+        // Add more spacing between tabs and content to prevent overlap
+        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
+        
         // Message that this is available in Characters screen
         let message = SKLabelNode(text: "Characters are available in the Characters menu")
         message.fontName = "AvenirNext-Medium"
         message.fontSize = 20
-        message.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        message.position = CGPoint(x: size.width / 2, y: contentTopY - 60)
         message.zPosition = 10
         shopItems.append(message)
         addChild(message)
@@ -271,7 +281,13 @@ class ShopScene: SKScene {
             ("Underwater Theme", "Underwater journey", 4000, "🌊")
         ]
         
-        let startY = size.height - 220
+        // Get topBar metrics for proper positioning
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabHeight: CGFloat = 60
+        // Add more spacing between tabs and content to prevent overlap
+        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
+        
+        let startY = contentTopY
         let spacing = 120.0
         
         for (index, package) in packages.enumerated() {
@@ -372,7 +388,7 @@ class ShopScene: SKScene {
     
     // MARK: - Helpers
     
-    private func addCloudsBackground() {
+    private func addCloudsBackground(into parent: SKNode) {
         // Add clouds in the background
         for _ in 0..<10 {
             let cloud = createCloud()
@@ -380,8 +396,8 @@ class ShopScene: SKScene {
                 x: CGFloat.random(in: 0...size.width),
                 y: CGFloat.random(in: 0...size.height)
             )
-            cloud.zPosition = -5
-            addChild(cloud)
+            cloud.zPosition = UIConstants.Z.background
+            parent.addChild(cloud)
         }
     }
     

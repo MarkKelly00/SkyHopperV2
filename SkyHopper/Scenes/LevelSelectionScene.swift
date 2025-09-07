@@ -14,6 +14,9 @@ class LevelSelectionScene: SKScene {
     private var prevButton: SKShapeNode!
     private var nextButton: SKShapeNode!
     private var backButton: SKShapeNode!
+    private var decorLayer = SKNode()
+    private var topBar = SKNode()
+    private var safe: SafeAreaLayout { SafeAreaLayout(scene: self) }
     
     // MARK: - Scene Lifecycle
     
@@ -28,8 +31,12 @@ class LevelSelectionScene: SKScene {
         // Set background color based on current map theme
         backgroundColor = MapManager.shared.currentMap.backgroundColor
         
-        // Add background elements
-        addCloudsBackground()
+        // Decor layer for clouds
+        decorLayer.removeFromParent()
+        decorLayer = SKNode()
+        decorLayer.zPosition = UIConstants.Z.decor
+        addChild(decorLayer)
+        addCloudsBackground(into: decorLayer)
     }
     
     private func loadLevels() {
@@ -38,19 +45,18 @@ class LevelSelectionScene: SKScene {
     }
     
     private func setupUI() {
-        // Title - moved down to account for notch
-        let titleLabel = SKLabelNode(text: "Select Level")
-        titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 32
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 110)
-        titleLabel.zPosition = 20
-        addChild(titleLabel)
+        // Top bar via helper
+        topBar.removeFromParent()
+        topBar = SafeAreaTopBar.build(in: self, title: "Select Level") { [weak self] in
+            self?.handleBackButton()
+        }
         
         // Page indicator
         pageIndicator = SKLabelNode(text: "Page 1/\(ceil(Double(levels.count) / Double(levelsPerPage)))")
         pageIndicator.fontName = "AvenirNext-Medium"
         pageIndicator.fontSize = 18
-        pageIndicator.position = CGPoint(x: size.width / 2, y: 60)
+        pageIndicator.position = CGPoint(x: size.width / 2, y: safe.safeBottomY(offset: 60))
+        pageIndicator.zPosition = UIConstants.Z.ui
         addChild(pageIndicator)
         
         // Navigation buttons
@@ -66,7 +72,7 @@ class LevelSelectionScene: SKScene {
         prevButton.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 0.8)
         prevButton.strokeColor = .white
         prevButton.lineWidth = 2
-        prevButton.position = CGPoint(x: 50, y: 60)
+        prevButton.position = CGPoint(x: safe.safeLeftX(offset: 50), y: safe.safeBottomY(offset: 52))
         prevButton.name = "prevButton"
         
         let prevLabel = SKLabelNode(text: "←")
@@ -82,7 +88,7 @@ class LevelSelectionScene: SKScene {
         nextButton.fillColor = UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 0.8)
         nextButton.strokeColor = .white
         nextButton.lineWidth = 2
-        nextButton.position = CGPoint(x: size.width - 50, y: 60)
+        nextButton.position = CGPoint(x: safe.safeRightX(offset: 50), y: safe.safeBottomY(offset: 52))
         nextButton.name = "nextButton"
         
         let nextLabel = SKLabelNode(text: "→")
@@ -98,22 +104,7 @@ class LevelSelectionScene: SKScene {
     }
     
     private func createBackButton() {
-        backButton = SKShapeNode(rectOf: CGSize(width: 100, height: 40), cornerRadius: 10)
-        backButton.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.3, alpha: 0.8)
-        backButton.strokeColor = .white
-        backButton.lineWidth = 2
-        backButton.position = CGPoint(x: 70, y: size.height - 80) // Moved down further for notch
-        backButton.zPosition = 20 // Ensure it's above other elements
-        backButton.name = "backButton"
-        
-        let backLabel = SKLabelNode(text: "Back")
-        backLabel.fontName = "AvenirNext-Bold"
-        backLabel.fontSize = 18
-        backLabel.verticalAlignmentMode = .center
-        backLabel.horizontalAlignmentMode = .center
-        backLabel.position = CGPoint(x: 0, y: 0)
-        backButton.addChild(backLabel)
-        addChild(backButton)
+        // Back handled by SafeAreaTopBar
     }
     
     private func setupLevelDisplay() {
@@ -125,10 +116,15 @@ class LevelSelectionScene: SKScene {
         let startIndex = currentPage * levelsPerPage
         let endIndex = min(startIndex + levelsPerPage, levels.count)
         
-        // Position variables with improved spacing
-        let padding: CGFloat = 25 // More padding between cards
-        let levelWidth: CGFloat = (size.width - (padding * 3)) / 2 
-        let levelHeight: CGFloat = 210 // Increased height for better content fit
+        // Layout bounds from safe area
+        let contentLeft = safe.safeLeftX(offset: UIConstants.Spacing.xlarge)
+        let contentRight = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
+        let gridWidth = contentRight - contentLeft
+
+        // Responsive card sizing
+        let padding: CGFloat = 25
+        let levelWidth: CGFloat = (gridWidth - padding) / 2
+        let levelHeight: CGFloat = max(200, min(250, levelWidth * 0.62))
         
         // Create level cards
         for i in startIndex..<endIndex {
@@ -138,9 +134,15 @@ class LevelSelectionScene: SKScene {
             // Position in grid (2x2)
             let column = (i - startIndex) % 2
             let row = (i - startIndex) / 2
-            
-            let xPosition = padding + (CGFloat(column) * (levelWidth + padding)) + (levelWidth / 2)
-            let yPosition = size.height - 160 - (CGFloat(row) * (levelHeight + padding)) - (levelHeight / 2)
+
+            var gridTop = safe.safeTopY(offset: UIConstants.Spacing.xlarge + 44)
+            if let bottomY = topBar.userData?["topBarBottomY"] as? CGFloat {
+                gridTop = bottomY - UIConstants.Spacing.large
+            }
+            let row0CenterY = gridTop - levelHeight / 2
+
+            let xPosition = contentLeft + (CGFloat(column) * (levelWidth + padding)) + (levelWidth / 2)
+            let yPosition = row0CenterY - (CGFloat(row) * (levelHeight + padding))
             
             levelNode.position = CGPoint(x: xPosition, y: yPosition)
             addChild(levelNode)
@@ -157,68 +159,105 @@ class LevelSelectionScene: SKScene {
         containerNode.name = "level_\(level.id)"
         
         // Background card
-        let background = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 15)
+        let background = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 16)
         background.fillColor = level.mapTheme.backgroundColor
-        background.strokeColor = .white
-        background.lineWidth = 2
+        background.strokeColor = UIColor(white: 1.0, alpha: 0.6)
+        background.lineWidth = 1.5
         background.name = "levelBackground"
         containerNode.addChild(background)
         
         // Add a semi-transparent panel behind text for better readability
-        let textPanel = SKShapeNode(rectOf: CGSize(width: width - 10, height: height - 60), cornerRadius: 10)
+        let textPanel = SKShapeNode(rectOf: CGSize(width: width - 12, height: height - 12), cornerRadius: 14)
         textPanel.fillColor = UIColor.black.withAlphaComponent(0.2)
         textPanel.strokeColor = UIColor.clear
-        textPanel.position = CGPoint(x: 0, y: 10) // Slightly above center
+        textPanel.position = CGPoint(x: 0, y: 0)
         textPanel.zPosition = 1
         containerNode.addChild(textPanel)
         
-        // Level title with improved contrast
+        // --- Measure-based layout ---
+        let baseHeight: CGFloat = 230
+        let scale = min(max(height / baseHeight, 0.92), 1.15)
+        let inset: CGFloat = 10 * scale
+        let topY: CGFloat = height/2 - inset
+        let bottomY: CGFloat = -height/2 + inset
+        let controlMargin: CGFloat = 12 * scale
+        let playRadius: CGFloat = 16 * scale
+        let controlBarH: CGFloat = (playRadius * 2) + (controlMargin * 2)
+
+        // Title - force single line with adaptive font sizing
         let titleLabel = SKLabelNode(text: level.name)
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 20
-        titleLabel.fontColor = UIColor.white
-        titleLabel.position = CGPoint(x: 0, y: height/2 - 35) // Adjusted position
-        titleLabel.preferredMaxLayoutWidth = width - 30 // Prevent text overflow
+        
+        // Force single line with dynamically scaled font size
+        titleLabel.numberOfLines = 1
+        let maxWidth = width - 32 // Maximum width for the title
+        
+        // Start with a base font size and scale down if needed
+        let baseFontSize = 22.0
+        var fontSize = baseFontSize
+        
+        // Reduce font size based on title length
+        if level.name.count > 12 {
+            fontSize = baseFontSize - 2.0
+        }
+        if level.name.count > 15 {
+            fontSize = baseFontSize - 4.0
+        }
+        
+        titleLabel.fontSize = fontSize * scale
+        titleLabel.fontColor = .white
         titleLabel.horizontalAlignmentMode = .center
         titleLabel.verticalAlignmentMode = .center
         titleLabel.zPosition = 2
-        titleLabel.numberOfLines = 2 // Allow title to wrap if needed
         containerNode.addChild(titleLabel)
         
-        // Calculate proper spacing for stars that's evenly balanced with title and description
-        // Stars should be evenly spaced between title and description
-        let titleBottom: CGFloat = height/2 - 45 // Approximate bottom of title accounting for potential two lines
-        let descriptionTop: CGFloat = -10 + 10 // Approximate top of description (resolves to 0 as CGFloat)
-        let availableSpace: CGFloat = titleBottom - descriptionTop
-        let starPosition: CGFloat = titleBottom - (availableSpace * 0.4) // Position stars 40% of the way down from title
-        
-        // Difficulty stars with better spacing
-        let starSpacing: CGFloat = 16 // Slightly reduced spacing
-        let totalStarWidth = (starSpacing * CGFloat(level.difficulty - 1)) + (CGFloat(level.difficulty) * 16)
-        var starX = -totalStarWidth / 2
-        
-        for _ in 0..<level.difficulty {
-            let star = SKLabelNode(text: "⭐️")
-            star.fontSize = 16
-            star.verticalAlignmentMode = .center
-            star.position = CGPoint(x: starX + 8, y: starPosition) // Precisely positioned between title and description
-            star.zPosition = 2
-            containerNode.addChild(star)
-            starX += 16 + starSpacing
-        }
-        
-        // Description with better positioning and readability
+        // Measure title height and position it
+        let titleH = max(20 * scale, titleLabel.frame.height)
+        titleLabel.position = CGPoint(x: 0, y: topY - titleH/2 - (6 * scale))
+
+        // Description
         let descLabel = SKLabelNode(text: level.description)
         descLabel.fontName = "AvenirNext-Medium"
-        descLabel.fontSize = 14
-        descLabel.fontColor = UIColor.white
-        descLabel.preferredMaxLayoutWidth = width - 30
-        descLabel.numberOfLines = 3 // Increase to 3 lines for longer descriptions
+        descLabel.fontSize = 14 * scale
+        descLabel.fontColor = .white
+        descLabel.preferredMaxLayoutWidth = width - 24
+        descLabel.numberOfLines = 3
         descLabel.verticalAlignmentMode = .center
         descLabel.horizontalAlignmentMode = .center
-        descLabel.position = CGPoint(x: 0, y: -10) // Moved down slightly
         descLabel.zPosition = 2
         containerNode.addChild(descLabel)
+        let descH = max(18 * scale, descLabel.calculateAccumulatedFrame().height)
+        // Reserve a bottom control bar for play button + best score
+        descLabel.position = CGPoint(x: 0, y: bottomY + controlBarH + descH/2)
+
+        // Position stars at a fixed distance from the title - consistent across all tiles
+        let titleBottomY = titleLabel.position.y - titleH/2
+        let descTopY = descLabel.position.y + descH/2
+        
+        // Fixed gap from title (guaranteed consistent placement)
+        let fixedGapFromTitle: CGFloat = 24 * scale
+        var starRowY = titleBottomY - fixedGapFromTitle
+        
+        // Enforce minimum spacing from description for safety
+        let minGapDesc: CGFloat = 14 * scale
+        if starRowY < descTopY + minGapDesc {
+            starRowY = descTopY + minGapDesc
+        }
+
+        // Normalize star sizing for consistency across tiles
+        let starSpacing: CGFloat = 10 * scale
+        let starSize: CGFloat = 16 * scale
+        let totalStarWidth = (CGFloat(level.difficulty) * starSize) + (CGFloat(max(0, level.difficulty - 1)) * starSpacing)
+        var starX = -totalStarWidth / 2
+        for _ in 0..<level.difficulty {
+            let star = SKLabelNode(text: "⭐️")
+            star.fontSize = starSize
+            star.verticalAlignmentMode = .center
+            star.position = CGPoint(x: starX + starSize/2, y: starRowY)
+            star.zPosition = 2
+            containerNode.addChild(star)
+            starX += starSize + starSpacing
+        }
         
                 // Removed colored map icon box as requested
         
@@ -226,10 +265,12 @@ class LevelSelectionScene: SKScene {
         let highScore = PlayerData.shared.mapHighScores[level.id] ?? 0
         let scoreLabel = SKLabelNode(text: "Best: \(highScore)")
         scoreLabel.fontName = "AvenirNext-Medium"
-        scoreLabel.fontSize = 14
+        scoreLabel.fontSize = 14 * scale
         scoreLabel.fontColor = UIColor.white
+        scoreLabel.verticalAlignmentMode = .center
         scoreLabel.horizontalAlignmentMode = .right
-        scoreLabel.position = CGPoint(x: width/2 - 15, y: -height/2 + 35)
+        let baselineY = bottomY + controlMargin + playRadius
+        scoreLabel.position = CGPoint(x: width/2 - (14 * scale), y: baselineY)
         scoreLabel.zPosition = 2
         containerNode.addChild(scoreLabel)
         
@@ -308,12 +349,13 @@ class LevelSelectionScene: SKScene {
             glowShape.lineWidth = 4
             glow.addChild(glowShape)
             
-            // Play button icon in lower left corner (slightly larger than previous)
-            let playButtonCircle = SKShapeNode(circleOfRadius: 13.2) // Increased by 10% from previous 12
-            playButtonCircle.fillColor = UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 0.8) // Green play button
-            playButtonCircle.strokeColor = UIColor.white
-            playButtonCircle.lineWidth = 1
-            playButtonCircle.position = CGPoint(x: -width/2 + 25, y: -height/2 + 25) // Positioned in corner
+            // Play button icon in lower left corner (scales with card)
+        let playButtonCircle = SKShapeNode(circleOfRadius: playRadius)
+        playButtonCircle.fillColor = UIColor(red: 0.18, green: 0.68, blue: 0.32, alpha: 0.95)
+        playButtonCircle.strokeColor = UIColor(white: 1.0, alpha: 0.8)
+        playButtonCircle.lineWidth = 1.5 * scale
+        // Mirror the right-side margin used by Best score
+        playButtonCircle.position = CGPoint(x: -width/2 + (14 * scale + playRadius), y: baselineY)
             playButtonCircle.zPosition = 4
             playButtonCircle.name = "playButton_\(level.id)" // Add ID to the button name
             containerNode.addChild(playButtonCircle)
@@ -321,12 +363,12 @@ class LevelSelectionScene: SKScene {
             // Play icon (triangle) - proportionally sized
             let playTriangle = SKShapeNode()
             let trianglePath = UIBezierPath()
-            trianglePath.move(to: CGPoint(x: -3.3, y: -4.4)) // Proportionally adjusted triangle (10% larger)
-            trianglePath.addLine(to: CGPoint(x: -3.3, y: 4.4))
-            trianglePath.addLine(to: CGPoint(x: 5.5, y: 0))
+            trianglePath.move(to: CGPoint(x: -3.8 * scale, y: -5.0 * scale))
+            trianglePath.addLine(to: CGPoint(x: -3.8 * scale, y: 5.0 * scale))
+            trianglePath.addLine(to: CGPoint(x: 6.2 * scale, y: 0))
             trianglePath.close()
             playTriangle.path = trianglePath.cgPath
-            playTriangle.fillColor = UIColor.white
+        playTriangle.fillColor = UIColor(white: 1.0, alpha: 0.95)
             playTriangle.strokeColor = UIColor.clear
             playTriangle.position = CGPoint(x: 1, y: 0) // Slight offset for visual centering
             playTriangle.name = "playIcon"
@@ -346,7 +388,7 @@ class LevelSelectionScene: SKScene {
         nextButton.alpha = (currentPage < totalPages - 1) ? 1.0 : 0.5
     }
     
-    private func addCloudsBackground() {
+    private func addCloudsBackground(into parent: SKNode) {
         // Create several clouds
         for _ in 0..<8 {
             let cloudWidth = CGFloat.random(in: 80...180)
@@ -360,7 +402,7 @@ class LevelSelectionScene: SKScene {
             let x = CGFloat.random(in: -20...(size.width + 20))
             let y = CGFloat.random(in: 100...(size.height - 100))
             cloud.position = CGPoint(x: x, y: y)
-            cloud.zPosition = -10
+            cloud.zPosition = UIConstants.Z.background
             
             // Add some variation to the cloud
             for _ in 0..<3 {
@@ -383,7 +425,7 @@ class LevelSelectionScene: SKScene {
             let moveForever = SKAction.repeatForever(moveSequence)
             
             cloud.run(moveForever)
-            addChild(cloud)
+            parent.addChild(cloud)
         }
     }
     

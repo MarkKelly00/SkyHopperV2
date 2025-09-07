@@ -43,7 +43,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Game parameters
     private var obstacleFrequency: TimeInterval = 3.0
-    private var obstacleSpeed: CGFloat = 120.0
+    var obstacleSpeed: CGFloat = 120.0
     private var powerUpFrequency: TimeInterval = 10.0
     
     // Power-up states
@@ -84,6 +84,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if let theme = currentLevel?.mapTheme { mapManager.currentMap = theme }
         mapManager.applyTheme(to: self)
         
+        // Lighting and grading
+        let lights = LightingSystem.addDefaultLights(to: self)
+        if DebugMenu.shared.lightingEnabled {
+            LightingSystem.applyLighting(to: self)
+        } else {
+            // Disable lighting on all sprites
+            enumerateChildNodes(withName: "//*") { node, _ in
+                if let s = node as? SKSpriteNode { s.lightingBitMask = 0 }
+            }
+        }
+        
+        let grade = VisualGradeNode()
+        grade.name = "visualGrade"
+        grade.zPosition = UIConstants.Z.ui - 1
+        addChild(grade)
+        // Wrap all content except lights into grade node
+        for child in children where !(child is SKLightNode) && child.name != "visualGrade" {
+            child.removeFromParent()
+            grade.addChild(child)
+        }
+        
         // Now create game elements with correct level settings
         setupGameElements()
         
@@ -120,6 +141,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Create score display
         createScoreDisplay()
+        
+        // Apply debug toggles
+        applyDebugToggles()
     }
 
     // Convenience helper to reinitialize core game elements after a reset
@@ -141,9 +165,17 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
            let level = LevelData.loadUnlockedLevels().first(where: { $0.id == levelId }) {
             currentLevel = level
             
-            // Apply level-specific settings
-            obstacleFrequency = level.obstaclePatterns.first?.name == "Forest Maze" ? 2.0 : level.mapTheme.obstacleFrequency
-            obstacleSpeed = level.mapTheme.obstacleSpeed
+        // Apply level-specific settings via canonical profiles
+        let profile: LevelProfile
+        switch level.difficulty {
+        case 1: profile = LevelProfiles.star1
+        case 2: profile = LevelProfiles.star2
+        case 3: profile = LevelProfiles.star3
+        default: profile = LevelProfiles.star4
+        }
+        physicsWorld.gravity = CGVector(dx: 0, dy: profile.gravityY)
+        obstacleFrequency = TimeInterval(profile.spawnInterval)
+        obstacleSpeed = profile.scrollSpeed
             powerUpFrequency = level.powerUpFrequency
         } else {
             // Default settings
@@ -997,6 +1029,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         
+        // Chance to add Yeti hang-glider hazards for harder mountain levels
+        if let level = currentLevel, level.difficulty >= 3 {
+            let chance = (level.difficulty >= 4) ? 40 : 25
+            if Bool.random(percentage: chance) {
+                createYetiGliderHazard(speedMultiplier: level.difficulty >= 4 ? 1.25 : 1.0)
+            }
+        }
+
         // Score node
         let scoreNode = SKNode()
         scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
@@ -1169,6 +1209,61 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Move across screen
         let move = SKAction.moveTo(x: -150, duration: TimeInterval((size.width + 250) / obstacleSpeed))
         shark.run(SKAction.sequence([move, .removeFromParent()]))
+    }
+
+    // Yeti hang glider hazard (for mountain levels)
+    private func createYetiGliderHazard(speedMultiplier: CGFloat = 1.0) {
+        let glider = SKNode()
+        glider.name = "yeti_glider_hazard"
+        glider.zPosition = 16
+        
+        // Glider wing
+        let wing = SKShapeNode(rectOf: CGSize(width: 44, height: 8), cornerRadius: 3)
+        wing.fillColor = UIColor(red: 0.75, green: 0.25, blue: 0.25, alpha: 1.0)
+        wing.strokeColor = UIColor(red: 0.4, green: 0.1, blue: 0.1, alpha: 1.0)
+        glider.addChild(wing)
+        
+        // Yeti body (white)
+        let yeti = SKShapeNode(ellipseOf: CGSize(width: 16, height: 20))
+        yeti.fillColor = UIColor(white: 0.96, alpha: 1.0)
+        yeti.strokeColor = UIColor(white: 0.8, alpha: 1.0)
+        yeti.position = CGPoint(x: 0, y: -12)
+        glider.addChild(yeti)
+        
+        // Rope lines
+        for dx in [-14, 14] {
+            let line = SKShapeNode()
+            let p = UIBezierPath()
+            p.move(to: CGPoint(x: dx, y: 0))
+            p.addLine(to: CGPoint(x: 0, y: -10))
+            line.path = p.cgPath
+            line.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+            line.lineWidth = 1
+            glider.addChild(line)
+        }
+        
+        // Swoosh telegraph
+        AudioManager.shared.playEffect(.collect)
+        
+        // Position and physics
+        let y = CGFloat.random(in: size.height * 0.45...size.height * 0.8)
+        glider.position = CGPoint(x: size.width + 100, y: y)
+        let physics = SKPhysicsBody(rectangleOf: CGSize(width: 46, height: 18))
+        physics.isDynamic = false
+        physics.categoryBitMask = obstacleCategory
+        physics.contactTestBitMask = playerCategory
+        physics.collisionBitMask = 0
+        glider.physicsBody = physics
+        addChild(glider)
+        
+        // Glide motion with slight sine wave
+        let duration = TimeInterval((size.width + 200) / (obstacleSpeed * speedMultiplier))
+        let move = SKAction.moveTo(x: -120, duration: duration)
+        let bob = SKAction.sequence([
+            SKAction.moveBy(x: 0, y: 12, duration: 0.7),
+            SKAction.moveBy(x: 0, y: -12, duration: 0.7)
+        ])
+        glider.run(SKAction.group([move, SKAction.repeatForever(bob)]), withKey: "glide")
     }
     
     // Space obstacles: realistic asteroids, space debris, and satellite wreckage (3-star difficulty)
@@ -1976,6 +2071,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Update game time
         gameTime = Date().timeIntervalSince1970 - gameStartTime
+
+        // Drive mountain hazards
+        updateMountainHazards(currentTime: currentTime)
+        // Step projectiles (snowballs)
+        enumerateChildNodes(withName: "snowball") { node, _ in
+            (node as? SnowballNode)?.step(currentTime: currentTime)
+        }
     }
     
     // MARK: - Physics Contact
