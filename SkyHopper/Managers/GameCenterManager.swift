@@ -22,27 +22,93 @@ class GameCenterManager: NSObject {
     
     // Initialize and authenticate the player
     func authenticatePlayer() {
+        // Check for all possible Game Center entitlement locations
+        let entitlementPaths = [
+            Bundle.main.path(forResource: "SkyHopper", ofType: "entitlements"),
+            Bundle.main.path(forResource: "SkyHopper/SkyHopper", ofType: "entitlements")
+        ]
+        let hasEntitlement = entitlementPaths.contains { $0 != nil }
+        
+        // Check for GameKit capability in various Info.plist files
+        let gameKitInfoPaths = [
+            Bundle.main.path(forResource: "GameKit-Info", ofType: "plist"),
+            Bundle.main.path(forResource: "GameKitInfo", ofType: "plist")
+        ]
+        let hasGameKitCapability = gameKitInfoPaths.contains { $0 != nil }
+        
+        // Check if gamekit is in the main Info.plist
+        var hasGameKitInMainPlist = false
+        if let capabilities = Bundle.main.infoDictionary?["UIRequiredDeviceCapabilities"] as? [String] {
+            hasGameKitInMainPlist = capabilities.contains("gamekit")
+        }
+        
+        // Log diagnostic information
+        print("Game Center authentication diagnostics:")
+        print("- Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
+        print("- Entitlement file found: \(hasEntitlement)")
+        print("- GameKit capability file found: \(hasGameKitCapability)")
+        print("- GameKit in main Info.plist: \(hasGameKitInMainPlist)")
+        
+        if !hasEntitlement && !hasGameKitCapability && !hasGameKitInMainPlist {
+            print("WARNING: No Game Center entitlement or GameKit capability found! Authentication will fail.")
+            print("To fix this issue, you need to:")
+            print("1. Add com.apple.developer.game-center entitlement to your project")
+            print("2. Add gamekit to UIRequiredDeviceCapabilities in Info.plist")
+            print("3. Enable Game Center capability in Xcode project settings")
+        }
+        
+        // Register for game center authentication notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAuthenticationChanged),
+            name: NSNotification.Name.GKPlayerAuthenticationDidChangeNotificationName,
+            object: nil
+        )
+        
+        // Try to manually inject the GameKit capability from our GameKitInfo.plist
+        if let gameKitInfoPath = gameKitInfoPaths.compactMap({ $0 }).first,
+           let gameKitDict = NSDictionary(contentsOfFile: gameKitInfoPath) as? [String: Any] {
+            
+            // Log that we're using the custom GameKit info
+            print("Using custom GameKit configuration from \(gameKitInfoPath)")
+            
+            // Try to modify the main bundle's info dictionary (this is a workaround and may not work)
+            if let bundleInfoDict = Bundle.main.infoDictionary as? NSMutableDictionary {
+                if let requiredCapabilities = gameKitDict["UIRequiredDeviceCapabilities"] as? [String] {
+                    bundleInfoDict["UIRequiredDeviceCapabilities"] = requiredCapabilities
+                }
+                if let compatMode = gameKitDict["GKGameCenterCompatibilityMode"] as? String {
+                    bundleInfoDict["GKGameCenterCompatibilityMode"] = compatMode
+                }
+            }
+        }
+        
         let localPlayer = GKLocalPlayer.local
         
+        // Set authentication handler
         localPlayer.authenticateHandler = { [weak self] viewController, error in
             guard let self = self else { return }
             
             if let viewController = viewController {
                 // Present the view controller for authentication
+                print("Game Center authentication requires UI interaction")
                 self.delegate?.presentGameCenterViewController(viewController)
             } else if localPlayer.isAuthenticated {
                 // Player successfully authenticated
                 self.isAuthenticated = true
                 self.authError = nil
+                print("Game Center authentication successful: \(localPlayer.displayName)")
                 
                 // Register for notifications
                 if #available(iOS 14.0, *) {
                     self.registerForGameCenterNotifications()
                 }
                 
-                // Load achievements and leaderboards
-                self.loadLeaderboards()
-                AchievementManager.shared.syncWithGameCenter()
+                // Load achievements and leaderboards with delay to ensure authentication is complete
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    self?.loadLeaderboards()
+                    AchievementManager.shared.syncWithGameCenter()
+                }
                 
                 // Notify delegate
                 self.delegate?.gameCenterAuthenticationChanged(true)
@@ -51,6 +117,17 @@ class GameCenterManager: NSObject {
                 self.isAuthenticated = false
                 self.authError = error
                 print("Game Center authentication failed: \(error?.localizedDescription ?? "Unknown error")")
+                
+                // Check if Game Center is available
+                if GKLocalPlayer.local.isUnderage {
+                    print("User is underage - Game Center access may be restricted")
+                }
+                
+                // Note: isMultiplayerGamingEnabled was removed in newer iOS versions
+                // We'll check authentication status instead
+                if !GKLocalPlayer.local.isAuthenticated {
+                    print("Player is not authenticated with Game Center")
+                }
                 
                 // Notify delegate
                 self.delegate?.gameCenterAuthenticationChanged(false)
@@ -63,7 +140,7 @@ class GameCenterManager: NSObject {
         // Modern way to register for notifications
         NotificationCenter.default.addObserver(self,
                                              selector: #selector(handleAuthenticationChanged),
-                                             name: NSNotification.Name("GKPlayerAuthenticationDidChangeNotificationName"),
+                                             name: NSNotification.Name.GKPlayerAuthenticationDidChangeNotificationName,
                                              object: nil)
     }
     

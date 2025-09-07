@@ -13,7 +13,32 @@ class GameViewController: UIViewController, GameCenterManagerDelegate {
         
         // Set up Game Center delegate
         gameCenterManager.delegate = self
-        gameCenterManager.authenticatePlayer()
+        
+        // Print Game Center capability information
+        print("GameKit capability check:")
+        if let capabilities = Bundle.main.infoDictionary?["UIRequiredDeviceCapabilities"] as? [String] {
+            print("UIRequiredDeviceCapabilities: \(capabilities)")
+            print("Has gamekit capability: \(capabilities.contains("gamekit"))")
+        } else {
+            print("No UIRequiredDeviceCapabilities found in Info.plist")
+        }
+        
+        // Check for entitlements file
+        let entitlementPaths = [
+            Bundle.main.bundlePath + "/SkyHopper.entitlements",
+            Bundle.main.bundlePath + "/Contents/Resources/SkyHopper.entitlements"
+        ]
+        for path in entitlementPaths {
+            if FileManager.default.fileExists(atPath: path) {
+                print("Found entitlements file at: \(path)")
+                break
+            }
+        }
+        
+        // Delay Game Center authentication slightly to ensure view controller is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.gameCenterManager.authenticatePlayer()
+        }
         
         // Configure the view
         if let view = self.view as! SKView? {
@@ -46,7 +71,19 @@ class GameViewController: UIViewController, GameCenterManagerDelegate {
     
     // Present Game Center view controller
     func presentGameCenterViewController(_ viewController: UIViewController) {
-        present(viewController, animated: true, completion: nil)
+        // Ensure we're presenting from the main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Check if we're already presenting something
+            if self.presentedViewController != nil {
+                self.dismiss(animated: true) { [weak self] in
+                    self?.present(viewController, animated: true, completion: nil)
+                }
+            } else {
+                self.present(viewController, animated: true, completion: nil)
+            }
+        }
     }
     
     // Dismiss Game Center view controller
