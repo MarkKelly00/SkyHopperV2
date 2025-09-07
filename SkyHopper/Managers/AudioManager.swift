@@ -141,10 +141,8 @@ class AudioManager {
     
     private func loadSoundEffect(_ effect: SoundEffect) {
         // Try to load the sound effect from the bundle
-        // First check in Resources/Audio/SFX (direct path)
-        if let url = Bundle.main.url(forResource: effect.rawValue, withExtension: "wav", subdirectory: "Resources/Audio/SFX") ??
-                   Bundle.main.url(forResource: effect.rawValue, withExtension: "mp3", subdirectory: "Resources/Audio/SFX") ??
-                   Bundle.main.url(forResource: effect.rawValue, withExtension: "wav", subdirectory: "Audio/SFX") ??
+        // Check in Audio/SFX directory
+        if let url = Bundle.main.url(forResource: effect.rawValue, withExtension: "wav", subdirectory: "Audio/SFX") ??
                    Bundle.main.url(forResource: effect.rawValue, withExtension: "mp3", subdirectory: "Audio/SFX") {
             do {
                 let player = try AVAudioPlayer(contentsOf: url)
@@ -175,8 +173,7 @@ class AudioManager {
         
         // Special case for crash and duck_crash from our new files
         if effect == .crash {
-            if let url = Bundle.main.url(forResource: "crash_FX", withExtension: "mp3", subdirectory: "Resources/Audio/SFX") ??
-                      Bundle.main.url(forResource: "crash_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
+            if let url = Bundle.main.url(forResource: "crash_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
                 do {
                     let player = try AVAudioPlayer(contentsOf: url)
                     player.prepareToPlay()
@@ -189,8 +186,7 @@ class AudioManager {
                 }
             }
         } else if effect == .duckCrash {
-            if let url = Bundle.main.url(forResource: "quack_FX", withExtension: "mp3", subdirectory: "Resources/Audio/SFX") ??
-                      Bundle.main.url(forResource: "quack_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
+            if let url = Bundle.main.url(forResource: "quack_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
                 do {
                     let player = try AVAudioPlayer(contentsOf: url)
                     player.prepareToPlay()
@@ -210,9 +206,8 @@ class AudioManager {
     }
     
     private func preloadMusic() {
-        // Try to load the main theme from Resources/Audio/Music
-        if let url = Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav", subdirectory: "Resources/Audio/Music") ??
-                   Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav", subdirectory: "Audio/Music") {
+        // Try to load the main theme from Audio/Music
+        if let url = Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav", subdirectory: "Audio/Music") {
             do {
                 musicPlayer = try AVAudioPlayer(contentsOf: url)
                 musicPlayer?.numberOfLoops = -1 // Loop indefinitely
@@ -403,8 +398,7 @@ class AudioManager {
                 soundtrackName = "menu_soundtrack"
             }
             
-            if let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav", subdirectory: "Resources/Audio/Music") ??
-                       Bundle.main.url(forResource: soundtrackName, withExtension: "wav", subdirectory: "Audio/Music") {
+            if let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav", subdirectory: "Audio/Music") {
                 do {
                     // Stop current music if playing
                     musicPlayer?.stop()
