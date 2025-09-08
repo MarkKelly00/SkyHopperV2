@@ -16,6 +16,7 @@ class AudioManager {
     private var effectsVolume: Float = 0.7
     private var isMusicEnabled = true
     private var areEffectsEnabled = true
+    private var isInitialized = false
     
     // Audio assets
     enum MusicTrack: String {
@@ -89,6 +90,12 @@ class AudioManager {
             name: NSNotification.Name("SpeedBoostDeactivated"),
             object: nil
         )
+        
+        // Mark initialization as complete - this prevents fallback sounds from playing during initialization
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.isInitialized = true
+            print("AudioManager initialization complete")
+        }
     }
     
     deinit {
@@ -140,10 +147,74 @@ class AudioManager {
     }
     
     private func loadSoundEffect(_ effect: SoundEffect) {
-        // Try to load the sound effect from the bundle
-        // Check in Audio/SFX directory
+        // Print debug info about bundle paths
+        if effect == .crash {
+            // Print bundle information for debugging
+            print("DEBUG: Bundle path = \(Bundle.main.bundlePath)")
+            
+            // List all resources in the bundle
+            if let resourcePath = Bundle.main.resourcePath {
+                print("DEBUG: Checking for audio files in bundle...")
+                let fileManager = FileManager.default
+                do {
+                    let audioFiles = try fileManager.contentsOfDirectory(atPath: resourcePath)
+                        .filter { $0.hasSuffix(".mp3") || $0.hasSuffix(".wav") }
+                    print("DEBUG: Found audio files in bundle: \(audioFiles)")
+                    
+                    // Check for Audio directory
+                    if fileManager.fileExists(atPath: "\(resourcePath)/Audio") {
+                        print("DEBUG: Audio directory exists in bundle")
+                        
+                        // Check for Audio/SFX directory
+                        if fileManager.fileExists(atPath: "\(resourcePath)/Audio/SFX") {
+                            print("DEBUG: Audio/SFX directory exists in bundle")
+                            
+                            // List files in Audio/SFX
+                            let sfxFiles = try fileManager.contentsOfDirectory(atPath: "\(resourcePath)/Audio/SFX")
+                            print("DEBUG: Files in Audio/SFX: \(sfxFiles)")
+                        } else {
+                            print("DEBUG: Audio/SFX directory NOT found in bundle")
+                        }
+                        
+                        // Check for Audio/Music directory
+                        if fileManager.fileExists(atPath: "\(resourcePath)/Audio/Music") {
+                            print("DEBUG: Audio/Music directory exists in bundle")
+                            
+                            // List files in Audio/Music
+                            let musicFiles = try fileManager.contentsOfDirectory(atPath: "\(resourcePath)/Audio/Music")
+                            print("DEBUG: Files in Audio/Music: \(musicFiles)")
+                        } else {
+                            print("DEBUG: Audio/Music directory NOT found in bundle")
+                        }
+                    } else {
+                        print("DEBUG: Audio directory NOT found in bundle")
+                    }
+                } catch {
+                    print("DEBUG: Error listing files: \(error)")
+                }
+            }
+        }
+        
+        // Try to load from the root directory first (where files are actually bundled)
+        if let url = Bundle.main.url(forResource: effect.rawValue, withExtension: "wav") ??
+                   Bundle.main.url(forResource: effect.rawValue, withExtension: "mp3") {
+            print("DEBUG: Found \(effect.rawValue) in root bundle")
+            do {
+                let player = try AVAudioPlayer(contentsOf: url)
+                player.prepareToPlay()
+                player.volume = effectsVolume
+                effectsPlayers[effect.rawValue] = player
+                print("DEBUG: Successfully loaded \(effect.rawValue) from root bundle")
+                return
+            } catch {
+                print("DEBUG: Error loading \(effect.rawValue) from root bundle: \(error)")
+            }
+        }
+        
+        // Try the Audio/SFX directory as fallback
         if let url = Bundle.main.url(forResource: effect.rawValue, withExtension: "wav", subdirectory: "Audio/SFX") ??
                    Bundle.main.url(forResource: effect.rawValue, withExtension: "mp3", subdirectory: "Audio/SFX") {
+            print("DEBUG: Found \(effect.rawValue) in Audio/SFX subdirectory")
             do {
                 let player = try AVAudioPlayer(contentsOf: url)
                 player.prepareToPlay()
@@ -173,7 +244,24 @@ class AudioManager {
         
         // Special case for crash and duck_crash from our new files
         if effect == .crash {
+            // Try with root directory first
+            if let url = Bundle.main.url(forResource: "crash_FX", withExtension: "mp3") {
+                print("DEBUG: Found crash_FX.mp3 in root bundle")
+                do {
+                    let player = try AVAudioPlayer(contentsOf: url)
+                    player.prepareToPlay()
+                    player.volume = effectsVolume
+                    effectsPlayers[effect.rawValue] = player
+                    print("DEBUG: Successfully loaded crash_FX.mp3 from root bundle")
+                    return
+                } catch {
+                    print("DEBUG: Error loading crash_FX.mp3 from root bundle: \(error)")
+                }
+            }
+            
+            // Try with Audio/SFX subdirectory as fallback
             if let url = Bundle.main.url(forResource: "crash_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
+                print("DEBUG: Found crash_FX.mp3 in Audio/SFX subdirectory")
                 do {
                     let player = try AVAudioPlayer(contentsOf: url)
                     player.prepareToPlay()
@@ -186,7 +274,24 @@ class AudioManager {
                 }
             }
         } else if effect == .duckCrash {
+            // Try with root directory first
+            if let url = Bundle.main.url(forResource: "quack_FX", withExtension: "mp3") {
+                print("DEBUG: Found quack_FX.mp3 in root bundle")
+                do {
+                    let player = try AVAudioPlayer(contentsOf: url)
+                    player.prepareToPlay()
+                    player.volume = effectsVolume
+                    effectsPlayers[effect.rawValue] = player
+                    print("DEBUG: Successfully loaded quack_FX.mp3 from root bundle")
+                    return
+                } catch {
+                    print("DEBUG: Error loading quack_FX.mp3 from root bundle: \(error)")
+                }
+            }
+            
+            // Try with Audio/SFX subdirectory as fallback
             if let url = Bundle.main.url(forResource: "quack_FX", withExtension: "mp3", subdirectory: "Audio/SFX") {
+                print("DEBUG: Found quack_FX.mp3 in Audio/SFX subdirectory")
                 do {
                     let player = try AVAudioPlayer(contentsOf: url)
                     player.prepareToPlay()
@@ -206,8 +311,27 @@ class AudioManager {
     }
     
     private func preloadMusic() {
-        // Try to load the main theme from Audio/Music
+        // Print debug info for music loading
+        print("DEBUG: Trying to load music files...")
+        
+        // Try to load the main theme from root directory first
+        if let url = Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav") {
+            print("DEBUG: Found menu_soundtrack.wav in root bundle")
+            do {
+                musicPlayer = try AVAudioPlayer(contentsOf: url)
+                musicPlayer?.numberOfLoops = -1 // Loop indefinitely
+                musicPlayer?.volume = musicVolume
+                musicPlayer?.prepareToPlay()
+                print("DEBUG: Successfully loaded menu_soundtrack.wav from root bundle")
+                return
+            } catch {
+                print("DEBUG: Error loading menu_soundtrack.wav from root bundle: \(error)")
+            }
+        }
+        
+        // Try to load the main theme from Audio/Music as fallback
         if let url = Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav", subdirectory: "Audio/Music") {
+            print("DEBUG: Found menu_soundtrack.wav in Audio/Music subdirectory")
             do {
                 musicPlayer = try AVAudioPlayer(contentsOf: url)
                 musicPlayer?.numberOfLoops = -1 // Loop indefinitely
@@ -240,12 +364,12 @@ class AudioManager {
         // Try to load the main theme from Sounds directory
         if let url = Bundle.main.url(forResource: MusicTrack.main.rawValue, withExtension: "mp3", subdirectory: "Sounds") {
             do {
-                musicPlayer = try AVAudioPlayer(contentsOf: url)
-                musicPlayer?.numberOfLoops = -1 // Loop indefinitely
+            musicPlayer = try AVAudioPlayer(contentsOf: url)
+            musicPlayer?.numberOfLoops = -1 // Loop indefinitely
                 musicPlayer?.volume = musicVolume
-                musicPlayer?.prepareToPlay()
+            musicPlayer?.prepareToPlay()
                 print("Loaded main theme music from Sounds directory")
-            } catch {
+        } catch {
                 print("Could not load main theme music: \(error)")
                 createFallbackMusic()
             }
@@ -255,6 +379,12 @@ class AudioManager {
     }
     
     private func createFallbackSoundEffect(for effect: SoundEffect) {
+        // Don't play fallback sounds during initialization
+        guard isInitialized else {
+            print("Skipping fallback sound during initialization for: \(effect.rawValue)")
+            return
+        }
+        
         // Create a system sound as fallback
         switch effect {
         case .jump:
@@ -398,6 +528,30 @@ class AudioManager {
                 soundtrackName = "menu_soundtrack"
             }
             
+            // Try to load from root directory first
+            if let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav") {
+                print("DEBUG: Found \(soundtrackName).wav in root bundle")
+                do {
+                    // Stop current music if playing
+                    musicPlayer?.stop()
+                    
+                    // Load and play the new theme
+                    musicPlayer = try AVAudioPlayer(contentsOf: url)
+                    musicPlayer?.numberOfLoops = -1
+                    musicPlayer?.volume = musicVolume
+                    musicPlayer?.prepareToPlay()
+                    musicPlayer?.play()
+                    
+                    print("DEBUG: Playing music theme from root bundle: \(soundtrackName)")
+                    isMusicPlaying = true
+                    return
+                } catch {
+                    print("DEBUG: Could not load theme music from root bundle for \(mapTheme): \(error)")
+                    // Fall through to Audio/Music directory
+                }
+            }
+            
+            // Try to load from Audio/Music as fallback
             if let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav", subdirectory: "Audio/Music") {
                 do {
                     // Stop current music if playing
@@ -569,10 +723,24 @@ class AudioManager {
         guard areEffectsEnabled else { return }
         
         if let player = effectsPlayers[effect.rawValue] {
-            // Clone the player to allow overlapping sounds
-            let clonedPlayer = player.copy() as! AVAudioPlayer
-            clonedPlayer.volume = effectsVolume
-            clonedPlayer.play()
+            // AVAudioPlayer doesn't support copy, so we need to create a new one with the same URL
+            if let url = player.url {
+                do {
+                    let newPlayer = try AVAudioPlayer(contentsOf: url)
+                    newPlayer.volume = effectsVolume
+                    newPlayer.prepareToPlay()
+                    newPlayer.play()
+                } catch {
+                    print("Error creating new player for effect \(effect.rawValue): \(error)")
+                    createFallbackSoundEffect(for: effect)
+                }
+            } else {
+                // If we can't get the URL, just play the original player
+                // This won't allow overlapping sounds of the same type
+                player.currentTime = 0
+                player.volume = effectsVolume
+                player.play()
+            }
         } else {
             print("Playing sound effect: \(effect.rawValue)")
             createFallbackSoundEffect(for: effect)

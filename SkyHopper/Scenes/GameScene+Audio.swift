@@ -5,6 +5,9 @@ extension GameScene {
     
     /// Sets up the audio for the current level
     func setupAudio() {
+        // Stop any currently playing music first
+        AudioManager.shared.stopBackgroundMusic()
+        
         // Get the current map theme from the level data or map manager
         let mapTheme = currentLevel?.mapTheme ?? MapManager.shared.currentMap
         
