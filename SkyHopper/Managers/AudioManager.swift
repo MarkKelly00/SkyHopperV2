@@ -598,9 +598,30 @@ class AudioManager {
             let levelId = getLevelId()
             
             // Special case for Stargate Escape level - use Dune/Stargate inspired theme
-            if levelId == "desert_escape" || levelId?.contains("stargate") == true {
+            if levelId == "desert_escape" || levelId?.contains("stargate") == true || mapTheme == .desert {
                 print("DEBUG: Using stargate theme track as fallback")
                 themeTrack = .stargate
+                
+                // Try to load the stargate soundtrack directly first
+                if let url = Bundle.main.url(forResource: "stargate_soundtrack", withExtension: "wav") ??
+                           Bundle.main.url(forResource: "stargate_soundtrack", withExtension: "mp3") ??
+                           Bundle.main.url(forResource: "stargate_soundtrack", withExtension: "wav", subdirectory: "Audio/Music") ??
+                           Bundle.main.url(forResource: "stargate_soundtrack", withExtension: "mp3", subdirectory: "Audio/Music") {
+                    print("DEBUG: Found stargate soundtrack file: \(url.lastPathComponent)")
+                    do {
+                        musicPlayer?.stop()
+                        musicPlayer = try AVAudioPlayer(contentsOf: url)
+                        musicPlayer?.numberOfLoops = -1
+                        musicPlayer?.volume = musicVolume
+                        musicPlayer?.prepareToPlay()
+                        musicPlayer?.play()
+                        print("DEBUG: Playing stargate soundtrack directly")
+                        isMusicPlaying = true
+                        return
+                    } catch {
+                        print("DEBUG: Error playing stargate soundtrack: \(error)")
+                    }
+                }
             } else {
                 // Map theme based music selection
                 switch mapTheme {
@@ -737,15 +758,27 @@ class AudioManager {
         // Check all possible ways to identify the Stargate Escape level
         print("DEBUG: Checking if we're in a Stargate level...")
         
-        // Direct file check for stargate soundtrack
+        // 1. First check if the current map theme is desert
+        if MapManager.shared.currentMap == .desert {
+            print("DEBUG: Current map theme is desert - likely Stargate level")
+            return true
+        }
+        
+        // 2. Check ResourcePath for stargate soundtrack file (both in Audio/Music and root)
         if let resourcePath = Bundle.main.resourcePath {
             let fileManager = FileManager.default
             
             // Check for stargate soundtrack in Audio/Music
-            if fileManager.fileExists(atPath: "\(resourcePath)/Audio/Music/stargate_soundtrack.wav") {
-                print("DEBUG: Found stargate_soundtrack.wav in Audio/Music")
+            let audioMusicPath = "\(resourcePath)/Audio/Music/stargate_soundtrack.wav"
+            let rootPathWav = "\(resourcePath)/stargate_soundtrack.wav"
+            let rootPathMp3 = "\(resourcePath)/stargate_soundtrack.mp3"
+            
+            if fileManager.fileExists(atPath: audioMusicPath) || 
+               fileManager.fileExists(atPath: rootPathWav) || 
+               fileManager.fileExists(atPath: rootPathMp3) {
+                print("DEBUG: Found stargate_soundtrack file")
                 
-                // 1. Check UserDefaults for level ID
+                // 3. Check UserDefaults for level ID
                 let userDefaults = UserDefaults.standard
                 let stargateKeys = ["desert_escape", "stargate_escape", "dune_escape", "stargate", "Stargate Escape"]
                 
@@ -761,7 +794,7 @@ class AudioManager {
                     }
                 }
                 
-                // 2. Check for any UserDefaults key/value containing stargate-related terms
+                // 4. Check for any UserDefaults key/value containing stargate-related terms
                 for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
                     if key.lowercased().contains("stargate") || 
                        key.lowercased().contains("desert") ||
@@ -778,21 +811,23 @@ class AudioManager {
                         return true
                     }
                 }
-                
-                // 3. As a fallback, check if the current map theme is desert
-                if let mapTheme = UserDefaults.standard.string(forKey: "currentMapTheme"),
-                   mapTheme.lowercased().contains("desert") {
-                    print("DEBUG: Desert map theme detected")
-                    return true
-                }
-                
-                // 4. For testing purposes, we'll just return true if we found the soundtrack file
-                print("DEBUG: Defaulting to stargate level since we found the soundtrack file")
-                return true
             }
         }
         
-        // 5. Check for notifications
+        // 5. Direct check for desert map theme
+        if MapManager.shared.currentMap == .desert {
+            print("DEBUG: Detected desert map theme - likely Stargate level")
+            return true
+        }
+        
+        // 6. Check if the level is desert_escape in UserDefaults
+        if let level = UserDefaults.standard.string(forKey: "currentLevel"), 
+           level.contains("desert") || level.contains("stargate") || level.contains("dune") {
+            print("DEBUG: Detected desert/stargate level from UserDefaults")
+            return true
+        }
+        
+        // 7. Check for notifications
         NotificationCenter.default.post(name: Notification.Name("RequestCurrentLevelInfo"), object: nil)
         print("DEBUG: Posted level info request notification")
         
@@ -803,7 +838,6 @@ class AudioManager {
     private func getLevelId() -> String? {
         // This is a simple method to check if we're in the "Stargate Escape" level
         // In a real implementation, you would get this from the game state
-        let levelKeys = ["desert_escape", "stargate_escape", "dune_escape"]
         let userDefaults = UserDefaults.standard
         
         // Print all UserDefaults keys for debugging
@@ -981,9 +1015,6 @@ class AudioManager {
         } else {
             // If we still don't have a player, try one more attempt to load the sound
             print("DEBUG: No player found for sound effect: \(effect.rawValue), attempting to load")
-            
-            // Try loading with explicit naming for special effects
-            var effectName = effect.rawValue
             
             // Check for Audio/SFX directory with file extension suffixes
             var url: URL? = nil
