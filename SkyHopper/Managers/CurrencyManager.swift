@@ -86,31 +86,37 @@ class CurrencyManager {
     // MARK: - Game Integration
     
     func awardCoinsForScore(_ score: Int) -> Int {
-        // Basic formula: 1 coin for every 10 points
-        let earnedCoins = score / 10
-        return addCoins(earnedCoins)
+        // More challenging formula: 1 coin for every 25 points
+        // This creates a slower progression that encourages IAP
+        let earnedCoins = score / 25
+        
+        // Ensure minimum reward of 1 coin for completing a level
+        let finalCoins = max(earnedCoins, 1)
+        return addCoins(finalCoins)
     }
     
     func getCoinMultiplier(for mapTheme: MapManager.MapTheme) -> Double {
-        // Different maps can have different coin rewards
+        // More conservative multipliers to slow progression
+        // Higher difficulty maps give slightly better rewards to encourage progression
         switch mapTheme {
         case .city:
-            return 1.0
+            return 0.8  // Reduced from 1.0
         case .desert:
-            return 1.3 // Slightly higher than forest but lower than mountain
+            return 1.0  // Reduced from 1.3
         case .forest:
-            return 1.2
+            return 0.9  // Reduced from 1.2
         case .mountain:
-            return 1.5
+            return 1.2  // Reduced from 1.5
         case .space:
-            return 2.0
+            return 1.5  // Reduced from 2.0
         case .underwater:
-            return 1.8
-        // Seasonal maps have bonus multipliers
+            return 1.3  // Reduced from 1.8
+        // Seasonal maps still have bonus multipliers but reduced
+        // These create time-limited opportunities for players to earn more
         case .halloween, .christmas:
-            return 2.5
+            return 2.0  // Reduced from 2.5
         case .summer:
-            return 2.0
+            return 1.7  // Reduced from 2.0
         }
     }
     
@@ -144,7 +150,7 @@ class CurrencyManager {
                 description: aircraft.description,
                 type: .character,
                 coinPrice: aircraft.unlockCost,
-                gemPrice: aircraft.unlockCost / 100, // 100 coins = 1 gem
+                gemPrice: aircraft.unlockCost / 150, // 150 coins = 1 gem (more favorable gem value)
                 isPurchased: aircraft.isUnlocked
             ))
         }
@@ -154,19 +160,28 @@ class CurrencyManager {
             StoreItem(
                 id: "consumable_coins_small",
                 name: "Coin Pack",
-                description: "500 coins to spend in the store",
+                description: "750 coins to spend in the store", // Increased from 500
                 type: .consumable,
                 coinPrice: nil,
-                gemPrice: 10,
+                gemPrice: 10, // Same price, better value proposition
                 isPurchased: false
             ),
             StoreItem(
                 id: "consumable_coins_medium",
                 name: "Coin Chest",
-                description: "1500 coins to spend in the store",
+                description: "2500 coins to spend in the store", // Increased from 1500
                 type: .consumable,
                 coinPrice: nil,
-                gemPrice: 25,
+                gemPrice: 25, // Same price, better value proposition
+                isPurchased: false
+            ),
+            StoreItem(
+                id: "consumable_coins_large",
+                name: "Coin Vault",
+                description: "6000 coins to spend in the store", // New premium option
+                type: .consumable,
+                coinPrice: nil,
+                gemPrice: 50, // Best value proposition
                 isPurchased: false
             ),
             StoreItem(
@@ -174,8 +189,8 @@ class CurrencyManager {
                 name: "Extra Life",
                 description: "One-time use extra life for your next run",
                 type: .consumable,
-                coinPrice: 1000,
-                gemPrice: 5,
+                coinPrice: 1500, // Increased from 1000
+                gemPrice: 8, // Increased from 5
                 isPurchased: PowerUpManager.shared.hasExtraLife
             ),
             StoreItem(
@@ -226,9 +241,11 @@ class CurrencyManager {
         } else if item.id == "consumable_extraLife" {
             UserDefaults.standard.set(true, forKey: "hasExtraLife")
         } else if item.id == "consumable_coins_small" {
-            _ = addCoins(500)
+            _ = addCoins(750) // Increased from 500
         } else if item.id == "consumable_coins_medium" {
-            _ = addCoins(1500)
+            _ = addCoins(2500) // Increased from 1500
+        } else if item.id == "consumable_coins_large" {
+            _ = addCoins(6000) // New premium option
         } else if item.id == "removal_ads" {
             UserDefaults.standard.set(true, forKey: "adsRemoved")
         }

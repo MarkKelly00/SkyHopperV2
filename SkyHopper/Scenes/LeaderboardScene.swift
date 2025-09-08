@@ -181,7 +181,7 @@ class LeaderboardScene: SKScene {
                     }
                     
                     // Process entries
-                    for (index, entry) in entries.enumerated() {
+                    for entry in entries {
                         let leaderboardEntry = LeaderboardEntry(
                             rank: entry.rank,
                             playerName: entry.player.displayName,
@@ -392,7 +392,7 @@ class LeaderboardScene: SKScene {
 
     private func snapTabsToNearest() {
         // Snap tabs so the nearest tab centers under the middle of the screen
-        guard let first = mapTabs.first else { return }
+        guard !mapTabs.isEmpty else { return }
         // Compute target centers in world space
         let desiredX = size.width / 2
         // Find tab whose converted position is closest to center

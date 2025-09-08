@@ -56,7 +56,7 @@ class CharacterManager {
                 description: "The classic helicopter with balanced stats",
                 speed: 1.0,
                 size: CGSize(width: 50, height: 30),
-                unlockCost: 500, // Now costs coins since it's not the default
+                unlockCost: 750, // Increased from 500
                 isUnlocked: true,
                 specialAbility: "None - Balanced starter craft"
             ),
@@ -66,7 +66,7 @@ class CharacterManager {
                 description: "Fast jet with sleek handling",
                 speed: 1.5,
                 size: CGSize(width: 60, height: 20), // Longer but thinner
-                unlockCost: 5000,
+                unlockCost: 8000, // Increased from 5000
                 isUnlocked: false,
                 specialAbility: "Afterburner - Temporary speed boost cooldown reduced by 50%"
             ),
@@ -76,7 +76,7 @@ class CharacterManager {
                 description: "Personal jetpack with unique controls",
                 speed: 1.2,
                 size: CGSize(width: 30, height: 40), // Small but tall
-                unlockCost: 3000,
+                unlockCost: 5000, // Increased from 3000
                 isUnlocked: false,
                 specialAbility: "Hover - Briefly pause mid-air once per run"
             ),
@@ -86,7 +86,7 @@ class CharacterManager {
                 description: "Classic WWII fighter with style",
                 speed: 1.1,
                 size: CGSize(width: 55, height: 25),
-                unlockCost: 4000,
+                unlockCost: 6500, // Increased from 4000
                 isUnlocked: false,
                 specialAbility: "Barrel Roll - Invincibility during roll animation"
             ),
@@ -96,7 +96,7 @@ class CharacterManager {
                 description: "Old-school biplane with charm",
                 speed: 1.0,
                 size: CGSize(width: 56, height: 34),
-                unlockCost: 2000,
+                unlockCost: 3500, // Increased from 2000
                 isUnlocked: false,
                 specialAbility: "Lucky Clover - Higher chance of power-up spawns"
             ),
@@ -106,7 +106,7 @@ class CharacterManager {
                 description: "Majestic bird with natural flying ability",
                 speed: 1.2,
                 size: CGSize(width: 52, height: 32),
-                unlockCost: 10000,
+                unlockCost: 15000, // Increased from 10000
                 isUnlocked: false,
                 specialAbility: "Wind Rider - Less affected by obstacle patterns"
             ),
@@ -116,7 +116,7 @@ class CharacterManager {
                 description: "Smooth hovering craft with perfect balance",
                 speed: 1.1,
                 size: CGSize(width: 56, height: 26),
-                unlockCost: 6000,
+                unlockCost: 10000, // Increased from 6000
                 isUnlocked: false,
                 specialAbility: "Tractor Beam - Attract nearby coins briefly"
             ),
@@ -126,7 +126,7 @@ class CharacterManager {
                 description: "Quirky duck with surprising skills",
                 speed: 0.8, // Slowest
                 size: CGSize(width: 40, height: 35), // Small size helps compensate
-                unlockCost: 7500,
+                unlockCost: 12000, // Increased from 7500
                 isUnlocked: false,
                 specialAbility: "Water Landing - Survive one water crash per run"
             ),
@@ -136,7 +136,7 @@ class CharacterManager {
                 description: "Legendary creature with fiery breath",
                 speed: 1.3,
                 size: CGSize(width: 60, height: 40), // Largest
-                unlockCost: 25000, // Most expensive
+                unlockCost: 40000, // Increased from 25000, premium flagship character
                 isUnlocked: false,
                 specialAbility: "Fire Breath - Burn through one obstacle per run"
             ),
@@ -146,7 +146,7 @@ class CharacterManager {
                 description: "Advanced stealth tactical fighter with superior maneuverability",
                 speed: 1.6, // Fastest aircraft
                 size: CGSize(width: 60, height: 20), // Long and sleek
-                unlockCost: 15000,
+                unlockCost: 25000,
                 isUnlocked: false,
                 specialAbility: "Stealth Mode - Temporarily invisible to obstacles"
             )

@@ -1,6 +1,9 @@
 import SpriteKit
 
-class SettingsScene: SKScene {
+class SettingsScene: SKScene, CurrencyManagerDelegate {
+    
+    // Currency manager
+    private let currencyManager = CurrencyManager.shared
     
     // Audio manager
     private let audioManager = AudioManager.shared
@@ -19,6 +22,15 @@ class SettingsScene: SKScene {
     override func didMove(to view: SKView) {
         setupScene()
         setupUI()
+        
+        // Register as currency delegate to update display
+        currencyManager.delegate = self
+    }
+    
+    // MARK: - Currency Manager Delegate
+    
+    func currencyDidChange() {
+        SafeAreaTopBar.updateCurrency(in: topBar)
     }
     
     private func setupScene() {

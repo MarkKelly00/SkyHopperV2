@@ -1,7 +1,10 @@
 import SpriteKit
 import GameKit
 
-class LevelSelectionScene: SKScene {
+class LevelSelectionScene: SKScene, CurrencyManagerDelegate {
+    
+    // Currency manager
+    private let currencyManager = CurrencyManager.shared
     
     // Level data
     private var levels: [LevelData] = []
@@ -25,6 +28,15 @@ class LevelSelectionScene: SKScene {
         loadLevels()
         setupUI()
         setupLevelDisplay()
+        
+        // Register as currency delegate to update display
+        currencyManager.delegate = self
+    }
+    
+    // MARK: - Currency Manager Delegate
+    
+    func currencyDidChange() {
+        SafeAreaTopBar.updateCurrency(in: topBar)
     }
     
     private func setupScene() {
@@ -190,7 +202,8 @@ class LevelSelectionScene: SKScene {
         
         // Force single line with dynamically scaled font size
         titleLabel.numberOfLines = 1
-        let maxWidth = width - 32 // Maximum width for the title
+        // Width constraint for the title - used for font size calculation
+        let titleWidthConstraint = width - 32
         
         // Start with a base font size and scale down if needed
         let baseFontSize = 22.0

@@ -24,7 +24,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Level properties
     private var levelId: String?
-    private var currentLevel: LevelData?
+    // Made internal for GameScene+Audio extension
+    var currentLevel: LevelData?
     
     // Physics categories
     private let playerCategory: UInt32 = 1
@@ -47,7 +48,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private var powerUpFrequency: TimeInterval = 10.0
     
     // Power-up states
-    private var isInvincible = false
+    // Made internal for GameScene+Audio extension
+    var isInvincible = false
     private var invincibilityCount = 0
     private var isSpeedBoostActive = false
     
@@ -84,8 +86,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if let theme = currentLevel?.mapTheme { mapManager.currentMap = theme }
         mapManager.applyTheme(to: self)
         
+        // Set up audio for the current level
+        setupAudio()
+        
         // Lighting and grading
-        let lights = LightingSystem.addDefaultLights(to: self)
+        _ = LightingSystem.addDefaultLights(to: self) // Using _ to ignore unused return value
         if DebugMenu.shared.lightingEnabled {
             LightingSystem.applyLighting(to: self)
         } else {
@@ -2051,8 +2056,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let jumpImpulse = CGVector(dx: 0, dy: 12)
         player.physicsBody?.applyImpulse(jumpImpulse)
         
-        // Play jump sound
-        audioManager.playEffect(.jump)
+        // Play jump sound with theme-specific effects
+        playPlayerSound(action: "jump")
     }
     
     // MARK: - Game Loop
@@ -2115,6 +2120,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Check if player hit a stargate portal (special desert level obstacle)
         if let portalNode = obstacle, portalNode.name == "stargate_portal" {
             // Player is sucked into the portal - custom game over
+            playPlayerSound(action: "portal")
             gameOverWithStargate(portal: portalNode)
             return
         }
@@ -2463,6 +2469,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Always increment score by 1 (or multiplier if active)
         score += 1 * (powerUpManager.scoreMultiplier)
         
+        // Play collect sound
+        playPlayerSound(action: "collect")
+        
         // Update score label
         updateScore()
         
@@ -2530,7 +2539,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             showPowerUpMessage(for: powerUpType)
             
             // Play power-up sound
-            audioManager.playEffect(.collect)
+            playPlayerSound(action: "powerup")
             
             // Track power-up collection
             playerData.recordPowerUpCollected()
@@ -2682,6 +2691,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         isGameOver = true
         isGameStarted = false
+        
+        // Play game over sound
+        playGameOverSound()
         
         // Check if player has an extra life
         if powerUpManager.hasExtraLife {

@@ -1,6 +1,6 @@
 import SpriteKit
 
-class CharacterSelectionScene: SKScene {
+class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     
     // Character manager
     private let characterManager = CharacterManager.shared
@@ -23,9 +23,19 @@ class CharacterSelectionScene: SKScene {
     override func didMove(to view: SKView) {
         setupScene()
         setupUI()
+        
+        // Register as currency delegate to update display
+        currencyManager.delegate = self
+        
         #if DEBUG
         UILinter.run(scene: self, topBar: topBar)
         #endif
+    }
+    
+    // MARK: - Currency Manager Delegate
+    
+    func currencyDidChange() {
+        SafeAreaTopBar.updateCurrency(in: topBar)
     }
     
     private func setupScene() {

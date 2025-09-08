@@ -329,10 +329,12 @@ class AchievementManager {
             )
         }
         
-        // Update Game Center if available
-        if let gameKitID = achievement.gameKitID {
-            let gameKitAchievement = GKAchievement(identifier: gameKitID)
+        // Update Game Center if available and player is authenticated
+        if let gameKitID = achievement.gameKitID, GKLocalPlayer.local.isAuthenticated {
+            let gameKitAchievement = GKAchievement(identifier: gameKitID, player: GKLocalPlayer.local)
             gameKitAchievement.percentComplete = achievement.progress * 100.0
+            gameKitAchievement.showsCompletionBanner = true
+            
             GKAchievement.report([gameKitAchievement]) { error in
                 if let error = error {
                     print("Error reporting achievement: \(error.localizedDescription)")
@@ -370,8 +372,24 @@ class AchievementManager {
     // MARK: - Game Center Integration
     
     func syncWithGameCenter() {
+        // Only attempt to sync if player is authenticated
+        guard GKLocalPlayer.local.isAuthenticated else {
+            print("Cannot sync achievements - player not authenticated")
+            return
+        }
+        
         GKAchievement.loadAchievements { [weak self] (gkAchievements, error) in
-            guard let self = self, error == nil, let gkAchievements = gkAchievements else { return }
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("Error loading achievements from Game Center: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let gkAchievements = gkAchievements else { 
+                print("No achievements returned from Game Center")
+                return 
+            }
             
             for gkAchievement in gkAchievements {
                 if let index = self.achievements.firstIndex(where: { $0.gameKitID == gkAchievement.identifier }) {

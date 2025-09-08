@@ -2,6 +2,16 @@ import SpriteKit
 
 /// Helper to create a consistent safe-area top bar with a back button and centered title.
 final class SafeAreaTopBar {
+    /// Updates the currency display in the top bar with current values from CurrencyManager
+    static func updateCurrency(in topBar: SKNode) {
+        let currencyManager = CurrencyManager.shared
+        if let coinsLabel = topBar.childNode(withName: "topbar_coinsLabel") as? SKLabelNode {
+            coinsLabel.text = "\(currencyManager.getCoins())"
+        }
+        if let gemsLabel = topBar.childNode(withName: "topbar_gemsLabel") as? SKLabelNode {
+            gemsLabel.text = "\(currencyManager.getGems())"
+        }
+    }
     static func build(in scene: SKScene, title: String, backAction: @escaping () -> Void) -> SKNode {
         let container = SKNode()
         container.zPosition = UIConstants.Z.topBar
@@ -62,7 +72,7 @@ final class SafeAreaTopBar {
         coinsIcon.zPosition = UIConstants.Z.ui
         container.addChild(coinsIcon)
 
-        let coinsLabel = SKLabelNode(text: "0")
+        let coinsLabel = SKLabelNode(text: "\(CurrencyManager.shared.getCoins())")
         coinsLabel.name = "topbar_coinsLabel"
         coinsLabel.fontName = UIConstants.Text.mediumFont
         coinsLabel.fontSize = 16
@@ -78,7 +88,7 @@ final class SafeAreaTopBar {
         gemsIcon.zPosition = UIConstants.Z.ui
         container.addChild(gemsIcon)
 
-        let gemsLabel = SKLabelNode(text: "0")
+        let gemsLabel = SKLabelNode(text: "\(CurrencyManager.shared.getGems())")
         gemsLabel.name = "topbar_gemsLabel"
         gemsLabel.fontName = UIConstants.Text.mediumFont
         gemsLabel.fontSize = 16

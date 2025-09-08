@@ -1,6 +1,6 @@
 import SpriteKit
 
-class ShopScene: SKScene {
+class ShopScene: SKScene, CurrencyManagerDelegate {
     
     // Currency manager
     private let currencyManager = CurrencyManager.shared
@@ -28,9 +28,19 @@ class ShopScene: SKScene {
         setupScene()
         setupUI()
         showTabContent(.coins)
+        
+        // Register as currency delegate to update display
+        currencyManager.delegate = self
+        
         #if DEBUG
         UILinter.run(scene: self, topBar: topBar)
         #endif
+    }
+    
+    // MARK: - Currency Manager Delegate
+    
+    func currencyDidChange() {
+        SafeAreaTopBar.updateCurrency(in: topBar)
     }
     
     private func setupScene() {
