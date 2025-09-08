@@ -85,8 +85,9 @@ class MainMenuScene: SKScene {
         // Stop any currently playing music
         AudioManager.shared.stopBackgroundMusic()
         
-        // Play the menu soundtrack
-        AudioManager.shared.playBackgroundMusic()
+        // Force menu soundtrack to play by setting the map theme to nil
+        // This ensures we get the default menu music, not level-specific music
+        AudioManager.shared.playMenuMusic()
     }
     
     // MARK: - Setup Methods

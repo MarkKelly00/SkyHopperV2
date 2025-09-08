@@ -2132,6 +2132,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 SKAction.colorize(with: .yellow, colorBlendFactor: 0.9, duration: 0.1),
                 SKAction.fadeOut(withDuration: 0.2)
             ])
+            
+            // Play destroy object sound
+            playPlayerSound(action: "destroyobject")
+            
             let explosion = SKAction.run {
                 // Create explosion effect
                 let explosion = SKEmitterNode()
@@ -2538,8 +2542,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             // Show power-up message
             showPowerUpMessage(for: powerUpType)
             
-            // Play power-up sound
-            playPlayerSound(action: "powerup")
+            // Play specific power-up sound based on type
+            switch powerUpType {
+            case .star:
+                playPlayerSound(action: "starpower")
+            case .multiplier:
+                playPlayerSound(action: "multiplier")
+            case .magnet:
+                playPlayerSound(action: "magnify")
+            case .ghost:
+                playPlayerSound(action: "ghost")
+            case .shield:
+                playPlayerSound(action: "forcefield")
+            default:
+                // Use generic power-up sound for other types
+                playPlayerSound(action: "powerup")
+            }
             
             // Track power-up collection
             playerData.recordPowerUpCollected()

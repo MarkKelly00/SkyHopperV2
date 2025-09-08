@@ -40,6 +40,18 @@ extension GameScene {
             AudioManager.shared.playEffect(.gemCollect)
         case "powerup":
             AudioManager.shared.playEffect(.powerUp)
+        case "starpower":
+            AudioManager.shared.playEffect(.starPower)
+        case "multiplier":
+            AudioManager.shared.playEffect(.multiplier)
+        case "magnify":
+            AudioManager.shared.playEffect(.magnify)
+        case "ghost":
+            AudioManager.shared.playEffect(.ghost)
+        case "forcefield":
+            AudioManager.shared.playEffect(.forcefield)
+        case "destroyobject":
+            AudioManager.shared.playEffect(.destroyObject)
         case "gameOver":
             AudioManager.shared.playEffect(.gameOver)
         case "achievement":

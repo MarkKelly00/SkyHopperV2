@@ -59,6 +59,13 @@ class AudioManager {
         case coinCollect = "coin_collect"
         case gemCollect = "gem_collect"
         case unlock = "unlock"
+        // Power-up specific sounds
+        case starPower = "starpower_FX"
+        case multiplier = "multiplier_FX"
+        case magnify = "magnify_FX"
+        case ghost = "ghost_FX"
+        case forcefield = "forcefield_FX"
+        case destroyObject = "destroy_object_FX"
         // Theme-specific sounds
         case explosion = "explosion"
         case splash = "splash"
@@ -432,6 +439,20 @@ class AudioManager {
         case .powerUp:
             SystemSoundID.play(.uiKeyPressed)
             
+        // Power-up specific sounds
+        case .starPower:
+            playSequence([.uiSuccess, .uiSuccess])
+        case .multiplier:
+            playSequence([.uiKeyPressed, .uiSuccess])
+        case .magnify:
+            SystemSoundID.play(.uiTock)
+        case .ghost:
+            playSequence([.uiTock, .uiTock, .uiTock])
+        case .forcefield:
+            playSequence([.uiSuccess, .uiKeyPressed])
+        case .destroyObject:
+            playSequence([.uiError, .uiError])
+            
         // Theme-specific sounds
         case .explosion:
             SystemSoundID.play(.uiError)
@@ -471,6 +492,37 @@ class AudioManager {
     }
     
     // MARK: - Music Control
+    
+    /// Plays the menu soundtrack specifically
+    func playMenuMusic() {
+        guard isMusicEnabled else { return }
+        
+        // Stop any current music
+        stopBackgroundMusic()
+        
+        // Try to load the menu soundtrack from root directory
+        if let url = Bundle.main.url(forResource: "menu_soundtrack", withExtension: "wav") {
+            print("Playing menu soundtrack")
+            do {
+                musicPlayer = try AVAudioPlayer(contentsOf: url)
+                musicPlayer?.numberOfLoops = -1 // Loop indefinitely
+                musicPlayer?.volume = musicVolume
+                musicPlayer?.prepareToPlay()
+                musicPlayer?.play()
+                isMusicPlaying = true
+                return
+            } catch {
+                print("Error playing menu soundtrack: \(error)")
+                // Fall through to default music
+            }
+        } else {
+            print("Menu soundtrack not found, falling back to default music")
+            // Fall through to default music
+        }
+        
+        // If menu soundtrack wasn't found, use default music
+        playBackgroundMusic()
+    }
     
     func playBackgroundMusic(for mapTheme: MapManager.MapTheme? = nil) {
         guard isMusicEnabled else { return }
