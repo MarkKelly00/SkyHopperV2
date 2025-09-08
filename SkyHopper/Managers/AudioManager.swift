@@ -534,6 +534,24 @@ class AudioManager {
             
             // Special case for Stargate Escape level - use Dune/Stargate inspired theme
             if levelId == "desert_escape" || levelId?.contains("stargate") == true {
+                // Try to load the stargate soundtrack directly
+                if let url = Bundle.main.url(forResource: "stargate_soundtrack", withExtension: "wav", subdirectory: "Audio/Music") {
+                    print("Playing stargate soundtrack")
+                    do {
+                        musicPlayer = try AVAudioPlayer(contentsOf: url)
+                        musicPlayer?.numberOfLoops = -1 // Loop indefinitely
+                        musicPlayer?.volume = musicVolume
+                        musicPlayer?.prepareToPlay()
+                        musicPlayer?.play()
+                        isMusicPlaying = true
+                        return
+                    } catch {
+                        print("Error playing stargate soundtrack: \(error)")
+                        // Fall through to default theme track
+                    }
+                } else {
+                    print("Stargate soundtrack not found, falling back to theme track")
+                }
                 themeTrack = .stargate
             } else {
                 // Map theme based music selection

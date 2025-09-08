@@ -2544,15 +2544,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
             // Play specific power-up sound based on type
             switch powerUpType {
-            case .star:
+            case .speedBoost:
                 playPlayerSound(action: "starpower")
             case .multiplier:
                 playPlayerSound(action: "multiplier")
-            case .magnet:
+            case .shrink:
                 playPlayerSound(action: "magnify")
             case .ghost:
                 playPlayerSound(action: "ghost")
-            case .shield:
+            case .shield, .shopShield:
                 playPlayerSound(action: "forcefield")
             default:
                 // Use generic power-up sound for other types

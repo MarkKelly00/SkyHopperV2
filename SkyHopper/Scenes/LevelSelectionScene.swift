@@ -203,7 +203,7 @@ class LevelSelectionScene: SKScene, CurrencyManagerDelegate {
         // Force single line with dynamically scaled font size
         titleLabel.numberOfLines = 1
         // Width constraint for the title - used for font size calculation
-        let titleWidthConstraint = width - 32
+        let _ = width - 32 // Constraint is used implicitly in the layout calculations
         
         // Start with a base font size and scale down if needed
         let baseFontSize = 22.0
