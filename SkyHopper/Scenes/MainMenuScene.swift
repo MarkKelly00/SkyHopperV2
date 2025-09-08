@@ -74,6 +74,19 @@ class MainMenuScene: SKScene {
         // Track daily login and check for challenges
         PlayerData.shared.trackDailyLogin()
         checkForDailyRewards()
+        
+        // Play menu music
+        setupAudio()
+    }
+    
+    // MARK: - Audio Setup
+    
+    private func setupAudio() {
+        // Stop any currently playing music
+        AudioManager.shared.stopBackgroundMusic()
+        
+        // Play the menu soundtrack
+        AudioManager.shared.playBackgroundMusic()
     }
     
     // MARK: - Setup Methods

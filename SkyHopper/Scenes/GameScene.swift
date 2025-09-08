@@ -2917,6 +2917,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             node.removeFromParent()
         }
         
+        // Restart audio for the current level
+        setupAudio()
+        
         enumerateChildNodes(withName: "tempTargetNode") { node, _ in
             node.removeFromParent()
         }
