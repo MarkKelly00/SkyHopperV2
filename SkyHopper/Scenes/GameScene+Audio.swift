@@ -72,7 +72,14 @@ extension GameScene {
     /// Plays the game over sound and stops background music
     func playGameOverSound() {
         AudioManager.shared.stopBackgroundMusic()
-        AudioManager.shared.playEffect(.gameOver)
+        
+        // Play crash sound first, then game over sound
+        playPlayerSound(action: "crash")
+        
+        // Schedule game over sound after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            AudioManager.shared.playEffect(.gameOver)
+        }
     }
     
     /// Updates audio based on player state

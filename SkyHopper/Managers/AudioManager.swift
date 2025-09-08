@@ -155,9 +155,11 @@ class AudioManager {
     
     private func loadSoundEffect(_ effect: SoundEffect) {
         // Print debug info about bundle paths
-        if effect == .crash {
+        if effect == .crash || effect == .starPower || effect == .multiplier || effect == .magnify || 
+           effect == .ghost || effect == .forcefield || effect == .destroyObject {
             // Print bundle information for debugging
             print("DEBUG: Bundle path = \(Bundle.main.bundlePath)")
+            print("DEBUG: Loading sound effect: \(effect.rawValue)")
             
             // List all resources in the bundle
             if let resourcePath = Bundle.main.resourcePath {
@@ -179,6 +181,12 @@ class AudioManager {
                             // List files in Audio/SFX
                             let sfxFiles = try fileManager.contentsOfDirectory(atPath: "\(resourcePath)/Audio/SFX")
                             print("DEBUG: Files in Audio/SFX: \(sfxFiles)")
+                            
+                            // Check if our specific effect file exists
+                            let hasWav = sfxFiles.contains("\(effect.rawValue).wav")
+                            let hasMp3 = sfxFiles.contains("\(effect.rawValue).mp3")
+                            print("DEBUG: \(effect.rawValue).wav exists in Audio/SFX: \(hasWav)")
+                            print("DEBUG: \(effect.rawValue).mp3 exists in Audio/SFX: \(hasMp3)")
                         } else {
                             print("DEBUG: Audio/SFX directory NOT found in bundle")
                         }
@@ -691,9 +699,32 @@ class AudioManager {
         let levelKeys = ["desert_escape", "stargate_escape", "dune_escape"]
         let userDefaults = UserDefaults.standard
         
-        for key in levelKeys {
-            if userDefaults.string(forKey: "currentLevel") == key {
-                return key
+        // Print all UserDefaults keys for debugging
+        print("DEBUG: Current UserDefaults keys:")
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+            if key.contains("level") || key.contains("Level") {
+                print("DEBUG: \(key) = \(value)")
+            }
+        }
+        
+        // Check for currentLevel key
+        if let currentLevel = userDefaults.string(forKey: "currentLevel") {
+            print("DEBUG: Found currentLevel in UserDefaults: \(currentLevel)")
+            return currentLevel
+        }
+        
+        // Check for lastPlayedLevel key
+        if let lastPlayedLevel = userDefaults.string(forKey: "lastPlayedLevel") {
+            print("DEBUG: Found lastPlayedLevel in UserDefaults: \(lastPlayedLevel)")
+            return lastPlayedLevel
+        }
+        
+        // Check if any level key contains "stargate"
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() {
+            if let stringValue = value as? String, 
+               (stringValue.lowercased().contains("stargate") || key.lowercased().contains("stargate")) {
+                print("DEBUG: Found stargate reference in UserDefaults: \(key) = \(value)")
+                return "stargate_escape"
             }
         }
         
