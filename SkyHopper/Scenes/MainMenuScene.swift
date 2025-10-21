@@ -43,6 +43,7 @@ class MainMenuScene: SKScene {
     private var coinsLabel: SKLabelNode!
     private var gemsLabel: SKLabelNode!
     private var highScoreLabel: SKLabelNode!
+    private var mapNameLabel: SKLabelNode!
     
     // Animated elements
     private var helicopterNode: SKNode!
@@ -57,7 +58,6 @@ class MainMenuScene: SKScene {
         setupScene()
         setupUI()
         setupAnimations()
-        loadPlayerData()
         
         // Initialize Game Center
         gameCenterManager = GameCenterManager()
@@ -70,6 +70,11 @@ class MainMenuScene: SKScene {
             name: NSNotification.Name("CurrencyChanged"),
             object: nil
         )
+        
+        // Load player data after a small delay to ensure UI is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.loadPlayerData()
+        }
         
         // Track daily login and check for challenges
         PlayerData.shared.trackDailyLogin()
@@ -105,7 +110,7 @@ class MainMenuScene: SKScene {
         let titleLabel = SKLabelNode(text: "Sky Hopper")
         titleLabel.fontName = "AvenirNext-Bold"
         titleLabel.fontSize = 50
-        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 140) // Moved down further to account for notch
+        titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 148) // Lowered by 0.5rem (8 points) to prevent overlap with high score
         titleLabel.zPosition = 10
         addChild(titleLabel)
         
@@ -167,38 +172,55 @@ class MainMenuScene: SKScene {
     
     private func createPlayerDataDisplays() {
         // Coins display - moved down to account for notch
+        // Use safe area layout for currency display (similar to Score/Best labels)
+        let safeArea = SafeAreaLayout(scene: self)
+        let currencySafeTopY = safeArea.safeTopY(offset: -UIConstants.Spacing.medium) // Move up by 1rem for better fit
+        
+        // Coins display (left side of safe area)
         let coinsIcon = SKLabelNode(text: "🪙")
-        coinsIcon.fontSize = 24
-        coinsIcon.position = CGPoint(x: 30, y: size.height - 80) // Moved further down
+        coinsIcon.fontSize = 20
+        coinsIcon.position = CGPoint(x: safeArea.safeLeftX() + 30, y: currencySafeTopY)
         addChild(coinsIcon)
         
         coinsLabel = SKLabelNode(text: "0")
         coinsLabel.fontName = "AvenirNext-Medium"
-        coinsLabel.fontSize = 20
+        coinsLabel.fontSize = 18
         coinsLabel.horizontalAlignmentMode = .left
-        coinsLabel.position = CGPoint(x: 50, y: size.height - 80) // Moved further down
+        coinsLabel.position = CGPoint(x: safeArea.safeLeftX() + 55, y: currencySafeTopY)
         addChild(coinsLabel)
         
-        // Gems display
+        // Gems display (right side of safe area)
         let gemsIcon = SKLabelNode(text: "💎")
-        gemsIcon.fontSize = 24
-        gemsIcon.position = CGPoint(x: 130, y: size.height - 80) // Moved further down
+        gemsIcon.fontSize = 20
+        gemsIcon.position = CGPoint(x: safeArea.safeRightX() - 55, y: currencySafeTopY)
         addChild(gemsIcon)
         
         gemsLabel = SKLabelNode(text: "0")
         gemsLabel.fontName = "AvenirNext-Medium"
-        gemsLabel.fontSize = 20
-        gemsLabel.horizontalAlignmentMode = .left
-        gemsLabel.position = CGPoint(x: 150, y: size.height - 80) // Moved further down
+        gemsLabel.fontSize = 18
+        gemsLabel.horizontalAlignmentMode = .right
+        gemsLabel.position = CGPoint(x: safeArea.safeRightX() - 30, y: currencySafeTopY)
         addChild(gemsLabel)
         
-        // High score display
-        highScoreLabel = SKLabelNode(text: "HIGH SCORE: 0")
+        // High score display - Two lines, centered
+        let highScoreY = size.height - 81 // Move up by 0.25rem (4 points) for better spacing
+        
+        // First line: "High Score: XXX" 
+        highScoreLabel = SKLabelNode(text: "High Score: 0")
         highScoreLabel.fontName = "AvenirNext-Medium"
         highScoreLabel.fontSize = 20
-        highScoreLabel.horizontalAlignmentMode = .right
-        highScoreLabel.position = CGPoint(x: size.width - 30, y: size.height - 80) // Moved further down
+        highScoreLabel.horizontalAlignmentMode = .center
+        highScoreLabel.position = CGPoint(x: size.width / 2, y: highScoreY)
         addChild(highScoreLabel)
+        
+        // Second line: "(Map Name)" - smaller font, centered below
+        mapNameLabel = SKLabelNode(text: "")
+        mapNameLabel.fontName = "AvenirNext-Medium"
+        mapNameLabel.fontSize = 16  // Smaller than main score
+        mapNameLabel.fontColor = UIColor.lightGray
+        mapNameLabel.horizontalAlignmentMode = .center
+        mapNameLabel.position = CGPoint(x: size.width / 2, y: highScoreY - 25) // 25 points below
+        addChild(mapNameLabel)
     }
     
     private func createButton(text: String, color: UIColor, position: CGPoint) -> SKShapeNode {
@@ -304,7 +326,25 @@ class MainMenuScene: SKScene {
     
     private func loadPlayerData() {
         updateCurrencyDisplay()
-        highScoreLabel.text = "HIGH SCORE: \(PlayerData.shared.highScore)"
+        
+        // Get highest score with map name
+        let (score, mapName) = PlayerData.shared.getHighestScoreWithMapName()
+        
+        // Update the main score line (first line)
+        if score > 0 {
+            highScoreLabel.text = "High Score: \(score)"
+        } else {
+            highScoreLabel.text = "High Score: 0"
+        }
+        
+        // Update the map name line (second line)
+        if let mapName = mapName, score > 0 {
+            mapNameLabel.text = "(\(mapName))"
+            mapNameLabel.isHidden = false
+        } else {
+            mapNameLabel.text = ""
+            mapNameLabel.isHidden = true
+        }
     }
     
     @objc private func updateCurrencyDisplay() {
@@ -408,15 +448,11 @@ class MainMenuScene: SKScene {
     
     private func handlePlayButton() {
         animateButtonPress(playButton) {
-            // Show map selection or go directly to game
+            // Always show level selection screen (instead of bypassing when only 1 map unlocked)
             let fadeOut = SKAction.fadeOut(withDuration: 0.3)
             let block = SKAction.run { [weak self] in
                 guard let self = self else { return }
-                if MapManager.shared.unlockedMaps.count > 1 {
-                    self.transitionToMapSelection()
-                } else {
-                    self.startGame()
-                }
+                self.transitionToMapSelection()
             }
             let sequence = SKAction.sequence([fadeOut, block])
             self.run(sequence)
@@ -507,7 +543,10 @@ class MainMenuScene: SKScene {
     }
     
     private func showAchievements() {
-        // Show Game Center achievements
-        gameCenterManager.showAchievements()
+        // Transition to custom achievement scene
+        let transition = SKTransition.fade(withDuration: 0.5)
+        let achievementScene = AchievementScene(size: size)
+        achievementScene.scaleMode = scaleMode
+        view?.presentScene(achievementScene, transition: transition)
     }
 }

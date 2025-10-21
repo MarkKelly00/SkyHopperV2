@@ -10,7 +10,7 @@ extension Bool {
     }
 }
 
-class GameScene: SKScene, SKPhysicsContactDelegate {
+class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
     
     // MARK: - Properties
     
@@ -33,6 +33,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private let groundCategory: UInt32 = 4
     private let scoreCategory: UInt32 = 8
     private let powerUpCategory: UInt32 = 16
+    private let stargateCategory: UInt32 = 32  // For stargate portals and floating pumpkins
     
     // Game elements
     private var player: SKSpriteNode!
@@ -78,6 +79,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     override func didMove(to view: SKView) {
         setupScene()
         setupPhysics()
+        
+        // Authenticate with Game Center for leaderboards
+        gameCenterManager.delegate = self
+        gameCenterManager.authenticatePlayer()
         
         // Load level settings first so they're available when creating game elements
         loadLevelSettings()
@@ -480,32 +485,140 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return raptor
     }
     
+    /// Adds a subtle black outline effect to a label for better readability
+    private func addOutlineToLabel(_ label: SKLabelNode) {
+        // Remove any existing outline children first
+        label.children.forEach { $0.removeFromParent() }
+        
+        // Create a more subtle outline using fewer, smaller offsets
+        let offsets: [(CGFloat, CGFloat)] = [
+            (-0.5, -0.5), (-0.5, 0.5),
+            (0.5, -0.5),  (0.5, 0.5)
+        ]
+        
+        for (dx, dy) in offsets {
+            let outlineLabel = SKLabelNode(text: label.text)
+            outlineLabel.fontName = label.fontName
+            outlineLabel.fontSize = label.fontSize
+            outlineLabel.fontColor = UIColor.black
+            outlineLabel.horizontalAlignmentMode = label.horizontalAlignmentMode
+            outlineLabel.verticalAlignmentMode = label.verticalAlignmentMode
+            outlineLabel.position = CGPoint(x: dx, y: dy)
+            outlineLabel.zPosition = label.zPosition - 0.1 // Behind the main label
+            label.addChild(outlineLabel)
+        }
+    }
+    
+    /// Updates text of a label and its outline effect
+    private func updateOutlinedLabel(_ label: SKLabelNode, text: String) {
+        label.text = text
+        addOutlineToLabel(label) // Refresh the outline with new text
+    }
+    
+    /// Gets the current map ID for high score tracking, ensuring map-specific scores
+    private func getCurrentMapId() -> String {
+        print("DEBUG: getCurrentMapId() - self.levelId: '\(self.levelId ?? "nil")', currentLevel?.id: '\(currentLevel?.id ?? "nil")', currentLevel?.mapTheme: '\(currentLevel?.mapTheme.rawValue ?? "nil")'")
+        
+        // First, try to get explicit level ID
+        if let levelId = self.levelId {
+            print("DEBUG: Using self.levelId: '\(levelId)'")
+            return levelId
+        }
+        
+        // Second, try to get from current level
+        if let currentLevelId = currentLevel?.id {
+            print("DEBUG: Using currentLevel.id: '\(currentLevelId)'")
+            return currentLevelId
+        }
+        
+        // Third, try to derive from map theme
+        if let mapTheme = currentLevel?.mapTheme {
+            print("DEBUG: Using mapTheme.rawValue: '\(mapTheme.rawValue)'")
+            return mapTheme.rawValue // Use theme name as fallback ID
+        }
+        
+        // Final fallback - use default map
+        print("DEBUG: Using fallback: 'city'")
+        return "city" // Default to city map if nothing else is available
+    }
+    
     private func createScoreDisplay() {
-        // Score label (current score)
+        // Use SafeAreaLayout for proper positioning across all iOS devices
+        let safeArea = SafeAreaLayout(scene: self)
+        
+        // Position labels truly inline with the notch/status bar area
+        // Use no offset to be at the very edge of the safe area (inline with status bar)
+        let statusBarY = safeArea.safeTopY(offset: 0) // No offset - truly inline with status bar/notch
+        let safeLeftX = safeArea.safeLeftX(offset: UIConstants.Spacing.medium) // Left of notch
+        let safeRightX = safeArea.safeRightX(offset: UIConstants.Spacing.medium) // Right of notch
+        
+        // Determine text color based on map theme - use light gray for space levels
+        print("DEBUG: createScoreDisplay - currentLevel?.mapTheme = \(currentLevel?.mapTheme.rawValue ?? "nil")")
+        print("DEBUG: createScoreDisplay - currentLevel?.id = \(currentLevel?.id ?? "nil")")
+        print("DEBUG: createScoreDisplay - currentLevel?.name = \(currentLevel?.name ?? "nil")")
+        
+        let textColor: UIColor
+        let isSpaceLevel = currentLevel?.mapTheme == .space || 
+                          currentLevel?.id == "level_9" || 
+                          currentLevel?.id == "level_10" ||
+                          (currentLevel?.name.contains("Space Frontier") ?? false) ||
+                          (currentLevel?.name.contains("Cosmic Challenge") ?? false)
+        
+        if isSpaceLevel {
+            // Space levels (Space Frontier & Cosmic Challenge) use light gray for better contrast against black background
+            print("DEBUG: Using light gray text color for space level")
+            textColor = UIColor(red: 248/255, green: 248/255, blue: 248/255, alpha: 1.0) // #F8F8F8 light gray
+        } else {
+            // All other levels use white
+            print("DEBUG: Using white text color for non-space level")
+            textColor = UIColor.white
+        }
+        
+        // Score label (current score) - smaller font size for better safe area fit
         scoreLabel = SKLabelNode(text: "Score: 0")
-        scoreLabel.fontName = "AvenirNext-Bold"
-        scoreLabel.fontSize = 24
+        scoreLabel.fontName = UIConstants.Text.boldFont
+        scoreLabel.fontSize = 18 // Reduced from 24 for better safe area fit
+        scoreLabel.fontColor = textColor
         scoreLabel.horizontalAlignmentMode = .left
-        scoreLabel.position = CGPoint(x: 20, y: size.height - 40)
-        scoreLabel.zPosition = 50
+        scoreLabel.position = CGPoint(x: safeLeftX, y: statusBarY)
+        scoreLabel.zPosition = UIConstants.Z.ui
+        
+        // Add outline effect for better readability
+        addOutlineToLabel(scoreLabel)
+        
         addChild(scoreLabel)
         
-        // High score label (per-map)
-        var bestForMap = 0
-        if let levelId = self.levelId {
-            bestForMap = PlayerData.shared.mapHighScores[levelId] ?? 0
-        } else if let lvlId = currentLevel?.id {
-            bestForMap = PlayerData.shared.mapHighScores[lvlId] ?? 0
-        } else {
-            bestForMap = UserDefaults.standard.integer(forKey: "highScore")
-        }
+        // High score label (per-map) - Always show map-specific score, never global
+        let mapId = getCurrentMapId()
+        let bestForMap = PlayerData.shared.mapHighScores[mapId] ?? 0
         highScoreLabel = SKLabelNode(text: "Best: \(bestForMap)")
-        highScoreLabel.fontName = "AvenirNext-Bold"
-        highScoreLabel.fontSize = 24
+        highScoreLabel.fontName = UIConstants.Text.boldFont
+        highScoreLabel.fontSize = 18 // Reduced from 24 for better safe area fit
+        highScoreLabel.fontColor = textColor
         highScoreLabel.horizontalAlignmentMode = .right
-        highScoreLabel.position = CGPoint(x: size.width - 20, y: size.height - 40)
-        highScoreLabel.zPosition = 50
+        highScoreLabel.position = CGPoint(x: safeRightX, y: statusBarY)
+        highScoreLabel.zPosition = UIConstants.Z.ui
+        
+        // Add outline effect for better readability
+        addOutlineToLabel(highScoreLabel)
+        
         addChild(highScoreLabel)
+        
+        // Player name label (from Apple ID/Game Center) - centered below top labels
+        let playerName = gameCenterManager.getPlayerAlias()
+        let playerNameLabel = SKLabelNode(text: "Player: \(playerName)")
+        playerNameLabel.name = "playerNameLabel" // Give it a name for easy lookup
+        playerNameLabel.fontName = UIConstants.Text.regularFont
+        playerNameLabel.fontSize = 14 // Smaller than score labels
+        playerNameLabel.fontColor = textColor // Use same color as score labels
+        playerNameLabel.horizontalAlignmentMode = .center
+        playerNameLabel.position = CGPoint(x: size.width/2, y: statusBarY - 25) // Below the score labels
+        playerNameLabel.zPosition = UIConstants.Z.ui
+        
+        // Add outline effect for better readability
+        addOutlineToLabel(playerNameLabel)
+        
+        addChild(playerNameLabel)
     }
     
     private func displayTapToStartMessage() {
@@ -630,6 +743,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             case .forest:
                 createJungleObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
                 return
+            case .city:
+                // Check if this is the "Downtown Rush" level
+                if currentLevel?.id == "level_2" || currentLevel?.name == "Downtown Rush" {
+                    createDowntownSkyscraperObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                    return
+                }
+                // Other city levels use default obstacle pattern
             default:
                 break
             }
@@ -697,15 +817,38 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     private func createObstacle(size: CGSize, position: CGPoint) -> SKNode {
         // Check if this is desert level
         let isDesertLevel = currentLevel?.id == "desert_escape"
+        let isHalloweenLevel = currentLevel?.id == "halloween_special"
         
         // Create obstacle node based on level theme
         let obstacle = SKSpriteNode(color: isDesertLevel ? 
                                     UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 1.0) : // Sandy color for pyramids
+                                    isHalloweenLevel ?
+                                    UIColor(red: 0.2, green: 0.4, blue: 0.1, alpha: 1.0) :  // Dark green for vines
                                     UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0),   // Default gray for city obstacles
                                     size: size)
         obstacle.position = position
         obstacle.zPosition = 15
         obstacle.name = "obstacle"
+        
+        // Check if shrink power-up is active and apply it to newly created obstacles
+        if PowerUpManager.shared.isShrinkActive {
+            // Store original dimensions before shrinking
+            obstacle.userData = obstacle.userData ?? NSMutableDictionary()
+            obstacle.userData?.setValue(size.width, forKey: "originalWidth")
+            obstacle.userData?.setValue(size.height, forKey: "originalHeight")
+            obstacle.userData?.setValue(true, forKey: "isShrunk")
+            
+            // Apply shrink effect (same as in PowerUpManager)
+            obstacle.setScale(0.7) // 70% of original size
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            obstacle.addChild(indicator)
+            
+            // Don't create physics body here - let the specialized logic below handle it
+        }
         
         // For desert level, create pyramid-themed obstacles
         if isDesertLevel {
@@ -759,6 +902,99 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 duneShape.position = CGPoint.zero
                 obstacle.addChild(duneShape)
             }
+        } else if isHalloweenLevel {
+            // Halloween level - Create arcade-style beanstalk/vine obstacles
+            obstacle.color = .clear
+            
+            // Create main vine stem using bezier path
+            let vinePath = UIBezierPath()
+            let vineWidth: CGFloat = size.width * 0.6
+            
+            // Start from bottom
+            vinePath.move(to: CGPoint(x: 0, y: -size.height/2))
+            
+            // Create organic twisting vine using control points
+            let segments = 4
+            for i in 1...segments {
+                let progress = CGFloat(i) / CGFloat(segments)
+                let yPos = -size.height/2 + (progress * size.height)
+                
+                // Create S-curve pattern
+                let xOffset = sin(progress * .pi * 2.5) * (vineWidth * 0.3)
+                let controlOffset = cos(progress * .pi * 3) * (vineWidth * 0.4)
+                
+                let previousProgress = CGFloat(i-1) / CGFloat(segments)
+                let previousY = -size.height/2 + (previousProgress * size.height)
+                
+                // Add curve to path
+                vinePath.addCurve(
+                    to: CGPoint(x: xOffset, y: yPos),
+                    controlPoint1: CGPoint(x: controlOffset, y: previousY + (yPos - previousY) * 0.3),
+                    controlPoint2: CGPoint(x: -controlOffset, y: previousY + (yPos - previousY) * 0.7)
+                )
+            }
+            
+            // Create thick vine base
+            let vineBase = SKShapeNode(path: vinePath.cgPath)
+            vineBase.strokeColor = UIColor(red: 0.2, green: 0.4, blue: 0.1, alpha: 1.0)
+            vineBase.lineWidth = vineWidth
+            vineBase.lineCap = .round
+            vineBase.lineJoin = .round
+            obstacle.addChild(vineBase)
+            
+            // Add inner highlight for depth
+            let vineHighlight = SKShapeNode(path: vinePath.cgPath)
+            vineHighlight.strokeColor = UIColor(red: 0.3, green: 0.5, blue: 0.15, alpha: 0.7)
+            vineHighlight.lineWidth = vineWidth * 0.7
+            vineHighlight.lineCap = .round
+            vineHighlight.zPosition = 1
+            obstacle.addChild(vineHighlight)
+            
+            // Add arcade-style leaves along the vine
+            let leafCount = Int(size.height / 60)
+            for i in 0..<leafCount {
+                let progress = CGFloat(i) / CGFloat(leafCount - 1)
+                let yPos = -size.height/2 + (progress * size.height)
+                let xOffset = sin(progress * .pi * 2.5) * (vineWidth * 0.3)
+                
+                // Create larger, more visible leaves
+                if Bool.random(percentage: 70) {
+                    let leafCluster = createArcadeLeafCluster()
+                    let side = Bool.random() ? 1.0 : -1.0
+                    leafCluster.position = CGPoint(
+                        x: xOffset + (vineWidth * 0.4 * side),
+                        y: yPos + CGFloat.random(in: -15...15)
+                    )
+                    leafCluster.xScale = side
+                    leafCluster.zRotation = CGFloat.random(in: -.pi/6 ... .pi/6)
+                    obstacle.addChild(leafCluster)
+                }
+            }
+            
+            // Add spiky thorns along the edges
+            let thornCount = Int(size.height / 40)
+            for i in 0..<thornCount {
+                let progress = CGFloat(i) / CGFloat(thornCount - 1)
+                let yPos = -size.height/2 + (progress * size.height)
+                let xOffset = sin(progress * .pi * 2.5) * (vineWidth * 0.3)
+                
+                if Bool.random(percentage: 50) {
+                    let thorn = createArcadeThorn()
+                    let side = Bool.random() ? 1.0 : -1.0
+                    thorn.position = CGPoint(
+                        x: xOffset + (vineWidth * 0.5 * side),
+                        y: yPos
+                    )
+                    thorn.zRotation = atan2(side, 0) + CGFloat.random(in: -.pi/8 ... .pi/8)
+                    thorn.xScale = abs(side)
+                    obstacle.addChild(thorn)
+                }
+            }
+            
+            // Add pumpkin spawning (30% chance) similar to stargate portals
+            if Bool.random(percentage: 30) && size.height > 100 {
+                createFloatingPumpkin(near: obstacle, at: position)
+            }
         } else {
             // Regular obstacles for other levels (city buildings, etc.)
         if size.height > 50 {
@@ -773,25 +1009,264 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         
-        // Create physics body
-        // Use a triangular physics body for desert pyramids so collisions match visuals
+        // Create appropriate physics body based on obstacle type
         let physicsBody: SKPhysicsBody
         if isDesertLevel && size.height > 100 {
+            // Create triangular physics body for pyramids to match visual shape
+            let physicsSize = PowerUpManager.shared.isShrinkActive ? 
+                CGSize(width: size.width * 0.7, height: size.height * 0.7) : size
+            
             let path = CGMutablePath()
-            path.move(to: CGPoint(x: -size.width / 2, y: -size.height / 2))
-            path.addLine(to: CGPoint(x: size.width / 2, y: -size.height / 2))
-            path.addLine(to: CGPoint(x: 0, y: size.height / 2))
+            path.move(to: CGPoint(x: -physicsSize.width / 2, y: -physicsSize.height / 2))
+            path.addLine(to: CGPoint(x: physicsSize.width / 2, y: -physicsSize.height / 2))
+            path.addLine(to: CGPoint(x: 0, y: physicsSize.height / 2))
             path.closeSubpath()
             physicsBody = SKPhysicsBody(polygonFrom: path)
         } else {
-            physicsBody = SKPhysicsBody(rectangleOf: size)
+            // For non-pyramid obstacles, use rectangular physics body
+            if PowerUpManager.shared.isShrinkActive {
+                let shrunkSize = CGSize(width: size.width * 0.7, height: size.height * 0.7)
+                physicsBody = SKPhysicsBody(rectangleOf: shrunkSize)
+            } else {
+                physicsBody = SKPhysicsBody(rectangleOf: size)
+            }
         }
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
+        physicsBody.collisionBitMask = 0 // Prevent physics collisions, only detect contact
         obstacle.physicsBody = physicsBody
         
+        // Debug output for desert pyramids
+        if isDesertLevel && size.height > 100 {
+            print("🔺 Created pyramid physics body - Size: \(size), Position: \(position), Physics: triangular")
+        }
+        
         return obstacle
+    }
+    
+    // MARK: - Halloween Level Helpers
+    
+    private func createArcadeLeafCluster() -> SKNode {
+        let cluster = SKNode()
+        
+        // Create main leaf shape - more arcade/cartoon style
+        let leafPath = UIBezierPath()
+        leafPath.move(to: CGPoint(x: 0, y: 0))
+        leafPath.addCurve(to: CGPoint(x: 15, y: -20),
+                         controlPoint1: CGPoint(x: 10, y: -5),
+                         controlPoint2: CGPoint(x: 15, y: -10))
+        leafPath.addCurve(to: CGPoint(x: 0, y: -25),
+                         controlPoint1: CGPoint(x: 10, y: -22),
+                         controlPoint2: CGPoint(x: 5, y: -25))
+        leafPath.addCurve(to: CGPoint(x: -15, y: -20),
+                         controlPoint1: CGPoint(x: -5, y: -25),
+                         controlPoint2: CGPoint(x: -10, y: -22))
+        leafPath.addCurve(to: CGPoint(x: 0, y: 0),
+                         controlPoint1: CGPoint(x: -15, y: -10),
+                         controlPoint2: CGPoint(x: -10, y: -5))
+        
+        // Main leaf
+        let mainLeaf = SKShapeNode(path: leafPath.cgPath)
+        mainLeaf.fillColor = UIColor(red: 0.4, green: 0.7, blue: 0.2, alpha: 1.0)
+        mainLeaf.strokeColor = UIColor(red: 0.2, green: 0.4, blue: 0.1, alpha: 1.0)
+        mainLeaf.lineWidth = 2
+        cluster.addChild(mainLeaf)
+        
+        // Add smaller leaves for cluster effect
+        for i in 0..<2 {
+            let smallLeaf = SKShapeNode(path: leafPath.cgPath)
+            smallLeaf.fillColor = UIColor(red: 0.35, green: 0.65, blue: 0.15, alpha: 0.9)
+            smallLeaf.strokeColor = UIColor(red: 0.15, green: 0.35, blue: 0.05, alpha: 1.0)
+            smallLeaf.lineWidth = 1.5
+            smallLeaf.setScale(0.7)
+            smallLeaf.position = CGPoint(x: CGFloat(i * 20 - 10), y: -5)
+            smallLeaf.zRotation = CGFloat(i) * .pi/4 - .pi/8
+            cluster.addChild(smallLeaf)
+        }
+        
+        return cluster
+    }
+    
+    private func createArcadeThorn() -> SKShapeNode {
+        // Create a more visible, arcade-style thorn
+        let thornPath = UIBezierPath()
+        thornPath.move(to: CGPoint(x: 0, y: 0))
+        thornPath.addLine(to: CGPoint(x: -8, y: -5))
+        thornPath.addLine(to: CGPoint(x: -10, y: -15))
+        thornPath.addLine(to: CGPoint(x: 0, y: -20))
+        thornPath.addLine(to: CGPoint(x: 10, y: -15))
+        thornPath.addLine(to: CGPoint(x: 8, y: -5))
+        thornPath.close()
+        
+        let thorn = SKShapeNode(path: thornPath.cgPath)
+        thorn.fillColor = UIColor(red: 0.5, green: 0.2, blue: 0.1, alpha: 1.0)
+        thorn.strokeColor = UIColor(red: 0.3, green: 0.1, blue: 0.05, alpha: 1.0)
+        thorn.lineWidth = 2
+        thorn.zPosition = 2
+        
+        // Add highlight for visibility
+        let highlight = SKShapeNode(path: thornPath.cgPath)
+        highlight.fillColor = UIColor(red: 0.7, green: 0.3, blue: 0.15, alpha: 0.5)
+        highlight.strokeColor = .clear
+        highlight.setScale(0.8)
+        thorn.addChild(highlight)
+        
+        return thorn
+    }
+    
+    private func createLeaf() -> SKShapeNode {
+        let leafPath = UIBezierPath()
+        leafPath.move(to: CGPoint(x: 0, y: -8))
+        leafPath.addCurve(to: CGPoint(x: 0, y: 8),
+                         controlPoint1: CGPoint(x: -12, y: -4),
+                         controlPoint2: CGPoint(x: -12, y: 4))
+        leafPath.addCurve(to: CGPoint(x: 0, y: -8),
+                         controlPoint1: CGPoint(x: 12, y: 4),
+                         controlPoint2: CGPoint(x: 12, y: -4))
+        
+        let leaf = SKShapeNode(path: leafPath.cgPath)
+        leaf.fillColor = UIColor(red: 0.2, green: 0.5, blue: 0.1, alpha: 0.9)
+        leaf.strokeColor = UIColor(red: 0.1, green: 0.3, blue: 0.05, alpha: 1.0)
+        leaf.lineWidth = 1
+        return leaf
+    }
+    
+    private func createThorn() -> SKShapeNode {
+        let thornPath = UIBezierPath()
+        thornPath.move(to: CGPoint(x: 0, y: 0))
+        thornPath.addLine(to: CGPoint(x: 6, y: 0))
+        thornPath.addLine(to: CGPoint(x: 3, y: 8))
+        thornPath.close()
+        
+        let thorn = SKShapeNode(path: thornPath.cgPath)
+        thorn.fillColor = UIColor(red: 0.4, green: 0.2, blue: 0.1, alpha: 1.0)
+        thorn.strokeColor = .clear
+        return thorn
+    }
+    
+    private func createFloatingPumpkin(near obstacle: SKNode, at position: CGPoint) {
+        // Position the pumpkin in the air, similar to stargate portals
+        let xPos = position.x + CGFloat.random(in: -40...40)
+        let yPos = position.y + size.height/4 + CGFloat.random(in: 0...size.height/4)
+        
+        // Create the pumpkin node
+        let pumpkin = SKNode()
+        pumpkin.position = CGPoint(x: xPos, y: yPos)
+        pumpkin.zPosition = 16 // Slightly in front of obstacles
+        pumpkin.name = "floating_pumpkin" // Special name to identify it
+        
+        // Create pumpkin body
+        let pumpkinSize: CGFloat = 35
+        let pumpkinBody = SKShapeNode(ellipseOf: CGSize(width: pumpkinSize * 1.2, height: pumpkinSize))
+        pumpkinBody.fillColor = UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0) // Orange
+        pumpkinBody.strokeColor = UIColor(red: 0.8, green: 0.3, blue: 0.0, alpha: 1.0)
+        pumpkinBody.lineWidth = 2
+        pumpkin.addChild(pumpkinBody)
+        
+        // Add pumpkin ridges
+        for i in 0..<4 {
+            let angle = CGFloat(i) * .pi / 2
+            let ridge = SKShapeNode(ellipseOf: CGSize(width: 3, height: pumpkinSize * 0.9))
+            ridge.fillColor = UIColor(red: 0.9, green: 0.4, blue: 0.0, alpha: 0.5)
+            ridge.strokeColor = .clear
+            ridge.position = CGPoint(x: cos(angle) * pumpkinSize * 0.3, y: 0)
+            ridge.zRotation = angle
+            pumpkinBody.addChild(ridge)
+        }
+        
+        // Add stem
+        let stem = SKShapeNode(rectOf: CGSize(width: 5, height: 8))
+        stem.fillColor = UIColor(red: 0.3, green: 0.5, blue: 0.2, alpha: 1.0)
+        stem.strokeColor = .clear
+        stem.position = CGPoint(x: 0, y: pumpkinSize/2 + 3)
+        pumpkin.addChild(stem)
+        
+        // Add spooky face
+        // Eyes
+        let leftEye = createPumpkinEye()
+        leftEye.position = CGPoint(x: -8, y: 5)
+        pumpkin.addChild(leftEye)
+        
+        let rightEye = createPumpkinEye()
+        rightEye.position = CGPoint(x: 8, y: 5)
+        pumpkin.addChild(rightEye)
+        
+        // Mouth - evil grin
+        let mouthPath = UIBezierPath()
+        mouthPath.move(to: CGPoint(x: -12, y: -5))
+        mouthPath.addCurve(to: CGPoint(x: 12, y: -5),
+                          controlPoint1: CGPoint(x: -8, y: -10),
+                          controlPoint2: CGPoint(x: 8, y: -10))
+        
+        let mouth = SKShapeNode(path: mouthPath.cgPath)
+        mouth.fillColor = .black
+        mouth.strokeColor = .black
+        mouth.lineWidth = 3
+        mouth.position = CGPoint(x: 0, y: -3)
+        pumpkin.addChild(mouth)
+        
+        // Add teeth
+        for i in -1...1 {
+            let tooth = SKShapeNode(rectOf: CGSize(width: 3, height: 4))
+            tooth.fillColor = .black
+            tooth.strokeColor = .clear
+            tooth.position = CGPoint(x: CGFloat(i) * 6, y: -8)
+            pumpkin.addChild(tooth)
+        }
+        
+        // Create physics body
+        let physicsBody = SKPhysicsBody(circleOfRadius: pumpkinSize/2)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = stargateCategory // Reuse stargate category
+        physicsBody.contactTestBitMask = playerCategory
+        physicsBody.collisionBitMask = 0
+        pumpkin.physicsBody = physicsBody
+        
+        // Add floating animation
+        let floatUp = SKAction.moveBy(x: 0, y: 15, duration: 2.0)
+        let floatDown = SKAction.moveBy(x: 0, y: -15, duration: 2.0)
+        floatUp.timingMode = .easeInEaseOut
+        floatDown.timingMode = .easeInEaseOut
+        let floatSequence = SKAction.sequence([floatUp, floatDown])
+        let floatForever = SKAction.repeatForever(floatSequence)
+        pumpkin.run(floatForever)
+        
+        // Add rotation animation
+        let rotate = SKAction.rotate(byAngle: .pi * 2, duration: 8.0)
+        let rotateForever = SKAction.repeatForever(rotate)
+        pumpkinBody.run(rotateForever)
+        
+        // Add glowing effect
+        let glowOut = SKAction.scale(to: 1.1, duration: 1.5)
+        let glowIn = SKAction.scale(to: 1.0, duration: 1.5)
+        glowOut.timingMode = .easeInEaseOut
+        glowIn.timingMode = .easeInEaseOut
+        let glowSequence = SKAction.sequence([glowOut, glowIn])
+        let glowForever = SKAction.repeatForever(glowSequence)
+        pumpkin.run(glowForever)
+        
+        addChild(pumpkin)
+        
+        // Move with the world
+        let duration = TimeInterval((size.width + 100) / (obstacleSpeed * 0.9))
+        let move = SKAction.moveBy(x: -(size.width + 200), y: 0, duration: duration)
+        let remove = SKAction.removeFromParent()
+        pumpkin.run(SKAction.sequence([move, remove]))
+    }
+    
+    private func createPumpkinEye() -> SKShapeNode {
+        let eyePath = UIBezierPath()
+        eyePath.move(to: CGPoint(x: 0, y: 0))
+        eyePath.addLine(to: CGPoint(x: 5, y: 6))
+        eyePath.addLine(to: CGPoint(x: 0, y: 4))
+        eyePath.addLine(to: CGPoint(x: -5, y: 6))
+        eyePath.close()
+        
+        let eye = SKShapeNode(path: eyePath.cgPath)
+        eye.fillColor = .black
+        eye.strokeColor = .black
+        return eye
     }
     
         private func createStargatePortal(near obstacle: SKNode, at position: CGPoint) {
@@ -1337,6 +1812,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Random asteroid size
         let radius = CGFloat.random(in: 25...45)
         
+        // Store original dimensions for potential shrinking
+        asteroid.userData = asteroid.userData ?? NSMutableDictionary()
+        asteroid.userData?.setValue(radius * 2, forKey: "originalWidth")
+        asteroid.userData?.setValue(radius * 2, forKey: "originalHeight")
+        
+        // Apply shrink effect if active
+        if PowerUpManager.shared.isShrinkActive {
+            asteroid.userData?.setValue(true, forKey: "isShrunk")
+            asteroid.setScale(0.7)
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            asteroid.addChild(indicator)
+        }
+        
         // Create irregular asteroid shape
         let path = UIBezierPath()
         let segments = 8
@@ -1376,7 +1868,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         asteroid.run(SKAction.repeatForever(rotate))
         
         // Physics body
-        let physicsBody = SKPhysicsBody(circleOfRadius: radius)
+        let physicsRadius = PowerUpManager.shared.isShrinkActive ? radius * 0.7 : radius
+        let physicsBody = SKPhysicsBody(circleOfRadius: physicsRadius)
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
@@ -1394,6 +1887,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Create metallic debris piece
         let width = CGFloat.random(in: 30...50)
         let height = CGFloat.random(in: 15...25)
+        
+        // Store original dimensions for potential shrinking
+        debris.userData = debris.userData ?? NSMutableDictionary()
+        debris.userData?.setValue(width, forKey: "originalWidth")
+        debris.userData?.setValue(height, forKey: "originalHeight")
+        
+        // Apply shrink effect if active
+        if PowerUpManager.shared.isShrinkActive {
+            debris.userData?.setValue(true, forKey: "isShrunk")
+            debris.setScale(0.7)
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            debris.addChild(indicator)
+        }
         
         let debrisShape = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: 3)
         debrisShape.fillColor = UIColor(red: 0.7, green: 0.75, blue: 0.8, alpha: 1.0) // Metallic
@@ -1423,7 +1933,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         debris.run(SKAction.repeatForever(tumble))
         
         // Physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: width, height: height))
+        let physicsSize = PowerUpManager.shared.isShrinkActive ? 
+            CGSize(width: width * 0.7, height: height * 0.7) : 
+            CGSize(width: width, height: height)
+        let physicsBody = SKPhysicsBody(rectangleOf: physicsSize)
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
@@ -1713,12 +2226,223 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bird.run(SKAction.sequence([move, .removeFromParent()]))
     }
     
+    // Creates downtown skyscraper obstacles for the Downtown Rush level
+    private func createDowntownSkyscraperObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Make the buildings slightly wider for a good skyscraper look
+        let buildingWidth = obstacleWidth * 1.3
+        
+        // Calculate gap position (where the player can fly through)
+        let gapPosition = CGFloat.random(in: 180...(size.height - 180))
+        
+        // Create top building obstacle (coming down from the top of the screen)
+        let topObstacleHeight = gapPosition - (gapHeight / 2)
+        let topObstacle = createCitySkyscraper(
+            size: CGSize(width: buildingWidth, height: topObstacleHeight),
+            position: CGPoint(x: size.width + 40, y: size.height - (topObstacleHeight / 2)),
+            isUpsideDown: true
+        )
+        
+        // Create bottom building obstacle (coming up from the bottom of the screen)
+        let bottomObstacleY = gapPosition + (gapHeight / 2)
+        let bottomObstacleHeight = size.height - bottomObstacleY
+        let bottomObstacle = createCitySkyscraper(
+            size: CGSize(width: buildingWidth, height: bottomObstacleHeight),
+            position: CGPoint(x: size.width + 40, y: bottomObstacleHeight / 2),
+            isUpsideDown: false
+        )
+        
+        // Create score node for detecting when player passes between buildings
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2) // Center vertically
+        
+        // Make the score detection zone cover the full height of the screen
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0 // Don't collide with anything
+        scorePhysics.usesPreciseCollisionDetection = true
+        
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+        
+        // Add the obstacles and score node to the scene
+        addChild(topObstacle)
+        addChild(bottomObstacle)
+        addChild(scoreNode)
+        
+        // Animate obstacle movement
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        let removeAction = SKAction.removeFromParent()
+        let sequence = SKAction.sequence([moveAction, removeAction])
+        
+        topObstacle.run(sequence)
+        bottomObstacle.run(sequence.copy() as! SKAction)
+        scoreNode.run(sequence.copy() as! SKAction)
+        
+        // Track obstacles created for statistics
+        playerData.recordDistance(1)
+        playerData.updateChallengeProgress(id: "obstacles", value: 2) // Top and bottom pipes count as 2
+    }
+    
+    // Creates a single building/skyscraper obstacle for Downtown Rush
+    private func createCitySkyscraper(size: CGSize, position: CGPoint, isUpsideDown: Bool) -> SKNode {
+        // Create container node
+        let buildingNode = SKNode()
+        buildingNode.position = position
+        buildingNode.zPosition = 15
+        buildingNode.name = "obstacle"
+        
+        // Store original size for potential shrinking
+        buildingNode.userData = buildingNode.userData ?? NSMutableDictionary()
+        buildingNode.userData?.setValue(size.width, forKey: "originalWidth")
+        buildingNode.userData?.setValue(size.height, forKey: "originalHeight")
+        
+        // Create the main building body with a dark blue/gray color for skyscraper look
+        let buildingColor = UIColor(red: 0.2, green: 0.3, blue: 0.4, alpha: 1.0)
+        let buildingBody = SKSpriteNode(color: buildingColor, size: size)
+        buildingBody.position = .zero
+        
+        // Add border to the building
+        let border = SKShapeNode(rectOf: size, cornerRadius: 0)
+        border.strokeColor = UIColor(red: 0.1, green: 0.15, blue: 0.2, alpha: 1.0)
+        border.lineWidth = 2
+        border.fillColor = .clear
+        
+        // Add windows to the building (grid pattern)
+        let windowColor = UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 0.7)
+        let windowSize = CGSize(width: size.width * 0.15, height: size.width * 0.2)
+        let windowSpacing: CGFloat = size.width * 0.25
+        let verticalWindowSpacing: CGFloat = size.width * 0.3
+        
+        // Calculate how many windows we need
+        let windowCols = 3
+        var windowRows = Int(size.height / verticalWindowSpacing)
+        if windowRows < 1 { windowRows = 1 }
+        
+        // Start position for windows
+        let startX = -size.width/2 + size.width * 0.2
+        let startY = isUpsideDown ? -size.height/2 + size.width * 0.2 : size.height/2 - size.width * 0.2
+        let yDirection: CGFloat = isUpsideDown ? 1 : -1
+        
+        // Create windows
+        for row in 0..<windowRows {
+            for col in 0..<windowCols {
+                let window = SKSpriteNode(color: windowColor, size: windowSize)
+                window.position = CGPoint(
+                    x: startX + CGFloat(col) * windowSpacing,
+                    y: startY + yDirection * CGFloat(row) * verticalWindowSpacing
+                )
+                
+                // Randomly turn off some windows (20% chance)
+                if Bool.random(percentage: 20) {
+                    window.color = UIColor(red: 0.3, green: 0.4, blue: 0.5, alpha: 0.5)
+                }
+                
+                buildingBody.addChild(window)
+            }
+        }
+        
+        // Create a roof/base cap for the building
+        let capHeight: CGFloat = 30
+        let capWidth: CGFloat = size.width * 1.1
+        let capSize = CGSize(width: capWidth, height: capHeight)
+        
+        // Position the cap depending on whether the building is upside down or not
+        var capPosition = CGPoint.zero
+        if isUpsideDown {
+            // Top building - cap goes at the bottom
+            capPosition = CGPoint(x: 0, y: -size.height/2 + capHeight/2)
+        } else {
+            // Bottom building - cap goes at the top
+            capPosition = CGPoint(x: 0, y: size.height/2 - capHeight/2)
+        }
+        
+        // Create the cap with a darker color
+        let capColor = UIColor(red: 0.15, green: 0.25, blue: 0.35, alpha: 1.0)
+        let cap = SKSpriteNode(color: capColor, size: capSize)
+        cap.position = capPosition
+        
+        // Add a border to the cap
+        let capBorder = SKShapeNode(rectOf: capSize, cornerRadius: 2)
+        capBorder.strokeColor = UIColor(red: 0.1, green: 0.15, blue: 0.2, alpha: 1.0)
+        capBorder.lineWidth = 2
+        capBorder.fillColor = .clear
+        capBorder.position = CGPoint.zero
+        cap.addChild(capBorder)
+        
+        // Add depth effect with shadows and highlights
+        let shadowWidth = size.width * 0.15
+        
+        // Left side (lighter)
+        let leftSide = SKSpriteNode(color: UIColor(red: 0.25, green: 0.35, blue: 0.45, alpha: 0.7), 
+                                    size: CGSize(width: shadowWidth, height: size.height))
+        leftSide.position = CGPoint(x: -size.width/2 + shadowWidth/2, y: 0)
+        
+        // Right side (darker)
+        let rightSide = SKSpriteNode(color: UIColor(red: 0.15, green: 0.2, blue: 0.3, alpha: 0.7),
+                                    size: CGSize(width: shadowWidth, height: size.height))
+        rightSide.position = CGPoint(x: size.width/2 - shadowWidth/2, y: 0)
+        
+        // Add all visual components
+        buildingNode.addChild(buildingBody)
+        buildingNode.addChild(border)
+        buildingNode.addChild(leftSide)
+        buildingNode.addChild(rightSide)
+        buildingNode.addChild(cap)
+        
+        // Create physics body for collision detection
+        
+        // Check if shrink power-up is active
+        if PowerUpManager.shared.isShrinkActive {
+            // Mark as shrunk
+            buildingNode.userData?.setValue(true, forKey: "isShrunk")
+            
+            // Apply 70% scale to the entire node
+            buildingNode.setScale(0.7)
+            
+            // Add green indicator like other shrunk obstacles
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            buildingNode.addChild(indicator)
+        }
+        
+        let physicsBody = SKPhysicsBody(rectangleOf: 
+            PowerUpManager.shared.isShrinkActive ? 
+            CGSize(width: size.width * 0.7, height: size.height * 0.7) : size)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        physicsBody.collisionBitMask = 0
+        buildingNode.physicsBody = physicsBody
+        
+        return buildingNode
+    }
+    
     // Helper function to create mountain peak obstacles with snow caps
     private func createMountainPeak(size: CGSize, position: CGPoint) -> SKNode {
         let mountain = SKSpriteNode(color: .clear, size: size)
         mountain.position = position
         mountain.zPosition = 15
         mountain.name = "obstacle"
+        
+        // Store original dimensions for potential shrinking
+        mountain.userData = mountain.userData ?? NSMutableDictionary()
+        mountain.userData?.setValue(size.width, forKey: "originalWidth")
+        mountain.userData?.setValue(size.height, forKey: "originalHeight")
+        
+        // Apply shrink effect if active
+        if PowerUpManager.shared.isShrinkActive {
+            mountain.userData?.setValue(true, forKey: "isShrunk")
+            mountain.setScale(0.7)
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            mountain.addChild(indicator)
+        }
         
         // Create triangular mountain shape
         let mountainPath = UIBezierPath()
@@ -1760,11 +2484,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             mountain.addChild(rockLine)
         }
         
-        // Physics body - triangular
+        // Physics body (triangular to match visual shape)
+        let physicsSize = PowerUpManager.shared.isShrinkActive ? 
+            CGSize(width: size.width * 0.7, height: size.height * 0.7) : size
+        
         let physicsPath = CGMutablePath()
-        physicsPath.move(to: CGPoint(x: -size.width/2, y: -size.height/2))
-        physicsPath.addLine(to: CGPoint(x: size.width/2, y: -size.height/2))
-        physicsPath.addLine(to: CGPoint(x: 0, y: size.height/2))
+        physicsPath.move(to: CGPoint(x: -physicsSize.width/2, y: -physicsSize.height/2))
+        physicsPath.addLine(to: CGPoint(x: physicsSize.width/2, y: -physicsSize.height/2))
+        physicsPath.addLine(to: CGPoint(x: 0, y: physicsSize.height/2))
         physicsPath.closeSubpath()
         
         let physicsBody = SKPhysicsBody(polygonFrom: physicsPath)
@@ -1829,6 +2556,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         rock.zPosition = 15
         rock.name = "obstacle"
         
+        // Store original dimensions for potential shrinking
+        rock.userData = rock.userData ?? NSMutableDictionary()
+        rock.userData?.setValue(size.width, forKey: "originalWidth")
+        rock.userData?.setValue(size.height, forKey: "originalHeight")
+        
+        // Apply shrink effect if active
+        if PowerUpManager.shared.isShrinkActive {
+            rock.userData?.setValue(true, forKey: "isShrunk")
+            rock.setScale(0.7)
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            rock.addChild(indicator)
+        }
+        
         // Create rounded rock shape
         let rockPath = UIBezierPath(roundedRect: CGRect(x: -size.width/2, y: -size.height/2, 
                                                         width: size.width, height: size.height), 
@@ -1859,7 +2603,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // Physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        let physicsSize = PowerUpManager.shared.isShrinkActive ? 
+            CGSize(width: size.width * 0.7, height: size.height * 0.7) : size
+        let physicsBody = SKPhysicsBody(rectangleOf: physicsSize)
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
@@ -1874,6 +2620,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         reef.position = position
         reef.zPosition = 15
         reef.name = "obstacle"
+        
+        // Store original dimensions for potential shrinking
+        reef.userData = reef.userData ?? NSMutableDictionary()
+        reef.userData?.setValue(size.width, forKey: "originalWidth")
+        reef.userData?.setValue(size.height, forKey: "originalHeight")
+        
+        // Apply shrink effect if active
+        if PowerUpManager.shared.isShrinkActive {
+            reef.userData?.setValue(true, forKey: "isShrunk")
+            reef.setScale(0.7)
+            
+            // Add visual indicator
+            let indicator = SKSpriteNode(color: .green, size: CGSize(width: 10, height: 10))
+            indicator.alpha = 0.5
+            indicator.name = "shrinkIndicator"
+            reef.addChild(indicator)
+        }
         
         // Main coral body
         let coralPath = UIBezierPath(roundedRect: CGRect(x: -size.width/2, y: -size.height/2, 
@@ -1923,7 +2686,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // Physics body
-        let physicsBody = SKPhysicsBody(rectangleOf: size)
+        let physicsSize = PowerUpManager.shared.isShrinkActive ? 
+            CGSize(width: size.width * 0.7, height: size.height * 0.7) : size
+        let physicsBody = SKPhysicsBody(rectangleOf: physicsSize)
         physicsBody.isDynamic = false
         physicsBody.categoryBitMask = obstacleCategory
         physicsBody.contactTestBitMask = playerCategory
@@ -2113,6 +2878,17 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         } else if firstBody.categoryBitMask == playerCategory && secondBody.categoryBitMask == powerUpCategory {
             // Player collected power-up
             handlePlayerPowerUpCollision(powerUpNode: secondBody.node)
+        } else if firstBody.categoryBitMask == playerCategory && secondBody.categoryBitMask == stargateCategory {
+            // Player hit stargate portal or floating pumpkin
+            if let node = secondBody.node {
+                if node.name == "stargate_portal" {
+                    playPlayerSound(action: "portal")
+                    gameOverWithStargate(portal: node)
+                } else if node.name == "floating_pumpkin" {
+                    playPlayerSound(action: "crash")
+                    gameOver() // Instant game over
+                }
+            }
         }
     }
     
@@ -2348,6 +3124,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     private func showStargateGameOver() {
+        // Determine if this is a space level for text color logic
+        let isSpaceLevel = currentLevel?.mapTheme == .space || 
+                          currentLevel?.id == "level_9" || 
+                          currentLevel?.id == "level_10" ||
+                          (currentLevel?.name.contains("Space Frontier") ?? false) ||
+                          (currentLevel?.name.contains("Cosmic Challenge") ?? false)
+        
         // Show custom game over message
         let gameOverLabel = SKLabelNode(text: "Lost in The Abyss!")
         gameOverLabel.fontName = "AvenirNext-Bold"
@@ -2420,16 +3203,91 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Update per-map high score if needed
         if let levelId = self.levelId ?? currentLevel?.id {
             let currentBest = PlayerData.shared.mapHighScores[levelId] ?? 0
+            print("DEBUG: High Score Check - LevelID: '\(levelId)', Current Score: \(score), Current Best: \(currentBest)")
+            print("DEBUG: All mapHighScores: \(PlayerData.shared.mapHighScores)")
+            
             if score > currentBest {
+                print("DEBUG: NEW HIGH SCORE! Updating from \(currentBest) to \(score)")
                 _ = PlayerData.shared.updateMapHighScore(score, for: levelId)
-                highScoreLabel.text = "Best: \(score)"
+                updateOutlinedLabel(highScoreLabel, text: "Best: \(score)")
+                
+                // Track achievements
+                AchievementManager.shared.trackHighScoreAchieved()
+                AchievementManager.shared.trackMapPlayed(mapId: levelId)
+                
+                // Submit new high score to Game Center
+                gameCenterManager.submitScore(score) // Global leaderboard
+                gameCenterManager.submitMapScore(score, for: levelId) // Map-specific leaderboard
+                
+                // Show new high score message - use appropriate text color for map theme
+                let newHighScoreLabel = SKLabelNode(text: "New High Score!")
+                newHighScoreLabel.fontName = UIConstants.Text.boldFont
+                newHighScoreLabel.fontSize = 28
+                
+                // Use same text color logic as score labels
+                if isSpaceLevel {
+                    newHighScoreLabel.fontColor = UIColor(red: 248/255, green: 248/255, blue: 248/255, alpha: 1.0) // #F8F8F8 light gray
+                } else {
+                    newHighScoreLabel.fontColor = UIColor.white
+                }
+                
+                // Add outline effect for better readability
+                addOutlineToLabel(newHighScoreLabel)
+                
+                // Use safe area positioning for "New High Score!" message
+                let safeArea = SafeAreaLayout(scene: self)
+                let safeTopY = safeArea.safeTopY(offset: UIConstants.Spacing.xlarge + 20) // Extra offset below score labels
+                newHighScoreLabel.position = CGPoint(x: size.width/2, y: safeTopY)
+                newHighScoreLabel.zPosition = 100
+                newHighScoreLabel.alpha = 0
+                addChild(newHighScoreLabel)
+                
+                // Add glow effect to high score message
+                let glowAction = SKAction.sequence([
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.5),
+                    SKAction.fadeAlpha(to: 0.5, duration: 0.5)
+                ])
+                newHighScoreLabel.run(SKAction.repeatForever(glowAction))
+                
+                // Fade in with delay after other elements
+                newHighScoreLabel.run(SKAction.sequence([SKAction.wait(forDuration: 1.7), SKAction.fadeIn(withDuration: 0.5)]))
             }
         } else {
             // Fallback to global if no level context
             let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
             if score > currentHighScore {
                 UserDefaults.standard.set(score, forKey: "highScore")
-                highScoreLabel.text = "Best: \(score)"
+                updateOutlinedLabel(highScoreLabel, text: "Best: \(score)")
+                
+                // Submit new high score to Game Center
+                gameCenterManager.submitScore(score) // Global leaderboard
+                
+                // Show new high score message for global high score
+                let newHighScoreLabel = SKLabelNode(text: "New High Score!")
+                newHighScoreLabel.fontName = UIConstants.Text.boldFont
+                newHighScoreLabel.fontSize = 28
+                newHighScoreLabel.fontColor = UIColor.white // High contrast white text
+                
+                // Add outline effect for better readability
+                addOutlineToLabel(newHighScoreLabel)
+                
+                // Use safe area positioning for "New High Score!" message
+                let safeArea = SafeAreaLayout(scene: self)
+                let safeTopY = safeArea.safeTopY(offset: UIConstants.Spacing.xlarge + 20) // Extra offset below score labels
+                newHighScoreLabel.position = CGPoint(x: size.width/2, y: safeTopY)
+                newHighScoreLabel.zPosition = 100
+                newHighScoreLabel.alpha = 0
+                addChild(newHighScoreLabel)
+                
+                // Add glow effect
+                let glowAction = SKAction.sequence([
+                    SKAction.fadeAlpha(to: 1.0, duration: 0.5),
+                    SKAction.fadeAlpha(to: 0.5, duration: 0.5)
+                ])
+                newHighScoreLabel.run(SKAction.repeatForever(glowAction))
+                
+                // Fade in with delay
+                newHighScoreLabel.run(SKAction.sequence([SKAction.wait(forDuration: 1.7), SKAction.fadeIn(withDuration: 0.5)]))
             }
         }
         
@@ -2693,19 +3551,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Game State
     
     private func updateScore() {
-        // Update score label with current score
-        scoreLabel.text = "Score: \(score)"
+        // Update score label with current score using outlined text
+        updateOutlinedLabel(scoreLabel, text: "Score: \(score)")
         
-        // Check for high score updates
-        let currentHighScore = UserDefaults.standard.integer(forKey: "highScore")
-        if score > currentHighScore {
-            UserDefaults.standard.set(score, forKey: "highScore")
-            highScoreLabel.text = "Best: \(score)"
+        // Check for map-specific high score updates
+        let mapId = getCurrentMapId()
+        let currentMapBest = PlayerData.shared.mapHighScores[mapId] ?? 0
+        if score > currentMapBest {
+            _ = PlayerData.shared.updateMapHighScore(score, for: mapId)
+            updateOutlinedLabel(highScoreLabel, text: "Best: \(score)")
         }
     }
     
     private func gameOver() {
         guard isGameStarted && !isGameOver else { return }
+        
+        // Determine if this is a space level for text color logic (move this early for use throughout method)
+        let isSpaceLevel = currentLevel?.mapTheme == .space || 
+                          currentLevel?.id == "level_9" || 
+                          currentLevel?.id == "level_10" ||
+                          (currentLevel?.name.contains("Space Frontier") ?? false) ||
+                          (currentLevel?.name.contains("Cosmic Challenge") ?? false)
         
         isGameOver = true
         isGameStarted = false
@@ -2811,34 +3677,28 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         restartButton.run(fadeInAction)
         mainMenuButton.run(fadeInAction)
         
-        // Update high score if needed
-        let highScore = UserDefaults.standard.integer(forKey: "highScore")
-        if score > highScore {
-            UserDefaults.standard.set(score, forKey: "highScore")
+        // Update per-map high score if needed
+        if let levelId = self.levelId ?? currentLevel?.id {
+            let currentBest = PlayerData.shared.mapHighScores[levelId] ?? 0
+            print("DEBUG: High Score Check - LevelID: '\(levelId)', Current Score: \(score), Current Best: \(currentBest)")
+            print("DEBUG: All mapHighScores: \(PlayerData.shared.mapHighScores)")
             
-            // Submit score to Game Center
-            gameCenterManager.submitScore(score)
-            
-            // Also submit to map-specific leaderboard
-            if let mapId = levelId ?? currentLevel?.id {
-                gameCenterManager.submitMapScore(score, for: mapId)
+            if score >= currentBest {  // FIXED: Changed > to >= to handle equal scores as new high scores
+                print("DEBUG: NEW HIGH SCORE! Updating from \(currentBest) to \(score)")
+                _ = PlayerData.shared.updateMapHighScore(score, for: levelId)
+                updateOutlinedLabel(highScoreLabel, text: "Best: \(score)")
+                
+                // Track achievements
+                AchievementManager.shared.trackHighScoreAchieved()
+                AchievementManager.shared.trackMapPlayed(mapId: levelId)
+                
+                // Submit new high score to Game Center
+                gameCenterManager.submitScore(score) // Global leaderboard
+                gameCenterManager.submitMapScore(score, for: levelId) // Map-specific leaderboard
+                
+                // Show new high score message and prompt for name entry
+                showNewHighScorePrompt(for: levelId, score: score, isSpaceLevel: isSpaceLevel)
             }
-            
-            // Show new high score message
-            let newHighScoreLabel = SKLabelNode(text: "New High Score!")
-            newHighScoreLabel.fontName = "AvenirNext-Bold"
-            newHighScoreLabel.fontSize = 28
-            newHighScoreLabel.position = CGPoint(x: size.width/2, y: size.height/2 - 100)
-            newHighScoreLabel.zPosition = 100
-            newHighScoreLabel.alpha = 0
-            addChild(newHighScoreLabel)
-            
-            // Add glow effect to high score message
-            let glowAction = SKAction.sequence([
-                SKAction.fadeAlpha(to: 1.0, duration: 0.5),
-                SKAction.fadeAlpha(to: 0.5, duration: 0.5)
-            ])
-            newHighScoreLabel.run(SKAction.repeatForever(glowAction))
         }
         
         // Record game statistics
@@ -2846,17 +3706,161 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         playerData.recordRunTime(gameTime)
         playerData.recordDeath()
         
-        // Update level-specific high score if playing a level
+        // Check for level unlocking
         if let levelId = self.levelId {
-            _ = playerData.updateMapHighScore(score, for: levelId)
-            
-            // Check for level unlocking
             _ = LevelData.unlockNextLevel(after: levelId, withScore: score)
         }
         
         // Award coins based on score
         let coinsEarned = CurrencyManager.shared.awardCoinsForScore(score)
         showTemporaryMessage("+ \(coinsEarned) Coins")
+    }
+    
+    // MARK: - High Score Name Entry
+    
+    private func showNewHighScorePrompt(for levelId: String, score: Int, isSpaceLevel: Bool) {
+        // Show new high score message - positioned using safe area
+        let newHighScoreLabel = SKLabelNode(text: "New High Score!")
+        newHighScoreLabel.fontName = UIConstants.Text.boldFont
+        newHighScoreLabel.fontSize = 28
+        
+        // Use same text color logic as score labels
+        if isSpaceLevel {
+            newHighScoreLabel.fontColor = UIColor(red: 248/255, green: 248/255, blue: 248/255, alpha: 1.0) // #F8F8F8 light gray
+        } else {
+            newHighScoreLabel.fontColor = UIColor.white
+        }
+        
+        // Add outline effect for better readability
+        addOutlineToLabel(newHighScoreLabel)
+        
+        // Use safe area positioning for "New High Score!" message
+        let safeArea = SafeAreaLayout(scene: self)
+        let safeTopY = safeArea.safeTopY(offset: UIConstants.Spacing.xlarge + 20 + UIConstants.Spacing.small) // Lower by 0.25rem (4 points)
+        newHighScoreLabel.position = CGPoint(x: size.width/2, y: safeTopY)
+        newHighScoreLabel.zPosition = 100
+        newHighScoreLabel.alpha = 0
+        addChild(newHighScoreLabel)
+        
+        // Add glow effect to high score message
+        let glowAction = SKAction.sequence([
+            SKAction.fadeAlpha(to: 1.0, duration: 0.5),
+            SKAction.fadeAlpha(to: 0.5, duration: 0.5)
+        ])
+        newHighScoreLabel.run(SKAction.repeatForever(glowAction))
+        
+        // Prompt for player name entry after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.promptForPlayerName(levelId: levelId, score: score)
+        }
+    }
+    
+    private func promptForPlayerName(levelId: String, score: Int) {
+        // Get player display name from Game Center (up to 8 characters)
+        let playerName = gameCenterManager.getPlayerDisplayName()
+        
+        // Create name entry alert
+        let alert = UIAlertController(
+            title: "New High Score!",
+            message: "Score: \(score)\nEnter your name for the leaderboard (max 8 characters):",
+            preferredStyle: .alert
+        )
+        
+        // Add text field for name entry
+        alert.addTextField { textField in
+            textField.placeholder = "Your Name"
+            textField.text = playerName // Pre-fill with Game Center name if available
+            textField.autocapitalizationType = .words
+            textField.autocorrectionType = .no
+            textField.returnKeyType = .done
+            
+            // Limit to 8 characters
+            textField.addTarget(self, action: #selector(self.textFieldDidChange(_:)), for: .editingChanged)
+        }
+        
+        // Save button
+        let saveAction = UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            guard let textField = alert.textFields?.first,
+                  let enteredName = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !enteredName.isEmpty else {
+                // Use default name if empty
+                self?.saveHighScoreEntry(levelId: levelId, score: score, playerName: playerName)
+                return
+            }
+            
+            // Limit to 8 characters and save
+            let finalName = String(enteredName.prefix(8))
+            self?.saveHighScoreEntry(levelId: levelId, score: score, playerName: finalName)
+        }
+        
+        // Skip button (use Game Center name or "Player")
+        let skipAction = UIAlertAction(title: "Skip", style: .cancel) { [weak self] _ in
+            let defaultName = playerName.isEmpty ? "Player" : playerName
+            self?.saveHighScoreEntry(levelId: levelId, score: score, playerName: defaultName)
+        }
+        
+        alert.addAction(saveAction)
+        alert.addAction(skipAction)
+        
+        // Present the alert
+        if let viewController = self.view?.window?.rootViewController {
+            viewController.present(alert, animated: true)
+        }
+    }
+    
+    @objc private func textFieldDidChange(_ textField: UITextField) {
+        // Limit text field to 8 characters
+        if let text = textField.text, text.count > 8 {
+            textField.text = String(text.prefix(8))
+        }
+    }
+    
+    private func saveHighScoreEntry(levelId: String, score: Int, playerName: String) {
+        // Save the high score entry with player name to local storage
+        var leaderboardEntries = UserDefaults.standard.dictionary(forKey: "leaderboard_\(levelId)") ?? [:]
+        
+        // Create entry with timestamp for uniqueness
+        let timestamp = Date().timeIntervalSince1970
+        let entryKey = "\(timestamp)"
+        
+        leaderboardEntries[entryKey] = [
+            "playerName": playerName,
+            "score": score,
+            "date": timestamp
+        ]
+        
+        // Keep only top 10 scores
+        let sortedEntries = leaderboardEntries.sorted { (entry1, entry2) in
+            guard let data1 = entry1.value as? [String: Any],
+                  let score1 = data1["score"] as? Int,
+                  let data2 = entry2.value as? [String: Any],
+                  let score2 = data2["score"] as? Int else {
+                return false
+            }
+            return score1 > score2
+        }
+        
+        // Keep only top 10
+        let topEntries = Array(sortedEntries.prefix(10))
+        let finalLeaderboard = Dictionary(uniqueKeysWithValues: topEntries)
+        
+        // Save to UserDefaults (thread-safe)
+        DispatchQueue.main.async {
+            UserDefaults.standard.set(finalLeaderboard, forKey: "leaderboard_\(levelId)")
+            UserDefaults.standard.synchronize()
+            
+            print("DEBUG: Saved high score entry - Player: '\(playerName)', Score: \(score), Level: '\(levelId)'")
+            print("DEBUG: Updated leaderboard for \(levelId): \(finalLeaderboard)")
+        }
+        
+        // Also submit to Game Center with the custom name (if possible)
+        gameCenterManager.submitMapScore(score, for: levelId) { success, error in
+            if success {
+                print("Successfully submitted score to Game Center leaderboard")
+            } else {
+                print("Failed to submit to Game Center: \(error?.localizedDescription ?? "Unknown error")")
+            }
+        }
     }
     
     private func useExtraLife() {
@@ -2979,5 +3983,29 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Reset physics world speed
         physicsWorld.speed = 1.0
+    }
+}
+
+// MARK: - GameCenterManagerDelegate
+extension GameScene {
+    func presentGameCenterViewController(_ viewController: UIViewController) {
+        // Present Game Center authentication or leaderboard view
+        if let gameViewController = self.view?.window?.rootViewController {
+            gameViewController.present(viewController, animated: true, completion: nil)
+        }
+    }
+    
+    func dismissGameCenterViewController(_ viewController: UIViewController) {
+        viewController.dismiss(animated: true, completion: nil)
+    }
+    
+    func gameCenterAuthenticationChanged(_ isAuthenticated: Bool) {
+        print("DEBUG: Game Center authentication changed - isAuthenticated: \(isAuthenticated)")
+        
+        // Update player name label if it exists
+        if let playerNameLabel = childNode(withName: "//playerNameLabel") as? SKLabelNode {
+            let playerName = gameCenterManager.getPlayerAlias()
+            updateOutlinedLabel(playerNameLabel, text: "Player: \(playerName)")
+        }
     }
 }

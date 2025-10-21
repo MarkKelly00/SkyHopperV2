@@ -1,4 +1,5 @@
 import SpriteKit
+import Foundation
 
 class MapManager {
     static let shared = MapManager()
@@ -155,6 +156,7 @@ class MapManager {
         // Initialize with saved data
         loadSavedData()
         checkForSeasonalMaps()
+        checkMapUnlocksBasedOnScore()
     }
     
     func unlockMap(theme: MapTheme) -> Bool {
@@ -215,6 +217,36 @@ class MapManager {
         }
     }
     
+    /// Check and unlock maps based on player's high score
+    func checkMapUnlocksBasedOnScore() {
+        // FOR TESTING: Unlock all maps
+        for mapTheme in MapTheme.allCases {
+            if !unlockedMaps.contains(mapTheme) {
+                _ = unlockMap(theme: mapTheme)
+                print("🗺️ Map '\(mapTheme.displayName)' unlocked for testing!")
+            }
+        }
+        
+        /* ORIGINAL PROGRESSION LOGIC (commented out for testing):
+        let playerHighScore = PlayerData.shared.highScore
+        
+        // Check each map theme to see if it should be unlocked
+        for mapTheme in MapTheme.allCases {
+            // Skip if already unlocked
+            if unlockedMaps.contains(mapTheme) { continue }
+            
+            // Skip seasonal maps (they have different unlock logic)
+            if mapTheme.isSeasonalMap { continue }
+            
+            // Check if player's score meets the unlock requirement
+            if playerHighScore >= mapTheme.unlockScore {
+                _ = unlockMap(theme: mapTheme)
+                print("🗺️ Map '\(mapTheme.displayName)' unlocked! (Required: \(mapTheme.unlockScore), Player: \(playerHighScore))")
+            }
+        }
+        */
+    }
+    
     // Persistence
     func loadSavedData() {
         if let savedRaw = UserDefaults.standard.stringArray(forKey: "unlockedMaps") {
@@ -224,6 +256,11 @@ class MapManager {
         if let savedMapRaw = UserDefaults.standard.string(forKey: "currentMap"),
            let savedMap = MapTheme(rawValue: savedMapRaw) {
             currentMap = savedMap
+        }
+        
+        // Ensure at least the city map is unlocked (fallback)
+        if !unlockedMaps.contains(.city) {
+            unlockedMaps.append(.city)
         }
     }
     
@@ -262,7 +299,7 @@ class MapManager {
         case .desert: buildDesertBackground(in: scene)
         case .underwater: buildUnderwaterBackground(in: scene)
         case .space: buildSpaceBackground(in: scene)
-        case .halloween: buildForestBackground(in: scene)
+        case .halloween: buildHalloweenBackground(in: scene)
         case .christmas: buildMountainBackground(in: scene)
         case .summer: buildCityBackground(in: scene)
         }
@@ -357,6 +394,118 @@ class MapManager {
             scene.addChild(glow)
         }
     }
+    
+    private func buildHalloweenBackground(in scene: SKScene) {
+        // Add dark clouds for atmosphere
+        addSoftClouds(to: scene, layer: -5, density: 4, speed: 15, 
+                     color: UIColor(red: 0.2, green: 0.1, blue: 0.3, alpha: 0.6))
+        
+        // Add a full moon
+        let moonContainer = SKNode()
+        moonContainer.zPosition = -8
+        scene.addChild(moonContainer)
+        
+        // Create moon
+        let moon = SKShapeNode(circleOfRadius: 80)
+        moon.fillColor = UIColor(red: 1.0, green: 0.95, blue: 0.8, alpha: 1.0)
+        moon.strokeColor = .clear
+        moon.position = CGPoint(x: scene.frame.width * 0.75, y: scene.frame.height * 0.7)
+        
+        // Add moon glow
+        let moonGlow = SKShapeNode(circleOfRadius: 100)
+        moonGlow.fillColor = UIColor(red: 1.0, green: 0.9, blue: 0.7, alpha: 0.3)
+        moonGlow.strokeColor = .clear
+        moonGlow.position = moon.position
+        moonGlow.setScale(1.2)
+        
+        // Add moon craters for detail
+        for _ in 0..<5 {
+            let crater = SKShapeNode(circleOfRadius: CGFloat.random(in: 8...20))
+            crater.fillColor = UIColor(red: 0.9, green: 0.85, blue: 0.7, alpha: 0.5)
+            crater.strokeColor = .clear
+            crater.position = CGPoint(
+                x: CGFloat.random(in: -40...40),
+                y: CGFloat.random(in: -40...40)
+            )
+            moon.addChild(crater)
+        }
+        
+        moonContainer.addChild(moonGlow)
+        moonContainer.addChild(moon)
+        
+        // Add flying bats
+        for _ in 0..<6 {
+            let bat = createBat()
+            bat.position = CGPoint(
+                x: CGFloat.random(in: 0...scene.frame.width),
+                y: CGFloat.random(in: scene.frame.height * 0.5...scene.frame.height * 0.9)
+            )
+            bat.zPosition = -7
+            scene.addChild(bat)
+            
+            // Animate bat flight
+            let flyPath = CGFloat.random(in: 100...200)
+            let flyDuration = Double.random(in: 8...12)
+            let moveRight = SKAction.moveBy(x: flyPath, y: CGFloat.random(in: -30...30), duration: flyDuration/2)
+            let moveLeft = SKAction.moveBy(x: -flyPath, y: CGFloat.random(in: -30...30), duration: flyDuration/2)
+            bat.run(SKAction.repeatForever(SKAction.sequence([moveRight, moveLeft])))
+        }
+        
+        // Add spooky fog at the bottom
+        let fog = SKShapeNode(rectOf: CGSize(width: scene.frame.width * 2, height: 150))
+        fog.fillColor = UIColor(red: 0.5, green: 0.4, blue: 0.6, alpha: 0.3)
+        fog.strokeColor = .clear
+        fog.position = CGPoint(x: scene.frame.width / 2, y: 75)
+        fog.zPosition = -6
+        scene.addChild(fog)
+        
+        // Animate fog
+        let fogMove = SKAction.moveBy(x: 50, y: 0, duration: 20)
+        let fogReset = SKAction.moveBy(x: -50, y: 0, duration: 0)
+        fog.run(SKAction.repeatForever(SKAction.sequence([fogMove, fogReset])))
+    }
+    
+    private func createBat() -> SKNode {
+        let bat = SKNode()
+        
+        // Create simple bat shape
+        let body = SKShapeNode(ellipseOf: CGSize(width: 8, height: 12))
+        body.fillColor = .black
+        body.strokeColor = .clear
+        bat.addChild(body)
+        
+        // Left wing
+        let leftWingPath = UIBezierPath()
+        leftWingPath.move(to: CGPoint(x: -4, y: 0))
+        leftWingPath.addCurve(to: CGPoint(x: -15, y: -3),
+                             controlPoint1: CGPoint(x: -8, y: 2),
+                             controlPoint2: CGPoint(x: -12, y: 0))
+        leftWingPath.addCurve(to: CGPoint(x: -12, y: -8),
+                             controlPoint1: CGPoint(x: -15, y: -5),
+                             controlPoint2: CGPoint(x: -14, y: -7))
+        leftWingPath.addCurve(to: CGPoint(x: -4, y: -5),
+                             controlPoint1: CGPoint(x: -10, y: -8),
+                             controlPoint2: CGPoint(x: -6, y: -6))
+        
+        let leftWing = SKShapeNode(path: leftWingPath.cgPath)
+        leftWing.fillColor = .black
+        leftWing.strokeColor = .clear
+        bat.addChild(leftWing)
+        
+        // Right wing (mirror)
+        let rightWing = SKShapeNode(path: leftWingPath.cgPath)
+        rightWing.fillColor = .black
+        rightWing.strokeColor = .clear
+        rightWing.xScale = -1
+        bat.addChild(rightWing)
+        
+        // Animate wing flapping
+        let flapUp = SKAction.scaleY(to: 0.7, duration: 0.2)
+        let flapDown = SKAction.scaleY(to: 1.0, duration: 0.2)
+        bat.run(SKAction.repeatForever(SKAction.sequence([flapUp, flapDown])))
+        
+        return bat
+    }
 
     // Helpers
     private func addParallaxHills(to scene: SKScene, color: UIColor, y: CGFloat, z: CGFloat) {
@@ -382,9 +531,9 @@ class MapManager {
         scene.addChild(hill)
     }
 
-    private func addSoftClouds(to scene: SKScene, layer: CGFloat, density: Int, speed: CGFloat) {
+    private func addSoftClouds(to scene: SKScene, layer: CGFloat, density: Int, speed: CGFloat, color: UIColor? = nil) {
         for _ in 0..<density {
-            let cloud = createSoftCloudNode()
+            let cloud = createSoftCloudNode(color: color)
             cloud.position = CGPoint(x: CGFloat.random(in: 0...scene.size.width), y: CGFloat.random(in: scene.size.height*0.6...scene.size.height))
             cloud.zPosition = layer
             cloud.name = "bg_cloud"
@@ -397,14 +546,18 @@ class MapManager {
         }
     }
 
-    private func createSoftCloudNode() -> SKNode {
+    private func createSoftCloudNode(color: UIColor? = nil) -> SKNode {
         let container = SKEffectNode()
         container.shouldRasterize = true
         container.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 6])
         for _ in 0..<Int.random(in: 4...7) {
             let r = CGFloat.random(in: 12...28)
             let puff = SKShapeNode(circleOfRadius: r)
-            puff.fillColor = UIColor(white: CGFloat.random(in: 0.92...1.0), alpha: 1)
+            if let color = color {
+                puff.fillColor = color
+            } else {
+                puff.fillColor = UIColor(white: CGFloat.random(in: 0.92...1.0), alpha: 1)
+            }
             puff.strokeColor = .clear
             puff.position = CGPoint(x: CGFloat.random(in: -30...30), y: CGFloat.random(in: -8...8))
             container.addChild(puff)

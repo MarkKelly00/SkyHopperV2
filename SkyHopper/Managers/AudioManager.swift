@@ -113,11 +113,42 @@ class AudioManager {
     
     private func setupAudio() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            // First deactivate any existing session
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            
+            // Use .playback category with minimal options to avoid Code=-50 error
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
             try AVAudioSession.sharedInstance().setActive(true)
+            
+            print("DEBUG: Audio session configured for playback")
+            
+            // Try to override to speaker (this may fail on some devices, which is OK)
+            do {
+                try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+                print("DEBUG: Successfully overrode audio output to speaker")
+            } catch {
+                print("DEBUG: Could not override to speaker (this is normal on some devices): \(error)")
+            }
+            
         } catch {
             print("Failed to set up audio session: \(error)")
+            // Fallback to ambient if playback fails
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [])
+                try AVAudioSession.sharedInstance().setActive(true)
+                print("DEBUG: Fallback to ambient audio session")
+            } catch {
+                print("Fallback audio session also failed: \(error)")
+            }
         }
+        
+        // Register for audio route change notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
         
         // Load sound effects and music
         preloadSoundEffects()
@@ -1067,7 +1098,7 @@ class AudioManager {
         case (.underwater, "obstacle"):
             playEffect(.splash)
         case (.space, "obstacle"):
-            playEffect(.explosion)
+            playEffect(.crash)
         case (.mountain, "obstacle"):
             playEffect(.wind)
         case (.city, "obstacle"), (.forest, "obstacle"), (.desert, "obstacle"):
@@ -1157,6 +1188,34 @@ class AudioManager {
     
     @objc private func handleSpeedBoostDeactivated() {
         deactivateSpeedBoostMusic()
+    }
+    
+    @objc private func handleAudioRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        print("DEBUG: Audio route changed - Reason: \(reason)")
+        
+        switch reason {
+        case .newDeviceAvailable:
+            print("DEBUG: New audio device available")
+        case .oldDeviceUnavailable:
+            print("DEBUG: Audio device disconnected")
+            // Ensure audio continues playing on the built-in speakers
+            do {
+                try AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+                print("DEBUG: Overriding to speaker output")
+            } catch {
+                print("DEBUG: Failed to override to speaker: \(error)")
+            }
+        case .categoryChange:
+            print("DEBUG: Audio category changed")
+        default:
+            print("DEBUG: Other route change: \(reason)")
+        }
     }
     
     // MARK: - Map Theme Music

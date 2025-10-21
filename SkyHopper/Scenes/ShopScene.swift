@@ -75,12 +75,17 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         let safe = SafeAreaLayout(scene: self)
 
         // Right-aligned currency stack anchored to safe area to avoid Dynamic Island overlap
-        let rightX = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
-        let topY = safe.safeTopY(offset: UIConstants.Spacing.xsmall + 6)
+        _ = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
+        _ = safe.safeTopY(offset: UIConstants.Spacing.xsmall + 6)
 
+        // Use safe area layout for currency display
+        let safeArea = SafeAreaLayout(scene: self)
+        let currencySafeTopY = safeArea.safeTopY(offset: -UIConstants.Spacing.medium) // Move up by 1rem for better fit
+        
+        // Coins display (left side of safe area)
         let coinsIcon = SKLabelNode(text: "🪙")
-        coinsIcon.fontSize = 22
-        coinsIcon.position = CGPoint(x: rightX - 90, y: topY)
+        coinsIcon.fontSize = 20
+        coinsIcon.position = CGPoint(x: safeArea.safeLeftX() + 30, y: currencySafeTopY)
         coinsIcon.zPosition = UIConstants.Z.ui
         addChild(coinsIcon)
 
@@ -88,22 +93,22 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         coinsLabel.fontName = "AvenirNext-Medium"
         coinsLabel.fontSize = 18
         coinsLabel.horizontalAlignmentMode = .left
-        coinsLabel.position = CGPoint(x: rightX - 70, y: topY - 2)
+        coinsLabel.position = CGPoint(x: safeArea.safeLeftX() + 55, y: currencySafeTopY)
         coinsLabel.zPosition = UIConstants.Z.ui
         addChild(coinsLabel)
 
-        // Gems display to the right of coins
+        // Gems display (right side of safe area)
         let gemsIcon = SKLabelNode(text: "💎")
-        gemsIcon.fontSize = 22
-        gemsIcon.position = CGPoint(x: rightX - 30, y: topY)
+        gemsIcon.fontSize = 20
+        gemsIcon.position = CGPoint(x: safeArea.safeRightX() - 55, y: currencySafeTopY)
         gemsIcon.zPosition = UIConstants.Z.ui
         addChild(gemsIcon)
 
         gemsLabel = SKLabelNode(text: "\(currencyManager.getGems())")
         gemsLabel.fontName = "AvenirNext-Medium"
         gemsLabel.fontSize = 18
-        gemsLabel.horizontalAlignmentMode = .left
-        gemsLabel.position = CGPoint(x: rightX - 8, y: topY - 2)
+        gemsLabel.horizontalAlignmentMode = .right
+        gemsLabel.position = CGPoint(x: safeArea.safeRightX() - 30, y: currencySafeTopY)
         gemsLabel.zPosition = UIConstants.Z.ui
         addChild(gemsLabel)
     }

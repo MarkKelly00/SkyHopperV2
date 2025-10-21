@@ -88,31 +88,37 @@ class PlayerData {
     }
     
     func saveData() {
-        let defaults = UserDefaults.standard
-        
-        defaults.set(highScore, forKey: "highScore")
-        defaults.set(totalGamesPlayed, forKey: "totalGamesPlayed")
-        defaults.set(totalDistance, forKey: "totalDistance")
-        defaults.set(totalCoinsCollected, forKey: "totalCoinsCollected")
-        defaults.set(totalPowerUpsCollected, forKey: "totalPowerUpsCollected")
-        defaults.set(totalDeaths, forKey: "totalDeaths")
-        defaults.set(longestRunTime, forKey: "longestRunTime")
-        defaults.set(fastestCompletionTime, forKey: "fastestCompletionTime")
-        
-        // Save complex data
-        defaults.set(mapHighScores, forKey: "mapHighScores")
-        defaults.set(mapBestTimes.mapValues { $0 }, forKey: "mapBestTimes")
-        defaults.set(achievements, forKey: "achievementProgress")
-        defaults.set(missionProgress, forKey: "missionProgress")
-        
-        // Daily login data
-        defaults.set(consecutiveDays, forKey: "consecutiveDays")
-        defaults.set(lastLoginDate, forKey: "lastLoginDate")
-        
-        // Save daily challenges
-        if let challengeData = try? JSONEncoder().encode(currentDailyChallenges) {
-            defaults.set(challengeData, forKey: "dailyChallenges")
-            defaults.set(lastDailyChallengeDate, forKey: "lastDailyChallengeDate")
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let defaults = UserDefaults.standard
+            
+            defaults.set(self.highScore, forKey: "highScore")
+            defaults.set(self.totalGamesPlayed, forKey: "totalGamesPlayed")
+            defaults.set(self.totalDistance, forKey: "totalDistance")
+            defaults.set(self.totalCoinsCollected, forKey: "totalCoinsCollected")
+            defaults.set(self.totalPowerUpsCollected, forKey: "totalPowerUpsCollected")
+            defaults.set(self.totalDeaths, forKey: "totalDeaths")
+            defaults.set(self.longestRunTime, forKey: "longestRunTime")
+            defaults.set(self.fastestCompletionTime, forKey: "fastestCompletionTime")
+            
+            // Save complex data
+            defaults.set(self.mapHighScores, forKey: "mapHighScores")
+            defaults.set(self.mapBestTimes.mapValues { $0 }, forKey: "mapBestTimes")
+            defaults.set(self.achievements, forKey: "achievementProgress")
+            defaults.set(self.missionProgress, forKey: "missionProgress")
+            
+            // Daily login data
+            defaults.set(self.consecutiveDays, forKey: "consecutiveDays")
+            defaults.set(self.lastLoginDate, forKey: "lastLoginDate")
+            
+            // Save daily challenges
+            if let challengeData = try? JSONEncoder().encode(self.currentDailyChallenges) {
+                defaults.set(challengeData, forKey: "dailyChallenges")
+                defaults.set(self.lastDailyChallengeDate, forKey: "lastDailyChallengeDate")
+            }
+            
+            print("DEBUG: PlayerData saved successfully")
         }
     }
     
@@ -133,13 +139,17 @@ class PlayerData {
         
         highScore = score
         saveData()
+        
+        // Check if this new high score unlocks any new maps
+        MapManager.shared.checkMapUnlocksBasedOnScore()
+        
         return true
     }
     
     func updateMapHighScore(_ score: Int, for mapID: String) -> Bool {
         let currentBest = mapHighScores[mapID] ?? 0
         
-        guard score > currentBest else { return false }
+        guard score >= currentBest else { return false }  // FIXED: Changed > to >= to handle equal scores
         
         mapHighScores[mapID] = score
         saveData()
@@ -348,6 +358,27 @@ class PlayerData {
     
     func getMissionProgress(id: String) -> Double {
         return missionProgress[id] ?? 0
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Gets the highest score across all maps and the map name where it was achieved
+    func getHighestScoreWithMapName() -> (score: Int, mapName: String?) {
+        guard !mapHighScores.isEmpty else {
+            return (score: 0, mapName: nil)
+        }
+        
+        // Find the highest score
+        let highestEntry = mapHighScores.max { $0.value < $1.value }
+        guard let entry = highestEntry else {
+            return (score: 0, mapName: nil)
+        }
+        
+        // Get the map name from level data
+        let levels = LevelData.loadUnlockedLevels()
+        let mapName = levels.first { $0.id == entry.key }?.name
+        
+        return (score: entry.value, mapName: mapName)
     }
     
     func resetAllData() {

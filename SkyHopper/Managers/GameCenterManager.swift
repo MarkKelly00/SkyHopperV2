@@ -14,7 +14,11 @@ class GameCenterManager: NSObject {
         "forest": "com.skyhopper.highscore.forest",
         "mountain": "com.skyhopper.highscore.mountain",
         "space": "com.skyhopper.highscore.space",
-        "underwater": "com.skyhopper.highscore.underwater"
+        "underwater": "com.skyhopper.highscore.underwater",
+        "desert": "com.skyhopper.highscore.desert",
+        "halloween": "com.skyhopper.highscore.halloween",
+        "christmas": "com.skyhopper.highscore.christmas",
+        "summer": "com.skyhopper.highscore.summer"
     ]
     
     // Delegate for updates
@@ -202,6 +206,8 @@ class GameCenterManager: NSObject {
     
     // Submit score to a specific map leaderboard
     func submitMapScore(_ score: Int, for mapID: String, completion: ((Bool, Error?) -> Void)? = nil) {
+        print("DEBUG: Attempting to submit map score - Score: \(score), MapID: '\(mapID)', Authenticated: \(isAuthenticated)")
+        
         guard isAuthenticated else {
             print("Cannot submit map score - player not authenticated")
             completion?(false, NSError(domain: "GameCenterManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Player not authenticated"]))
@@ -209,10 +215,12 @@ class GameCenterManager: NSObject {
         }
         
         guard let leaderboardID = mapLeaderboardIDs[mapID] else {
-            print("Invalid map ID: \(mapID)")
+            print("Invalid map ID: '\(mapID)' - Available IDs: \(mapLeaderboardIDs.keys.sorted())")
             completion?(false, NSError(domain: "GameCenterManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid map ID"]))
             return
         }
+        
+        print("DEBUG: Using leaderboard ID: '\(leaderboardID)' for map: '\(mapID)'")
         
         if #available(iOS 14.0, *) {
             // Use modern API for iOS 14+
@@ -300,6 +308,45 @@ class GameCenterManager: NSObject {
         }
         
         completion(GKLocalPlayer.local, nil)
+    }
+    
+    // Get player display name (limited to 8 characters for UI)
+    func getPlayerDisplayName() -> String {
+        let localPlayer = GKLocalPlayer.local
+        print("DEBUG: GameCenter Auth Status - isAuthenticated: \(isAuthenticated), localPlayer.isAuthenticated: \(localPlayer.isAuthenticated)")
+        print("DEBUG: GameCenter availability - GKLocalPlayer.local.isUnderage: \(localPlayer.isUnderage)")
+        
+        guard isAuthenticated && localPlayer.isAuthenticated else {
+            print("DEBUG: Player not authenticated - showing Guest")
+            return "Guest"
+        }
+        
+        let displayName = localPlayer.displayName
+        print("DEBUG: Player display name: '\(displayName)'")
+        
+        // Limit to 8 characters for UI constraints
+        if displayName.count > 8 {
+            return String(displayName.prefix(8))
+        }
+        
+        return displayName
+    }
+    
+    // Get player alias (alternative shorter name)
+    func getPlayerAlias() -> String {
+        guard isAuthenticated else {
+            return "Guest"
+        }
+        
+        let localPlayer = GKLocalPlayer.local
+        let alias = localPlayer.alias
+        
+        // Limit to 8 characters for UI constraints
+        if alias.count > 8 {
+            return String(alias.prefix(8))
+        }
+        
+        return alias.isEmpty ? getPlayerDisplayName() : alias
     }
     
     // Get friends

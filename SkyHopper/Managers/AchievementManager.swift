@@ -196,6 +196,144 @@ class AchievementManager {
                 isUnlocked: false,
                 progress: 0,
                 gameKitID: "com.skyhopper.ghost.10"
+            ),
+            
+            // High Score frequency achievements
+            Achievement(
+                id: "daily_highscore_1",
+                name: "Daily Champion",
+                description: "Achieve a new high score today",
+                points: 20,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.daily.highscore.1"
+            ),
+            Achievement(
+                id: "daily_highscore_7",
+                name: "Daily Dominator",
+                description: "Achieve a new high score 7 times in one day",
+                points: 75,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.daily.highscore.7"
+            ),
+            Achievement(
+                id: "weekly_highscore_10",
+                name: "Weekly Warrior",
+                description: "Achieve 10 new high scores in one week",
+                points: 100,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.weekly.highscore.10"
+            ),
+            Achievement(
+                id: "monthly_highscore_50",
+                name: "Monthly Master",
+                description: "Achieve 50 new high scores in one month",
+                points: 200,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.monthly.highscore.50"
+            ),
+            
+            // Shop purchase achievements
+            Achievement(
+                id: "shop_purchase_1",
+                name: "First Purchase",
+                description: "Make your first purchase in the shop",
+                points: 15,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.shop.purchase.1"
+            ),
+            Achievement(
+                id: "shop_purchase_10",
+                name: "Shop Regular",
+                description: "Make 10 purchases in the shop",
+                points: 50,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.shop.purchase.10"
+            ),
+            Achievement(
+                id: "shop_purchase_50",
+                name: "Big Spender",
+                description: "Make 50 purchases in the shop",
+                points: 150,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.shop.purchase.50"
+            ),
+            
+            // Coins earned achievements
+            Achievement(
+                id: "coins_earned_1000",
+                name: "Coin Collector",
+                description: "Earn 1,000 coins total",
+                points: 25,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.coins.earned.1000"
+            ),
+            Achievement(
+                id: "coins_earned_10000",
+                name: "Gold Digger",
+                description: "Earn 10,000 coins total",
+                points: 75,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.coins.earned.10000"
+            ),
+            Achievement(
+                id: "coins_earned_100000",
+                name: "Millionaire Pilot",
+                description: "Earn 100,000 coins total",
+                points: 200,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.coins.earned.100000"
+            ),
+            
+            // Map completion achievements
+            Achievement(
+                id: "maps_played_5",
+                name: "Explorer",
+                description: "Play 5 different maps",
+                points: 30,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.maps.played.5"
+            ),
+            Achievement(
+                id: "maps_played_10",
+                name: "World Explorer",
+                description: "Play all 10 standard maps",
+                points: 100,
+                isHidden: false,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.maps.played.10"
+            ),
+            Achievement(
+                id: "yearly_highscore_365",
+                name: "Yearly Legend",
+                description: "Achieve a new high score 365 times in one year",
+                points: 500,
+                isHidden: true,
+                isUnlocked: false,
+                progress: 0,
+                gameKitID: "com.skyhopper.yearly.highscore.365"
             )
         ]
     }
@@ -298,6 +436,105 @@ class AchievementManager {
         let unlockedCount = mapManager.unlockedMaps.filter { !$0.isSeasonalMap }.count
         
         updateAchievementProgress("unlock_all_maps", value: Double(unlockedCount), target: Double(totalMaps))
+    }
+    
+    func trackMapPlayed(mapId: String) {
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            // Track unique maps played
+            var playedMaps = UserDefaults.standard.stringArray(forKey: "playedMaps") ?? []
+            if !playedMaps.contains(mapId) {
+                playedMaps.append(mapId)
+                UserDefaults.standard.set(playedMaps, forKey: "playedMaps")
+                
+                print("DEBUG: AchievementManager - Tracked new map: \(mapId), total maps: \(playedMaps.count)")
+                
+                self.updateAchievementProgress("maps_played_5", value: Double(playedMaps.count), target: 5)
+                self.updateAchievementProgress("maps_played_10", value: Double(playedMaps.count), target: 10)
+            }
+        }
+    }
+    
+    func trackHighScoreAchieved() {
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let calendar = Calendar.current
+            let now = Date()
+            
+            // Daily high scores
+            let today = calendar.startOfDay(for: now)
+            let dailyKey = "daily_highscores_\(today.timeIntervalSince1970)"
+            let dailyCount = UserDefaults.standard.integer(forKey: dailyKey) + 1
+            UserDefaults.standard.set(dailyCount, forKey: dailyKey)
+            
+            print("DEBUG: AchievementManager - Tracked high score achievement, daily count: \(dailyCount)")
+            
+            self.updateAchievementProgress("daily_highscore_1", value: 1, target: 1)
+            self.updateAchievementProgress("daily_highscore_7", value: Double(dailyCount), target: 7)
+            
+            // Weekly high scores
+            let weekComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            if let weekStart = calendar.date(from: weekComponents) {
+                let weeklyKey = "weekly_highscores_\(weekStart.timeIntervalSince1970)"
+                let weeklyCount = UserDefaults.standard.integer(forKey: weeklyKey) + 1
+                UserDefaults.standard.set(weeklyCount, forKey: weeklyKey)
+                
+                self.updateAchievementProgress("weekly_highscore_10", value: Double(weeklyCount), target: 10)
+            }
+            
+            // Monthly high scores
+            let monthComponents = calendar.dateComponents([.year, .month], from: now)
+            if let monthStart = calendar.date(from: monthComponents) {
+                let monthlyKey = "monthly_highscores_\(monthStart.timeIntervalSince1970)"
+                let monthlyCount = UserDefaults.standard.integer(forKey: monthlyKey) + 1
+                UserDefaults.standard.set(monthlyCount, forKey: monthlyKey)
+                
+                self.updateAchievementProgress("monthly_highscore_50", value: Double(monthlyCount), target: 50)
+            }
+            
+            // Yearly high scores
+            let yearComponents = calendar.dateComponents([.year], from: now)
+            if let yearStart = calendar.date(from: yearComponents) {
+                let yearlyKey = "yearly_highscores_\(yearStart.timeIntervalSince1970)"
+                let yearlyCount = UserDefaults.standard.integer(forKey: yearlyKey) + 1
+                UserDefaults.standard.set(yearlyCount, forKey: yearlyKey)
+                
+                self.updateAchievementProgress("yearly_highscore_365", value: Double(yearlyCount), target: 365)
+            }
+        }
+    }
+    
+    func trackShopPurchase() {
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let currentCount = UserDefaults.standard.integer(forKey: "shopPurchaseCount") + 1
+            UserDefaults.standard.set(currentCount, forKey: "shopPurchaseCount")
+            
+            print("DEBUG: AchievementManager - Tracked shop purchase, count now: \(currentCount)")
+            
+            self.updateAchievementProgress("shop_purchase_1", value: Double(currentCount), target: 1)
+            self.updateAchievementProgress("shop_purchase_10", value: Double(currentCount), target: 10)
+            self.updateAchievementProgress("shop_purchase_50", value: Double(currentCount), target: 50)
+        }
+    }
+    
+    func trackCoinsEarned(_ amount: Int) {
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let currentTotal = UserDefaults.standard.integer(forKey: "totalCoinsEarned")
+            let newTotal = currentTotal + amount
+            UserDefaults.standard.set(newTotal, forKey: "totalCoinsEarned")
+            
+            print("DEBUG: AchievementManager - Tracked \(amount) coins, total now: \(newTotal)")
+            
+            self.updateAchievementProgress("coins_earned_1000", value: Double(newTotal), target: 1000)
+            self.updateAchievementProgress("coins_earned_10000", value: Double(newTotal), target: 10000)
+            self.updateAchievementProgress("coins_earned_100000", value: Double(newTotal), target: 100000)
+        }
     }
     
     private func updateAchievementProgress(_ id: String, value: Double, target: Double) {

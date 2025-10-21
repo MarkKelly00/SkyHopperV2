@@ -13,15 +13,23 @@ class LeaderboardScene: SKScene {
     private var leaderboardContainer: SKNode!
     private var scrollView: SKNode!
     
-    // Map data
+    // Map data - COMPLETE list including all seasonal/special maps
     private let maps = [
-        ("level_1", "City Beginnings"),
-        ("desert_escape", "Stargate Escape"),
-        ("level_3", "Forest Valley"),
-        ("level_5", "Mountain Pass"),
-        ("level_7", "Underwater Adventure"),
-        ("level_9", "Space Frontier"),
-        ("level_10", "Cosmic Challenge")
+        ("level_1", "City Beginnings"),        // 1
+        ("level_2", "Downtown Rush"),          // 2  
+        ("desert_escape", "Stargate Escape"),  // 3
+        ("level_3", "Forest Valley"),          // 4
+        ("level_4", "Deep Woods"),             // 5
+        ("level_5", "Mountain Pass"),          // 6
+        ("level_6", "Summit Challenge"),       // 7
+        ("level_7", "Reef Void"),              // 8
+        ("level_8", "Deep Sea Trenches"),      // 9
+        ("level_9", "Space Frontier"),         // 10
+        ("level_10", "Cosmic Challenge"),      // 11
+        // Special/Seasonal Maps
+        ("halloween_special", "Haunted Flight"),    // 12
+        ("christmas_special", "Winter Wonderland"),  // 13
+        ("summer_special", "Beach Escape")           // 14
     ]
     
     private var currentMapIndex = 0
@@ -47,12 +55,52 @@ class LeaderboardScene: SKScene {
         #if DEBUG
         UILinter.run(scene: self, topBar: topBar)
         #endif
+        
+        // Find the map with the most recent high score to show by default
+        let mapWithRecentScore = findMapWithMostRecentScore()
+        if let mapIndex = mapWithRecentScore {
+            currentMapIndex = mapIndex
+            updateTabSelection()
+        }
+        
         loadLeaderboard(for: maps[currentMapIndex].0)
     }
 
     private func safeTopInset() -> CGFloat {
         // Approximate if not available
         return view?.safeAreaInsets.top ?? 44
+    }
+    
+    private func findMapWithMostRecentScore() -> Int? {
+        var mostRecentDate: TimeInterval = 0
+        var mostRecentMapIndex: Int? = nil
+        
+        // Check each map for leaderboard data
+        for (index, mapData) in maps.enumerated() {
+            let mapID = mapData.0
+            
+            // Check if this map has any leaderboard entries
+            if let leaderboardData = UserDefaults.standard.dictionary(forKey: "leaderboard_\(mapID)") as? [String: [String: Any]] {
+                
+                // Find the most recent entry in this map
+                for (_, entryData) in leaderboardData {
+                    if let date = entryData["date"] as? TimeInterval {
+                        if date > mostRecentDate {
+                            mostRecentDate = date
+                            mostRecentMapIndex = index
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let mapIndex = mostRecentMapIndex {
+            print("DEBUG: Found most recent score on map: \(maps[mapIndex].1) (index: \(mapIndex))")
+        } else {
+            print("DEBUG: No recent scores found, using default map")
+        }
+        
+        return mostRecentMapIndex
     }
     
     private func setupBackground() {
@@ -164,7 +212,64 @@ class LeaderboardScene: SKScene {
         loadingLabel.position = CGPoint(x: size.width/2, y: size.height/2)
         leaderboardContainer.addChild(loadingLabel)
         
-        // Load from Game Center
+        // Load from local storage first (our new system)
+        loadLocalLeaderboard(for: mapID)
+    }
+    
+    private func loadLocalLeaderboard(for mapID: String) {
+        // Load leaderboard entries from UserDefaults
+        guard let leaderboardData = UserDefaults.standard.dictionary(forKey: "leaderboard_\(mapID)") as? [String: [String: Any]] else {
+            print("DEBUG: No local leaderboard data found for \(mapID)")
+            // Fallback to Game Center or mock data
+            loadGameCenterLeaderboard(for: mapID)
+            return
+        }
+        
+        print("DEBUG: Loading local leaderboard for \(mapID): \(leaderboardData)")
+        
+        // Convert to LeaderboardEntry objects and sort by score
+        var entries: [LeaderboardEntry] = []
+        
+        for (_, entryData) in leaderboardData {
+            guard let playerName = entryData["playerName"] as? String,
+                  let score = entryData["score"] as? Int else {
+                continue
+            }
+            
+            // Check if this is the local player (simple name comparison for now)
+            let currentPlayerName = GameCenterManager.shared.getPlayerDisplayName()
+            let isLocalPlayer = (playerName == currentPlayerName) || (playerName == "Player" && currentPlayerName.isEmpty)
+            
+            entries.append(LeaderboardEntry(
+                rank: 0, // Will be set after sorting
+                playerName: playerName,
+                score: score,
+                isLocalPlayer: isLocalPlayer
+            ))
+        }
+        
+        // Sort by score (highest first) and assign ranks
+        entries.sort { $0.score > $1.score }
+        
+        for (index, _) in entries.enumerated() {
+            entries[index] = LeaderboardEntry(
+                rank: index + 1,
+                playerName: entries[index].playerName,
+                score: entries[index].score,
+                isLocalPlayer: entries[index].isLocalPlayer
+            )
+        }
+        
+        self.leaderboardEntries = entries
+        
+        // Update display
+        DispatchQueue.main.async {
+            self.displayLeaderboard()
+        }
+    }
+    
+    private func loadGameCenterLeaderboard(for mapID: String) {
+        // Load from Game Center as fallback
         let leaderboardID = "com.skyhopper.\(mapID)"
         
         if #available(iOS 14.0, *) {
@@ -176,7 +281,7 @@ class LeaderboardScene: SKScene {
                 
                 leaderboard.loadEntries(for: .global, timeScope: .allTime, range: NSRange(location: 1, length: 100)) { [weak self] localPlayer, entries, _, error in
                     guard let self = self, let entries = entries else {
-                        self?.showNoDataMessage()
+                        self?.loadMockData() // Final fallback
                         return
                     }
                     
@@ -223,8 +328,17 @@ class LeaderboardScene: SKScene {
     private func displayLeaderboard() {
         leaderboardContainer.removeAllChildren()
         
+        print("DEBUG: displayLeaderboard called with \(leaderboardEntries.count) entries")
+        
+        // If no entries, show the no data message
+        if leaderboardEntries.isEmpty {
+            showNoDataMessage()
+            return
+        }
+        
         let entryHeight: CGFloat = 50
-        let startY = size.height - 200
+        // Since leaderboardContainer is already positioned, start from relative 0
+        let startY: CGFloat = 0
         
         // Create header
         let headerBG = SKShapeNode(rectOf: CGSize(width: size.width - 40, height: 40), cornerRadius: 5)
@@ -342,14 +456,14 @@ class LeaderboardScene: SKScene {
         messageLabel.fontName = "AvenirNext-Regular"
         messageLabel.fontSize = 24
         messageLabel.fontColor = .white
-        messageLabel.position = CGPoint(x: size.width/2, y: size.height/2)
+        messageLabel.position = CGPoint(x: size.width/2, y: -100)
         leaderboardContainer.addChild(messageLabel)
         
         let subLabel = SKLabelNode(text: "Be the first to set a high score!")
         subLabel.fontName = "AvenirNext-Regular"
         subLabel.fontSize = 18
         subLabel.fontColor = UIColor(white: 0.8, alpha: 1.0)
-        subLabel.position = CGPoint(x: size.width/2, y: size.height/2 - 30)
+        subLabel.position = CGPoint(x: size.width/2, y: -130)
         leaderboardContainer.addChild(subLabel)
     }
     

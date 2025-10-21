@@ -968,18 +968,60 @@ class PowerUpManager {
                let originalHeight = obstacle.userData?.value(forKey: "originalHeight") as? CGFloat {
                 
                 let growAction = SKAction.scale(to: 1.0, duration: 0.3) // Return to original scale
-                obstacle.run(growAction)
                 
-                // Restore physics body
-                if let physics = obstacle.physicsBody {
-                    let newPhysics = SKPhysicsBody(rectangleOf: CGSize(width: originalWidth, height: originalHeight))
+                // Temporarily disable collisions during resize to prevent invisible wall crashes
+                let disableCollisionAction = SKAction.run {
+                    obstacle.physicsBody?.collisionBitMask = 0
+                    obstacle.physicsBody?.contactTestBitMask = 0
+                }
+                
+                // Create physics body restoration action that runs AFTER the visual scaling completes
+                let restorePhysicsAction = SKAction.run {
+                    // Check if obstacle still exists before restoring physics
+                    guard let physics = obstacle.physicsBody else { return }
+                    
+                    // Determine physics body shape based on obstacle type
+                    let newPhysics: SKPhysicsBody
+                    
+                    // Check if this is a triangular obstacle (pyramid)
+                    if let isTriangular = obstacle.userData?.value(forKey: "isTriangular") as? Bool, isTriangular {
+                        // Create triangular physics body for pyramids
+                        let trianglePath = CGMutablePath()
+                        trianglePath.move(to: CGPoint(x: -originalWidth/2, y: -originalHeight/2))
+                        trianglePath.addLine(to: CGPoint(x: originalWidth/2, y: -originalHeight/2))
+                        trianglePath.addLine(to: CGPoint(x: 0, y: originalHeight/2))
+                        trianglePath.closeSubpath()
+                        newPhysics = SKPhysicsBody(polygonFrom: trianglePath)
+                    } else {
+                        // Create rectangular physics body for other obstacles
+                        newPhysics = SKPhysicsBody(rectangleOf: CGSize(width: originalWidth, height: originalHeight))
+                    }
+                    
+                    // Copy physics properties
                     newPhysics.isDynamic = physics.isDynamic
                     newPhysics.categoryBitMask = physics.categoryBitMask
                     newPhysics.contactTestBitMask = physics.contactTestBitMask
-                    newPhysics.collisionBitMask = physics.collisionBitMask
+                    newPhysics.collisionBitMask = 0 // Keep collisions disabled initially
                     
                     obstacle.physicsBody = newPhysics
                 }
+                
+                // Re-enable collisions after a brief delay to ensure smooth transition
+                let enableCollisionAction = SKAction.run {
+                    obstacle.physicsBody?.collisionBitMask = 0 // Obstacles don't cause physics collisions, only contact detection
+                    obstacle.physicsBody?.contactTestBitMask = 1 // playerCategory value
+                }
+                
+                // Run the complete sequence: disable collisions, scale visual, restore physics, then re-enable detection
+                let waitAction = SKAction.wait(forDuration: 0.1) // Brief delay before re-enabling contact detection
+                let sequence = SKAction.sequence([
+                    disableCollisionAction,  // First disable collisions
+                    growAction,              // Then scale visually 
+                    restorePhysicsAction,    // Then restore physics body
+                    waitAction,              // Wait briefly
+                    enableCollisionAction    // Finally re-enable contact detection
+                ])
+                obstacle.run(sequence)
             }
         }
     }

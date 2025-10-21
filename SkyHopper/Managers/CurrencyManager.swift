@@ -33,6 +33,10 @@ class CurrencyManager {
         coins += amount
         saveData()
         delegate?.currencyDidChange()
+        
+        // Track coins earned for achievements
+        AchievementManager.shared.trackCoinsEarned(amount)
+        
         return coins
     }
     
@@ -78,9 +82,14 @@ class CurrencyManager {
     }
     
     private func saveData() {
-        let defaults = UserDefaults.standard
-        defaults.set(coins, forKey: coinsKey)
-        defaults.set(gems, forKey: gemsKey)
+        // Ensure thread-safe access to UserDefaults
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let defaults = UserDefaults.standard
+            defaults.set(self.coins, forKey: self.coinsKey)
+            defaults.set(self.gems, forKey: self.gemsKey)
+            print("DEBUG: CurrencyManager saved - Coins: \(self.coins), Gems: \(self.gems)")
+        }
     }
     
     // MARK: - Game Integration
@@ -249,6 +258,9 @@ class CurrencyManager {
         } else if item.id == "removal_ads" {
             UserDefaults.standard.set(true, forKey: "adsRemoved")
         }
+        
+        // Track shop purchase for achievements
+        AchievementManager.shared.trackShopPurchase()
         
         return true
     }

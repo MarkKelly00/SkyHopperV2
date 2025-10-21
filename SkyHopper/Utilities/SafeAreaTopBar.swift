@@ -61,39 +61,40 @@ final class SafeAreaTopBar {
         proxy.frameNode = backButton
         container.addChild(proxy)
 
-        // Add a right-aligned currency row inside the top bar (safe-area aware)
-        let rightX = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
-        let currencyTopY = backY - (UIConstants.Spacing.xsmall / 2)
-
+        // Add currency display using safe area layout (consistent with MainMenuScene)
+        let currencyTopY = safe.safeTopY(offset: -UIConstants.Spacing.medium) // Move up by 1rem for better fit
+        
+        // Coins display (left side of safe area)
         let coinsIcon = SKLabelNode(text: "🪙")
         coinsIcon.name = "topbar_coinsIcon"
         coinsIcon.fontSize = 20
-        coinsIcon.position = CGPoint(x: rightX - 100, y: currencyTopY)
+        coinsIcon.position = CGPoint(x: safe.safeLeftX() + 30, y: currencyTopY)
         coinsIcon.zPosition = UIConstants.Z.ui
         container.addChild(coinsIcon)
 
         let coinsLabel = SKLabelNode(text: "\(CurrencyManager.shared.getCoins())")
         coinsLabel.name = "topbar_coinsLabel"
         coinsLabel.fontName = UIConstants.Text.mediumFont
-        coinsLabel.fontSize = 16
+        coinsLabel.fontSize = 18
         coinsLabel.horizontalAlignmentMode = .left
-        coinsLabel.position = CGPoint(x: rightX - 80, y: currencyTopY - 2)
+        coinsLabel.position = CGPoint(x: safe.safeLeftX() + 55, y: currencyTopY)
         coinsLabel.zPosition = UIConstants.Z.ui
         container.addChild(coinsLabel)
 
+        // Gems display (right side of safe area)
         let gemsIcon = SKLabelNode(text: "💎")
         gemsIcon.name = "topbar_gemsIcon"
         gemsIcon.fontSize = 20
-        gemsIcon.position = CGPoint(x: rightX - 40, y: currencyTopY)
+        gemsIcon.position = CGPoint(x: safe.safeRightX() - 55, y: currencyTopY)
         gemsIcon.zPosition = UIConstants.Z.ui
         container.addChild(gemsIcon)
 
         let gemsLabel = SKLabelNode(text: "\(CurrencyManager.shared.getGems())")
         gemsLabel.name = "topbar_gemsLabel"
         gemsLabel.fontName = UIConstants.Text.mediumFont
-        gemsLabel.fontSize = 16
-        gemsLabel.horizontalAlignmentMode = .left
-        gemsLabel.position = CGPoint(x: rightX - 18, y: currencyTopY - 2)
+        gemsLabel.fontSize = 18
+        gemsLabel.horizontalAlignmentMode = .right
+        gemsLabel.position = CGPoint(x: safe.safeRightX() - 30, y: currencyTopY)
         gemsLabel.zPosition = UIConstants.Z.ui
         container.addChild(gemsLabel)
 
