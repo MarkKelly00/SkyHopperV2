@@ -49,8 +49,20 @@ class GameViewController: UIViewController, GameCenterManagerDelegate {
             view.showsNodeCount = true
             view.ignoresSiblingOrder = true
             
-            // Create the main menu scene instead of going directly to game
-            let scene = MainMenuScene(size: view.frame.size)
+            // Check if user is authenticated and has completed onboarding
+            let scene: SKScene
+            
+            // For testing: Clear authentication to always show auth screen
+            // Remove this line in production
+            // AuthenticationManager.shared.logout()
+            
+            if AuthenticationManager.shared.isAuthenticated && AuthenticationManager.shared.hasCompletedOnboarding {
+                // User is logged in and has completed onboarding, go to main menu
+                scene = MainMenuScene(size: view.frame.size)
+            } else {
+                // User needs to log in or complete onboarding
+                scene = AuthenticationScene(size: view.frame.size)
+            }
             
             // Set the scene's scale mode
             scene.scaleMode = .resizeFill

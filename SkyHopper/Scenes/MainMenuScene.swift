@@ -8,7 +8,7 @@ class MainMenuScene: SKScene {
     private var characterButton: SKShapeNode!
     private var shopButton: SKShapeNode!
     private var settingsButton: SKShapeNode!
-    private var achievementsButton: SKShapeNode!
+    private var profileButton: SKShapeNode!
     private var leaderboardButton: SKShapeNode!
     
     // Layout constants
@@ -119,7 +119,7 @@ class MainMenuScene: SKScene {
         createCharacterButton()
         createShopButton()
         createSettingsButton()
-        createAchievementsButton()
+        createProfileButton()
         createLeaderboardButton()
         
         // Create player data displays
@@ -150,14 +150,14 @@ class MainMenuScene: SKScene {
         addChild(settingsButton)
     }
     
-    private func createAchievementsButton() {
+    private func createProfileButton() {
         // Place at the bottom of the screen with proper spacing
-        achievementsButton = createSpecialButton(
-            text: "ACHIEVEMENTS",
+        profileButton = createSpecialButton(
+            text: "PROFILE",
             position: CGPoint(x: size.width / 4, y: bottomY)
         )
-        achievementsButton.name = "achievementsButton"
-        addChild(achievementsButton)
+        profileButton.name = "profileButton"
+        addChild(profileButton)
     }
     
     private func createLeaderboardButton() {
@@ -169,6 +169,7 @@ class MainMenuScene: SKScene {
         leaderboardButton.name = "leaderboardButton"
         addChild(leaderboardButton)
     }
+    
     
     private func createPlayerDataDisplays() {
         // Coins display - moved down to account for notch
@@ -246,6 +247,7 @@ class MainMenuScene: SKScene {
         
         return buttonNode
     }
+    
     
     private func addBackgroundElements() {
         // Add clouds
@@ -437,8 +439,8 @@ class MainMenuScene: SKScene {
                     handleShopButton()
                 } else if node.name == "settingsButton" || node.parent?.name == "settingsButton" {
                     handleSettingsButton()
-                } else if node.name == "achievementsButton" || node.parent?.name == "achievementsButton" {
-                    handleAchievementsButton()
+                } else if node.name == "profileButton" || node.parent?.name == "profileButton" {
+                    handleProfileButton()
                 } else if node.name == "leaderboardButton" || node.parent?.name == "leaderboardButton" {
                     handleLeaderboardButton()
                 }
@@ -477,9 +479,12 @@ class MainMenuScene: SKScene {
         }
     }
     
-    private func handleAchievementsButton() {
-        animateButtonPress(achievementsButton) {
-            self.showAchievements()
+    private func handleProfileButton() {
+        animateButtonPress(profileButton) {
+            let transition = SKTransition.fade(withDuration: 0.5)
+            let profileScene = ProfileSettingsScene(size: self.size)
+            profileScene.scaleMode = .aspectFill
+            self.view?.presentScene(profileScene, transition: transition)
         }
     }
     
@@ -487,11 +492,12 @@ class MainMenuScene: SKScene {
         animateButtonPress(leaderboardButton) {
             // Use custom leaderboard scene instead of Game Center default
             let transition = SKTransition.fade(withDuration: 0.5)
-            let leaderboardScene = LeaderboardScene(size: self.size)
+            let leaderboardScene = ModernLeaderboardScene(size: self.size)
             leaderboardScene.scaleMode = .aspectFill
             self.view?.presentScene(leaderboardScene, transition: transition)
         }
     }
+    
     
     private func animateButtonPress(_ button: SKShapeNode, completion: @escaping () -> Void) {
         let scaleDown = SKAction.scale(to: 0.9, duration: 0.1)
