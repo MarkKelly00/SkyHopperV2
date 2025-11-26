@@ -49,6 +49,13 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     // Friends list
     private var friendsScrollContainer: SKNode!
     private var friendRequests: [FriendRequest] = []
+    
+    // Achievements scrolling
+    private var achievementScrollContainer: SKNode!
+    private var achievementCropNode: SKCropNode!
+    private var isAchievementScrolling = false
+    private var lastAchievementTouchY: CGFloat = 0
+    private var achievementScrollVelocity: CGFloat = 0
 
     // Tab button struct
     struct TabButton {
@@ -97,37 +104,39 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     
     private func setupTopBar() {
         topBar = SKNode()
-        topBar.position = CGPoint(x: 0, y: size.height - 80)
+        topBar.position = CGPoint(x: 0, y: size.height - 70)
         topBar.zPosition = 10
         addChild(topBar)
 
-        // Back button
-        let backButton = createGlassButton(text: "Back", icon: "chevron.left", size: CGSize(width: 80, height: 40))
-        backButton.position = CGPoint(x: 60, y: 0)
+        // Back button - text only, no icon (cleaner look)
+        let backButton = createGlassButton(text: "Back", icon: nil, size: CGSize(width: 70, height: 34))
+        backButton.position = CGPoint(x: 50, y: 0)
         backButton.name = "backButton"
         topBar.addChild(backButton)
 
         // Title
         let titleLabel = SKLabelNode(text: "Profile & Settings")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 20
+        titleLabel.fontSize = 18
         titleLabel.fontColor = .white
+        titleLabel.verticalAlignmentMode = .center
         titleLabel.position = CGPoint(x: size.width/2, y: 0)
         topBar.addChild(titleLabel)
     }
 
     private func setupTabs() {
         let tabs: [ProfileTab] = [.profile, .achievements, .referrals]
-        let tabWidth: CGFloat = 100  // Reduced from 115 to fit evenly
-        let tabHeight: CGFloat = 42  // Slightly reduced
-        let spacing: CGFloat = 8     // Reduced spacing
-        let totalWidth = (tabWidth * CGFloat(tabs.count)) + (spacing * CGFloat(tabs.count - 1))
-        let startX = (size.width - totalWidth) / 2 + tabWidth/2
+        let horizontalPadding: CGFloat = 20
+        let spacing: CGFloat = 8
+        let availableWidth = size.width - (horizontalPadding * 2) - (spacing * CGFloat(tabs.count - 1))
+        let tabWidth: CGFloat = availableWidth / CGFloat(tabs.count)  // Evenly distributed
+        let tabHeight: CGFloat = 38
+        let startX = horizontalPadding + tabWidth/2
 
         for (index, tab) in tabs.enumerated() {
             let xPos = startX + CGFloat(index) * (tabWidth + spacing)
             let tabButton = createTabButton(tab: tab, size: CGSize(width: tabWidth, height: tabHeight))
-            tabButton.node.position = CGPoint(x: xPos, y: size.height - 150)
+            tabButton.node.position = CGPoint(x: xPos, y: size.height - 140)
             tabButton.node.zPosition = 5
             addChild(tabButton.node)
             tabButtons.append(tabButton)
@@ -147,26 +156,26 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         background.lineWidth = 1.5
         container.addChild(background)
 
-        // Icon with better visibility
+        // Icon with better visibility - smaller for compact tabs
         var icon: SKSpriteNode? = nil
         if let image = UIImage(systemName: tab.icon) {
             let texture = SKTexture(image: image)
             icon = SKSpriteNode(texture: texture)
-            icon?.size = CGSize(width: 20, height: 20)
-            icon?.position = CGPoint(x: -size.width/2 + 28, y: 0)
+            icon?.size = CGSize(width: 14, height: 14)
+            icon?.position = CGPoint(x: -size.width/2 + 18, y: 0)
             icon?.colorBlendFactor = 1.0
             icon?.color = .white
             container.addChild(icon!)
         }
 
-        // Label with better contrast
+        // Label with better contrast - smaller font for compact tabs
         let label = SKLabelNode(text: tab.title)
-        label.fontName = "AvenirNext-Bold"
-        label.fontSize = 16
+        label.fontName = "AvenirNext-DemiBold"
+        label.fontSize = 12
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
-        label.position = CGPoint(x: 10, y: 0)
+        label.position = CGPoint(x: 6, y: 0)
         container.addChild(label)
 
         return TabButton(node: container, tab: tab, background: background, label: label, icon: icon)
@@ -241,29 +250,36 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         
         // Referral code section - centered with proper margins
         let referralContainer = SKNode()
-        referralContainer.position = CGPoint(x: 0, y: 0)
+        referralContainer.position = CGPoint(x: 0, y: containerSize.height/2 - 290)
         profileContainer.addChild(referralContainer)
         
-        // Reduced width for better proportions, centered
-        let codeWidth: CGFloat = 240
-        let referralBg = SKShapeNode(rectOf: CGSize(width: codeWidth, height: 50), cornerRadius: 25)
+        // Code box and share button side by side, centered together
+        let codeWidth: CGFloat = 180
+        let shareButtonSize: CGFloat = 44
+        let spacing: CGFloat = 12
+        let totalWidth = codeWidth + spacing + shareButtonSize
+        let startX = -totalWidth/2
+        
+        // Code background - left side of center
+        let referralBg = SKShapeNode(rectOf: CGSize(width: codeWidth, height: 44), cornerRadius: 22)
         referralBg.fillColor = UIColor(white: 0.1, alpha: 0.6)
         referralBg.strokeColor = UIColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 0.5)
         referralBg.lineWidth = 2
+        referralBg.position = CGPoint(x: startX + codeWidth/2, y: 0)
         referralContainer.addChild(referralBg)
         
         referralCodeLabel = SKLabelNode(text: "Code: ------")
         referralCodeLabel.fontName = "AvenirNext-DemiBold"
-        referralCodeLabel.fontSize = 18
+        referralCodeLabel.fontSize = 16
         referralCodeLabel.fontColor = UIColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
         referralCodeLabel.verticalAlignmentMode = .center
         referralCodeLabel.horizontalAlignmentMode = .center
-        referralCodeLabel.position = CGPoint(x: 0, y: 0)
+        referralCodeLabel.position = CGPoint(x: startX + codeWidth/2, y: 0)
         referralContainer.addChild(referralCodeLabel)
         
-        // Share button - properly aligned, not overlapping
-        let shareButton = createGlassButton(text: nil, icon: "square.and.arrow.up", size: CGSize(width: 44, height: 44))
-        shareButton.position = CGPoint(x: codeWidth/2 - 22, y: 0)  // Right edge with padding
+        // Share button - right side of code box
+        let shareButton = createGlassButton(text: nil, icon: "square.and.arrow.up", size: CGSize(width: shareButtonSize, height: shareButtonSize))
+        shareButton.position = CGPoint(x: startX + codeWidth + spacing + shareButtonSize/2, y: 0)
         shareButton.name = "shareReferralButton"
         referralContainer.addChild(shareButton)
 
@@ -272,55 +288,69 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     }
 
     private func setupFriendsInProfile(containerSize: CGSize) {
+        // Friends section starts well below the referral code (which is at containerSize.height/2 - 290)
+        let friendsSectionY: CGFloat = containerSize.height/2 - 420
+        
         // Check if user has friends
         let friends = AuthenticationManager.shared.currentUser?.friends ?? []
         
         if friends.isEmpty {
-            // Show "Add Friends" prompt when no friends
+            // Show "Add Friends" prompt when no friends - centered, below code section
+            let noFriendsContainer = SKNode()
+            noFriendsContainer.position = CGPoint(x: 0, y: friendsSectionY + 40)
+            profileContainer.addChild(noFriendsContainer)
+            
             let noFriendsLabel = SKLabelNode(text: "No friends yet")
             noFriendsLabel.fontName = "AvenirNext-Medium"
-            noFriendsLabel.fontSize = 16
-            noFriendsLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
-            noFriendsLabel.position = CGPoint(x: 0, y: -140)
-            profileContainer.addChild(noFriendsLabel)
+            noFriendsLabel.fontSize = 15
+            noFriendsLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            noFriendsLabel.horizontalAlignmentMode = .center
+            noFriendsLabel.position = CGPoint(x: 0, y: 30)
+            noFriendsContainer.addChild(noFriendsLabel)
             
-            let addFriendButton = createGlassButton(text: "Add Friends", icon: "person.badge.plus", size: CGSize(width: 140, height: 40))
-            addFriendButton.position = CGPoint(x: 0, y: -180)
+            // Add Friends button - text only, no icon overlap issue
+            let addFriendButton = createGlassButton(text: "Add Friends", icon: nil, size: CGSize(width: 140, height: 40))
+            addFriendButton.position = CGPoint(x: 0, y: -15)
             addFriendButton.name = "addFriendButton"
-            profileContainer.addChild(addFriendButton)
+            noFriendsContainer.addChild(addFriendButton)
             
             // Don't create the friends scroll container if no friends
             return
         }
         
-        // Friends header with count - centered
+        // Friends header with count and add button - all centered
+        let friendsHeaderContainer = SKNode()
+        friendsHeaderContainer.position = CGPoint(x: 0, y: friendsSectionY + 100)
+        profileContainer.addChild(friendsHeaderContainer)
+        
         let friendsHeader = SKLabelNode(text: "Friends (\(friends.count))")
         friendsHeader.fontName = "AvenirNext-Bold"
         friendsHeader.fontSize = 18
         friendsHeader.fontColor = .white
         friendsHeader.horizontalAlignmentMode = .center
-        friendsHeader.position = CGPoint(x: 0, y: -120)
-        profileContainer.addChild(friendsHeader)
+        friendsHeader.verticalAlignmentMode = .center
+        friendsHeader.position = CGPoint(x: -40, y: 0)
+        friendsHeaderContainer.addChild(friendsHeader)
 
-        // Add friend button - centered below header, properly aligned
-        let addFriendButton = createGlassButton(text: "Add", icon: "person.badge.plus", size: CGSize(width: 80, height: 36))
-        addFriendButton.position = CGPoint(x: 0, y: -155)
+        // Add friend button - next to header, centered together
+        let addFriendButton = createGlassButton(text: nil, icon: "person.badge.plus", size: CGSize(width: 36, height: 36))
+        addFriendButton.position = CGPoint(x: 50, y: 0)
         addFriendButton.name = "addFriendButton"
-        profileContainer.addChild(addFriendButton)
+        friendsHeaderContainer.addChild(addFriendButton)
 
-        // Friends container with glass effect
-        let friendsContainerBg = SKShapeNode(rectOf: CGSize(width: containerSize.width - 40, height: 150), cornerRadius: 16)
+        // Friends container with glass effect - centered
+        let friendsContainerBg = SKShapeNode(rectOf: CGSize(width: containerSize.width - 50, height: 140), cornerRadius: 16)
         friendsContainerBg.fillColor = UIColor(white: 0.05, alpha: 0.4)
         friendsContainerBg.strokeColor = UIColor(white: 1.0, alpha: 0.2)
         friendsContainerBg.lineWidth = 1
-        friendsContainerBg.position = CGPoint(x: 0, y: -220)
+        friendsContainerBg.position = CGPoint(x: 0, y: friendsSectionY)
         profileContainer.addChild(friendsContainerBg)
 
         // Friends scroll container
         friendsScrollContainer = SKNode()
-        friendsScrollContainer.position = CGPoint(x: 0, y: -220)
+        friendsScrollContainer.position = CGPoint(x: 0, y: friendsSectionY)
 
-        let maskSize = CGSize(width: containerSize.width - 60, height: 130)
+        let maskSize = CGSize(width: containerSize.width - 60, height: 120)
         let mask = SKShapeNode(rectOf: maskSize, cornerRadius: 12)
         mask.fillColor = .white
 
@@ -347,31 +377,37 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         titleLabel.position = CGPoint(x: 0, y: containerSize.height/2 - 50)
         achievementsContainer.addChild(titleLabel)
 
-        // Scroll container for achievements
-        let achievementScrollContainer = SKNode()
-        achievementScrollContainer.position = CGPoint(x: 0, y: containerSize.height/2 - 100)
+        // Scroll container for achievements - store reference for scrolling
+        achievementScrollContainer = SKNode()
+        achievementScrollContainer.position = CGPoint(x: 0, y: 0)
+        achievementScrollContainer.name = "achievementScroll"
         
-        // Mask for scrolling
-        let maskSize = CGSize(width: containerSize.width - 40, height: containerSize.height - 120)
+        // Mask for scrolling - slightly smaller than container
+        let maskHeight = containerSize.height - 130
+        let maskSize = CGSize(width: containerSize.width - 40, height: maskHeight)
         let mask = SKShapeNode(rectOf: maskSize, cornerRadius: 12)
         mask.fillColor = .white
         
-        let cropNode = SKCropNode()
-        cropNode.maskNode = mask
-        cropNode.addChild(achievementScrollContainer)
-        cropNode.position = CGPoint(x: 0, y: 0)
+        achievementCropNode = SKCropNode()
+        achievementCropNode.maskNode = mask
+        achievementCropNode.addChild(achievementScrollContainer)
+        achievementCropNode.position = CGPoint(x: 0, y: -20)  // Offset below title
+        achievementCropNode.name = "achievementCropNode"
         
-        achievementsContainer.addChild(cropNode)
+        achievementsContainer.addChild(achievementCropNode)
 
         // Load real achievements from AchievementManager
         let achievements = AchievementManager.shared.achievements
-        var yPos: CGFloat = 0
+        let cardHeight: CGFloat = 85
+        let spacing: CGFloat = 10
+        let startY = maskHeight/2 - cardHeight/2 - 10  // Start from top of visible area
+        var yPos: CGFloat = startY
         
-        for (_, achievement) in achievements.prefix(8).enumerated() {
+        for (_, achievement) in achievements.enumerated() {
             let achievementCard = createRealAchievementCard(achievement: achievement)
             achievementCard.position = CGPoint(x: 0, y: yPos)
             achievementScrollContainer.addChild(achievementCard)
-            yPos -= 90
+            yPos -= (cardHeight + spacing)
         }
     }
 
@@ -382,89 +418,101 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         referralsContainer.position = CGPoint(x: size.width/2, y: size.height/2 - 40)
         addChild(referralsContainer)
 
-        // Title - tighter spacing
+        // All content positioned relative to container center
+        var currentY: CGFloat = containerSize.height/2 - 50  // Start near top with padding
+
+        // Title
         let titleLabel = SKLabelNode(text: "Referral Program")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 22
+        titleLabel.fontSize = 24
         titleLabel.fontColor = .white
-        titleLabel.position = CGPoint(x: 0, y: 100)
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: currentY)
         referralsContainer.addChild(titleLabel)
+        currentY -= 35
 
-        // Description - tighter spacing
+        // Description
         let descLabel = SKLabelNode(text: "Invite friends and earn points together!")
         descLabel.fontName = "AvenirNext-Regular"
         descLabel.fontSize = 15
         descLabel.fontColor = UIColor(white: 0.7, alpha: 1.0)
-        descLabel.position = CGPoint(x: 0, y: 70)
+        descLabel.horizontalAlignmentMode = .center
+        descLabel.position = CGPoint(x: 0, y: currentY)
         referralsContainer.addChild(descLabel)
+        currentY -= 50
 
-        // Referral code display - reduced width, centered
-        let codeWidth: CGFloat = 240
-        let codeBg = SKShapeNode(rectOf: CGSize(width: codeWidth, height: 50), cornerRadius: 25)
+        // Referral code display - properly sized and centered
+        let codeWidth: CGFloat = 220
+        let codeBg = SKShapeNode(rectOf: CGSize(width: codeWidth, height: 48), cornerRadius: 24)
         codeBg.fillColor = UIColor(white: 0.1, alpha: 1.0)
         codeBg.strokeColor = UIColor(white: 1.0, alpha: 0.2)
         codeBg.lineWidth = 1
-        codeBg.position = CGPoint(x: 0, y: 15)
+        codeBg.position = CGPoint(x: 0, y: currentY)
         referralsContainer.addChild(codeBg)
 
         let codeLabel = SKLabelNode(text: "Your Code: \(AuthenticationManager.shared.currentUser?.referralCode ?? "------")")
         codeLabel.fontName = "AvenirNext-Bold"
-        codeLabel.fontSize = 18
+        codeLabel.fontSize = 17
         codeLabel.fontColor = UIColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
         codeLabel.horizontalAlignmentMode = .center
-        codeLabel.position = CGPoint(x: 0, y: 15)
+        codeLabel.verticalAlignmentMode = .center
+        codeLabel.position = CGPoint(x: 0, y: currentY)
         referralsContainer.addChild(codeLabel)
+        currentY -= 60
 
-        // Share button - fixed icon/text overlap with proper spacing
-        let shareButton = SKShapeNode(rectOf: CGSize(width: 150, height: 44), cornerRadius: 22)
+        // Share button - icon and text properly spaced
+        let shareButton = SKShapeNode(rectOf: CGSize(width: 160, height: 44), cornerRadius: 22)
         shareButton.fillColor = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.3)
         shareButton.strokeColor = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 0.8)
         shareButton.lineWidth = 2
-        shareButton.position = CGPoint(x: 0, y: -45)
+        shareButton.position = CGPoint(x: 0, y: currentY)
         shareButton.name = "shareReferralCode"
         referralsContainer.addChild(shareButton)
         
-        // Share icon - properly positioned to not overlap text
-        if let iconImage = UIImage(systemName: "square.and.arrow.up")?.withTintColor(.white, renderingMode: .alwaysOriginal) {
+        // Share icon - left side
+        if let iconImage = UIImage(systemName: "square.and.arrow.up") {
             let iconTexture = SKTexture(image: iconImage)
             let iconNode = SKSpriteNode(texture: iconTexture)
-            iconNode.size = CGSize(width: 18, height: 18)
-            iconNode.position = CGPoint(x: -55, y: 0)  // Left side with padding
+            iconNode.size = CGSize(width: 16, height: 16)
+            iconNode.colorBlendFactor = 1.0
+            iconNode.color = .white
+            iconNode.position = CGPoint(x: -50, y: 0)
             shareButton.addChild(iconNode)
         }
         
-        // Share text - positioned to not overlap icon, centered in remaining space
+        // Share text - right of icon
         let shareLabel = SKLabelNode(text: "Share Code")
         shareLabel.fontName = "AvenirNext-DemiBold"
-        shareLabel.fontSize = 16
+        shareLabel.fontSize = 15
         shareLabel.fontColor = .white
         shareLabel.verticalAlignmentMode = .center
-        shareLabel.horizontalAlignmentMode = .center
-        shareLabel.position = CGPoint(x: 20, y: 0)  // Right of icon with proper spacing
+        shareLabel.horizontalAlignmentMode = .left
+        shareLabel.position = CGPoint(x: -30, y: 0)
         shareButton.addChild(shareLabel)
+        currentY -= 70
 
-        // Stats - tighter spacing
-        let statsBg = SKShapeNode(rectOf: CGSize(width: 240, height: 90), cornerRadius: 16)
+        // Stats container - compact
+        let statsBg = SKShapeNode(rectOf: CGSize(width: 220, height: 80), cornerRadius: 16)
         statsBg.fillColor = UIColor(white: 0.05, alpha: 0.8)
         statsBg.strokeColor = UIColor(white: 1.0, alpha: 0.2)
         statsBg.lineWidth = 1
-        statsBg.position = CGPoint(x: 0, y: -110)
+        statsBg.position = CGPoint(x: 0, y: currentY)
         referralsContainer.addChild(statsBg)
 
         let referredLabel = SKLabelNode(text: "Friends Referred: \(AuthenticationManager.shared.currentUser?.referralCount ?? 0)")
         referredLabel.fontName = "AvenirNext-Medium"
-        referredLabel.fontSize = 16
+        referredLabel.fontSize = 15
         referredLabel.fontColor = .white
         referredLabel.horizontalAlignmentMode = .center
-        referredLabel.position = CGPoint(x: 0, y: -90)
+        referredLabel.position = CGPoint(x: 0, y: currentY + 15)
         referralsContainer.addChild(referredLabel)
 
         let pointsLabel = SKLabelNode(text: "Referral Points: \((AuthenticationManager.shared.currentUser?.referralCount ?? 0) * 500)")
         pointsLabel.fontName = "AvenirNext-Medium"
-        pointsLabel.fontSize = 16
+        pointsLabel.fontSize = 15
         pointsLabel.fontColor = UIColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
         pointsLabel.horizontalAlignmentMode = .center
-        pointsLabel.position = CGPoint(x: 0, y: -120)
+        pointsLabel.position = CGPoint(x: 0, y: currentY - 15)
         referralsContainer.addChild(pointsLabel)
     }
 
@@ -789,6 +837,10 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     
     private func createLargeAvatar() -> SKNode {
         let container = SKNode()
+        container.name = "avatarContainer"
+        
+        // Check if user has a custom avatar
+        let hasCustomAvatar = AuthenticationManager.shared.currentUser?.customAvatar != nil
         
         // Gradient border - larger and more prominent
         let borderSize: CGFloat = 104
@@ -818,34 +870,59 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         let avatarBg = SKShapeNode(circleOfRadius: 48)
         avatarBg.fillColor = UIColor(red: 0.15, green: 0.15, blue: 0.25, alpha: 1.0)
         avatarBg.strokeColor = .clear
+        avatarBg.name = "avatarBackground"
         container.addChild(avatarBg)
         
-        // Default user icon - larger
-        if let image = UIImage(systemName: "person.fill") {
-            let texture = SKTexture(image: image)
-            let icon = SKSpriteNode(texture: texture)
-            icon.size = CGSize(width: 50, height: 50)
-            icon.colorBlendFactor = 1.0
-            icon.color = .white
-            container.addChild(icon)
+        // Check for custom avatar image
+        if let avatarData = AuthenticationManager.shared.currentUser?.customAvatar,
+           let avatarImage = UIImage(data: avatarData) {
+            // User has uploaded a photo - show it
+            let avatarTexture = SKTexture(image: avatarImage)
+            let avatarSprite = SKSpriteNode(texture: avatarTexture)
+            avatarSprite.size = CGSize(width: 96, height: 96)
+            avatarSprite.name = "customAvatarImage"
+            
+            // Create circular mask for avatar
+            let maskNode = SKShapeNode(circleOfRadius: 48)
+            maskNode.fillColor = .white
+            
+            let cropNode = SKCropNode()
+            cropNode.maskNode = maskNode
+            cropNode.addChild(avatarSprite)
+            container.addChild(cropNode)
+        } else {
+            // Default user icon - larger
+            if let image = UIImage(systemName: "person.fill") {
+                let texture = SKTexture(image: image)
+                let icon = SKSpriteNode(texture: texture)
+                icon.size = CGSize(width: 50, height: 50)
+                icon.colorBlendFactor = 1.0
+                icon.color = .white
+                icon.name = "defaultAvatarIcon"
+                container.addChild(icon)
+            }
         }
         
-        // Camera button overlay
-        let cameraButton = SKShapeNode(circleOfRadius: 18)
-        cameraButton.fillColor = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0)
-        cameraButton.strokeColor = .white
-        cameraButton.lineWidth = 2
-        cameraButton.position = CGPoint(x: 35, y: -35)
-        container.addChild(cameraButton)
-        
-        if let cameraImage = UIImage(systemName: "camera.fill") {
-            let texture = SKTexture(image: cameraImage)
-            let cameraIcon = SKSpriteNode(texture: texture)
-            cameraIcon.size = CGSize(width: 16, height: 16)
-            cameraIcon.colorBlendFactor = 1.0
-            cameraIcon.color = .white
-            cameraIcon.position = cameraButton.position
-            container.addChild(cameraIcon)
+        // Camera button overlay - ONLY show if no custom avatar
+        if !hasCustomAvatar {
+            let cameraButton = SKShapeNode(circleOfRadius: 18)
+            cameraButton.fillColor = UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0)
+            cameraButton.strokeColor = .white
+            cameraButton.lineWidth = 2
+            cameraButton.position = CGPoint(x: 35, y: -35)
+            cameraButton.name = "cameraButton"
+            container.addChild(cameraButton)
+            
+            if let cameraImage = UIImage(systemName: "camera.fill") {
+                let texture = SKTexture(image: cameraImage)
+                let cameraIcon = SKSpriteNode(texture: texture)
+                cameraIcon.size = CGSize(width: 16, height: 16)
+                cameraIcon.colorBlendFactor = 1.0
+                cameraIcon.color = .white
+                cameraIcon.position = cameraButton.position
+                cameraIcon.name = "cameraIcon"
+                container.addChild(cameraIcon)
+            }
         }
         
         container.name = "avatarContainer"
@@ -987,13 +1064,24 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
             }
         }
 
-        if let nodeName = touchedNode.name ?? touchedNode.parent?.name ?? touchedNode.parent?.parent?.name {
+        // Check all ancestor nodes for named buttons (up to 4 levels deep for avatar container)
+        var currentNode: SKNode? = touchedNode
+        var foundName: String? = nil
+        for _ in 0..<5 {
+            if let name = currentNode?.name {
+                foundName = name
+                break
+            }
+            currentNode = currentNode?.parent
+        }
+        
+        if let nodeName = foundName {
             switch nodeName {
             case "backButton":
                 handleBackButton()
             case "editButton":
                 handleEditProfile()
-            case "avatarContainer":
+            case "avatarContainer", "cameraButton", "cameraIcon", "avatarBackground", "defaultAvatarIcon", "customAvatarImage":
                 handleAvatarTap()
             case "shareReferralButton":
                 handleShareReferral()
@@ -1013,6 +1101,111 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
                 break
             }
         }
+        
+        // Check if we're in achievements tab and touching the scroll area
+        if activeTab == .achievements && achievementsContainer.alpha > 0 {
+            let locationInContainer = touch.location(in: achievementsContainer)
+            if abs(locationInContainer.x) < (size.width - 60)/2 && abs(locationInContainer.y) < (size.height - 280)/2 {
+                isAchievementScrolling = true
+                lastAchievementTouchY = location.y
+                achievementScrollVelocity = 0
+                achievementScrollContainer?.removeAction(forKey: "momentum")
+            }
+        }
+    }
+    
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first, isAchievementScrolling, let scrollContainer = achievementScrollContainer else { return }
+        
+        let location = touch.location(in: self)
+        let deltaY = location.y - lastAchievementTouchY
+        scrollContainer.position.y += deltaY
+        achievementScrollVelocity = deltaY * 0.8 + achievementScrollVelocity * 0.2
+        lastAchievementTouchY = location.y
+        
+        // Calculate scroll bounds
+        let achievements = AchievementManager.shared.achievements
+        let cardHeight: CGFloat = 85
+        let spacing: CGFloat = 10
+        let contentHeight = CGFloat(achievements.count) * (cardHeight + spacing)
+        let containerSize = CGSize(width: size.width - 40, height: size.height - 240)
+        let visibleHeight = containerSize.height - 130
+        
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
+        
+        // Rubber band effect at edges
+        if scrollContainer.position.y > maxScrollY {
+            let overscroll = scrollContainer.position.y - maxScrollY
+            scrollContainer.position.y = maxScrollY + overscroll * 0.3
+        } else if scrollContainer.position.y < -minScrollY {
+            let overscroll = -minScrollY - scrollContainer.position.y
+            scrollContainer.position.y = -minScrollY - overscroll * 0.3
+        }
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard isAchievementScrolling, let scrollContainer = achievementScrollContainer else {
+            isAchievementScrolling = false
+            return
+        }
+        
+        isAchievementScrolling = false
+        
+        // Calculate scroll bounds
+        let achievements = AchievementManager.shared.achievements
+        let cardHeight: CGFloat = 85
+        let spacing: CGFloat = 10
+        let contentHeight = CGFloat(achievements.count) * (cardHeight + spacing)
+        let containerSize = CGSize(width: size.width - 40, height: size.height - 240)
+        let visibleHeight = containerSize.height - 130
+        
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
+        
+        // Snap back if overscrolled
+        if scrollContainer.position.y > maxScrollY {
+            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        } else if scrollContainer.position.y < -minScrollY {
+            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        }
+        
+        // Apply smooth momentum scrolling
+        if abs(achievementScrollVelocity) > 2 {
+            let momentumDuration: TimeInterval = 0.8
+            let friction: CGFloat = 0.95
+            
+            let deceleration = SKAction.customAction(withDuration: momentumDuration) { [weak self] _, elapsedTime in
+                guard let self = self, let container = self.achievementScrollContainer else { return }
+                
+                let decayFactor = pow(friction, elapsedTime * 60)
+                let velocity = self.achievementScrollVelocity * decayFactor * 0.15
+                
+                guard abs(velocity) > 0.1 else { return }
+                
+                container.position.y += velocity
+                
+                // Clamp to bounds
+                if container.position.y > maxScrollY {
+                    container.position.y = maxScrollY
+                    container.removeAllActions()
+                } else if container.position.y < -minScrollY {
+                    container.position.y = -minScrollY
+                    container.removeAllActions()
+                }
+            }
+            scrollContainer.run(deceleration, withKey: "momentum")
+        }
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        isAchievementScrolling = false
     }
     
     private func handleBackButton() {
@@ -1070,8 +1263,58 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     }
     
     private func handleAddFriend() {
-        // Would show add friend dialog
-        print("Add friend")
+        // Show add friend dialog (same as leaderboard)
+        let alert = UIAlertController(
+            title: "Add Friend",
+            message: "Enter a username to send a friend request",
+            preferredStyle: .alert
+        )
+
+        alert.addTextField { textField in
+            textField.placeholder = "Username"
+            textField.autocapitalizationType = .none
+        }
+
+        alert.addAction(UIAlertAction(title: "Send Request", style: .default) { [weak self] _ in
+            if let username = alert.textFields?.first?.text, !username.isEmpty {
+                self?.sendFriendRequest(to: username)
+            }
+        })
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let viewController = self.view?.window?.rootViewController {
+            viewController.present(alert, animated: true)
+        }
+    }
+    
+    private func sendFriendRequest(to username: String) {
+        AuthenticationManager.shared.sendFriendRequest(to: username) { result in
+            switch result {
+            case .success:
+                // Show success message
+                let alert = UIAlertController(
+                    title: "Friend Request Sent",
+                    message: "Your friend request has been sent to \(username)",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                if let viewController = self.view?.window?.rootViewController {
+                    viewController.present(alert, animated: true)
+                }
+            case .failure(let error):
+                // Show error message
+                let alert = UIAlertController(
+                    title: "Error",
+                    message: error.localizedDescription,
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+                if let viewController = self.view?.window?.rootViewController {
+                    viewController.present(alert, animated: true)
+                }
+            }
+        }
     }
     
     private func handleSignOut() {

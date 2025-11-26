@@ -12,7 +12,18 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     private var characterNodes: [SKNode] = []
     private var decorLayer = SKNode()
     private var topBar = SKNode()
-    private var coinsLabel: SKLabelNode!
+    
+    // Scroll container for smooth scrolling
+    private var scrollContainer: SKNode!
+    private var scrollMask: SKShapeNode!
+    private var cropNode: SKCropNode!
+    
+    // Scroll tracking
+    private var lastTouchY: CGFloat = 0
+    private var isScrolling = false
+    private var scrollVelocity: CGFloat = 0
+    private var contentHeight: CGFloat = 0
+    private var visibleHeight: CGFloat = 0
     
     // Character selection
     private var selectedIndex: Int = 0
@@ -59,6 +70,9 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
 
         // Back button and currency handled by topBar
         
+        // Setup scroll container
+        setupScrollContainer()
+        
         // Load characters
         loadCharacters()
         
@@ -66,30 +80,32 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         displayCharacters()
     }
     
-    private func createBackButton() {
-        // Back handled by SafeAreaTopBar
+    private func setupScrollContainer() {
+        // Get topBar bottom position for proper content placement
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        
+        // Create crop node for masking scrollable content
+        cropNode = SKCropNode()
+        cropNode.position = CGPoint(x: size.width / 2, y: topBarBottomY / 2 - 20)
+        cropNode.zPosition = 5
+        addChild(cropNode)
+        
+        // Calculate visible area
+        visibleHeight = topBarBottomY - 60  // Leave padding at bottom
+        
+        // Create mask
+        scrollMask = SKShapeNode(rectOf: CGSize(width: size.width - 20, height: visibleHeight), cornerRadius: 12)
+        scrollMask.fillColor = .white
+        cropNode.maskNode = scrollMask
+        
+        // Create scroll container
+        scrollContainer = SKNode()
+        scrollContainer.position = CGPoint(x: 0, y: 0)
+        cropNode.addChild(scrollContainer)
     }
     
-    private func setupCurrencyDisplay() {
-        // Coins icon
-        let safe = SafeAreaLayout(scene: self)
-        let rightX = safe.safeRightX(offset: UIConstants.Spacing.xlarge)
-        let topY = safe.safeTopY(offset: UIConstants.Spacing.xsmall + 6)
-
-        let coinsIcon = SKLabelNode(text: "🪙")
-        coinsIcon.fontSize = 22
-        coinsIcon.position = CGPoint(x: rightX - 60, y: topY)
-        coinsIcon.zPosition = UIConstants.Z.ui
-        addChild(coinsIcon)
-
-        // Coins value
-        coinsLabel = SKLabelNode(text: "\(currencyManager.getCoins())")
-        coinsLabel.fontName = "AvenirNext-Medium"
-        coinsLabel.fontSize = 18
-        coinsLabel.horizontalAlignmentMode = .left
-        coinsLabel.position = CGPoint(x: rightX - 38, y: topY - 2)
-        coinsLabel.zPosition = UIConstants.Z.ui
-        addChild(coinsLabel)
+    private func createBackButton() {
+        // Back handled by SafeAreaTopBar
     }
     
     private func loadCharacters() {
@@ -103,32 +119,40 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     }
     
     private func displayCharacters() {
+        guard scrollContainer != nil else { return }
+        
         // Clear existing character nodes
         for node in characterNodes {
             node.removeFromParent()
         }
         characterNodes.removeAll()
+        scrollContainer.removeAllChildren()
         
-        // Setup grid layout (shifted up, first row clear of title)
-        // Calculate grid dimensions for proper centering
+        // Setup grid layout within scroll container
         let columns = 3
-        let xSpacing = size.width * 0.32
+        let xSpacing: CGFloat = 120
+        let ySpacing: CGFloat = 170
         let totalGridWidth = xSpacing * CGFloat(columns - 1)
-        let startX = (size.width - totalGridWidth) / 2
-        let startY = size.height * 0.7
-        let ySpacing = size.height * 0.24
+        
+        // Calculate number of rows
+        let rows = (characters.count + columns - 1) / columns
+        contentHeight = CGFloat(rows) * ySpacing + 50
+        
+        // Start from top of scroll container
+        let startY = visibleHeight / 2 - 80
         
         for (index, aircraft) in characters.enumerated() {
-            let row = index / 3
-            let col = index % 3
+            let row = index / columns
+            let col = index % columns
             
-            let x = startX + CGFloat(col) * xSpacing
+            // Center horizontally within scroll container
+            let x = -totalGridWidth / 2 + CGFloat(col) * xSpacing
             let y = startY - CGFloat(row) * ySpacing
             
             let node = createCharacterNode(aircraft: aircraft, isSelected: index == selectedIndex, position: CGPoint(x: x, y: y))
             node.name = "character_\(index)"
             characterNodes.append(node)
-            addChild(node)
+            scrollContainer.addChild(node)
         }
     }
     
@@ -260,7 +284,8 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     }
     
     private func updateCurrencyDisplay() {
-        coinsLabel.text = "\(currencyManager.getCoins())"
+        // Update currency via SafeAreaTopBar (coinsLabel is handled by topBar now)
+        SafeAreaTopBar.updateCurrency(in: topBar)
     }
     
     private func showMessage(_ text: String) {
@@ -333,47 +358,132 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     // MARK: - Touch Handling
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            let location = touch.location(in: self)
-            let touchedNodes = nodes(at: location)
-            
-            for node in touchedNodes {
-                if node.name == "backButton" || node.parent?.name == "backButton" {
-                    handleBackButton()
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let touchedNodes = nodes(at: location)
+        
+        // Check for back button first
+        for node in touchedNodes {
+            if node.name == "backButton" || node.parent?.name == "backButton" {
+                handleBackButton()
+                return
+            }
+        }
+        
+        // Check if touch is within scroll area
+        if let crop = cropNode, crop.contains(location) {
+            isScrolling = true
+            lastTouchY = location.y
+            scrollVelocity = 0
+            scrollContainer?.removeAction(forKey: "momentum")
+        }
+        
+        // Check for button interactions (only if not scrolling significantly)
+        for node in touchedNodes {
+            // Check for character selection
+            if let name = node.name, name.starts(with: "select_") {
+                let characterName = String(name.dropFirst("select_".count))
+                if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+                    selectCharacter(at: index)
                     return
                 }
-                
-                // Check for character selection
-                if let name = node.name, name.starts(with: "select_") {
-                    let characterName = String(name.dropFirst("select_".count))
-                    if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+            }
+            
+            // Check for character unlock
+            if let name = node.name, name.starts(with: "unlock_") {
+                let characterName = String(name.dropFirst("unlock_".count))
+                if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+                    unlockCharacter(at: index)
+                    return
+                }
+            }
+            
+            // Check for character node selection
+            if let name = node.name, name.starts(with: "character_") {
+                if let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
+                    if characters[index].isUnlocked {
                         selectCharacter(at: index)
-                        return
-                    }
-                }
-                
-                // Check for character unlock
-                if let name = node.name, name.starts(with: "unlock_") {
-                    let characterName = String(name.dropFirst("unlock_".count))
-                    if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+                    } else {
                         unlockCharacter(at: index)
-                        return
                     }
-                }
-                
-                // Check for character node selection
-                if let name = node.name, name.starts(with: "character_") {
-                    if let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
-                        if characters[index].isUnlocked {
-                            selectCharacter(at: index)
-                        } else {
-                            unlockCharacter(at: index)
-                        }
-                        return
-                    }
+                    return
                 }
             }
         }
+    }
+    
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first, isScrolling, let container = scrollContainer else { return }
+        
+        let location = touch.location(in: self)
+        let deltaY = location.y - lastTouchY
+        container.position.y += deltaY
+        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
+        lastTouchY = location.y
+        
+        // Calculate scroll bounds
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        
+        // Rubber band effect at edges
+        if container.position.y > maxScrollY {
+            let overscroll = container.position.y - maxScrollY
+            container.position.y = maxScrollY + overscroll * 0.3
+        } else if container.position.y < -minScrollY {
+            let overscroll = -minScrollY - container.position.y
+            container.position.y = -minScrollY - overscroll * 0.3
+        }
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard isScrolling, let container = scrollContainer else {
+            isScrolling = false
+            return
+        }
+        
+        isScrolling = false
+        
+        // Calculate scroll bounds
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        
+        // Apply momentum scrolling
+        let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
+            guard let self = self else { return }
+            let decay = pow(0.95, Double(elapsedTime * 60))
+            let velocity = self.scrollVelocity * CGFloat(decay)
+            
+            if abs(velocity) > 0.5 {
+                node.position.y += velocity
+                
+                // Clamp to bounds during momentum
+                if node.position.y > maxScrollY {
+                    node.position.y = maxScrollY
+                    self.scrollVelocity = 0
+                } else if node.position.y < -minScrollY {
+                    node.position.y = -minScrollY
+                    self.scrollVelocity = 0
+                }
+            }
+        }
+        
+        // Snap back if overscrolled
+        let currentY = container.position.y
+        if currentY > maxScrollY {
+            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            container.run(snapBack, withKey: "momentum")
+        } else if currentY < -minScrollY {
+            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            container.run(snapBack, withKey: "momentum")
+        } else {
+            container.run(momentumAction, withKey: "momentum")
+        }
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        isScrolling = false
     }
     
     private func handleBackButton() {

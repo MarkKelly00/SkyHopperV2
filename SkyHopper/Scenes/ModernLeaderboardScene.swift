@@ -14,13 +14,27 @@ class ModernLeaderboardScene: SKScene {
     private var tabButtons: [TabButton] = []
     private var activeTab: LeaderboardTab = .global
     
-    // Map selection
+    // Map selection - Uses actual level IDs from LevelData.swift
     private var mapSelector: SKNode!
     private var currentMapIndex = 0
-    private let maps = ["city_escape", "forest_run", "mountain_climb", "space_adventure",
-                       "underwater_quest", "desert_escape", "arctic_expedition", "volcano_rush",
-                       "jungle_maze", "sky_fortress", "crystal_caverns", "neon_city",
-                       "halloween_special", "christmas_special", "summer_special"]
+    // Map tuples: (levelId, displayName)
+    private let maps: [(id: String, name: String)] = [
+        ("level_1", "City Beginnings"),
+        ("level_2", "Downtown Rush"),
+        ("desert_escape", "Stargate Escape"),
+        ("level_3", "Forest Valley"),
+        ("level_4", "Deep Woods"),
+        ("level_5", "Mountain Pass"),
+        ("level_6", "Summit Challenge"),
+        ("level_7", "Reef Void"),
+        ("level_8", "Deep Sea Trenches"),
+        ("level_9", "Space Frontier"),
+        ("level_10", "Cosmic Challenge"),
+        ("halloween_special", "Haunted Flight"),
+        ("christmas_special", "Winter Wonderland"),
+        ("summer_special", "Beach Party"),
+        ("premium_level_1", "Lost City")
+    ]
     private var mapLabel: SKLabelNode!
     
     // Leaderboard Data
@@ -120,34 +134,37 @@ class ModernLeaderboardScene: SKScene {
     
     private func setupMapSelector() {
         mapSelector = SKNode()
-        mapSelector.position = CGPoint(x: size.width/2, y: size.height - 220)
+        mapSelector.position = CGPoint(x: size.width/2, y: size.height - 158)
         mapSelector.zPosition = 6  // Above tabs to ensure visibility
         addChild(mapSelector)
         
-        // Map selector background
-        let selectorBg = SKShapeNode(rectOf: CGSize(width: 280, height: 40), cornerRadius: 20)
+        // Map selector background - wider for better touch targets
+        let selectorWidth: CGFloat = size.width - 60
+        let selectorBg = SKShapeNode(rectOf: CGSize(width: selectorWidth, height: 44), cornerRadius: 22)
         selectorBg.fillColor = UIColor(white: 0.1, alpha: 0.8)
-        selectorBg.strokeColor = UIColor(white: 1.0, alpha: 0.2)
-        selectorBg.lineWidth = 1
+        selectorBg.strokeColor = UIColor(white: 1.0, alpha: 0.3)
+        selectorBg.lineWidth = 1.5
         mapSelector.addChild(selectorBg)
         
-        // Previous button
-        let prevButton = createGlassButton(text: nil, icon: "chevron.left", size: CGSize(width: 36, height: 36))
-        prevButton.position = CGPoint(x: -100, y: 0)
+        // Previous button - left side
+        let prevButton = createGlassButton(text: nil, icon: "chevron.left", size: CGSize(width: 40, height: 40))
+        prevButton.position = CGPoint(x: -selectorWidth/2 + 30, y: 0)
         prevButton.name = "prevMap"
         mapSelector.addChild(prevButton)
         
-        // Map label
-        mapLabel = SKLabelNode(text: formatMapName(maps[currentMapIndex]))
-        mapLabel.fontName = "AvenirNext-Medium"
+        // Map label - centered (use display name directly)
+        mapLabel = SKLabelNode(text: maps[currentMapIndex].name)
+        mapLabel.fontName = "AvenirNext-DemiBold"
         mapLabel.fontSize = 16
         mapLabel.fontColor = .white
-        mapLabel.position = CGPoint(x: 0, y: -5)
+        mapLabel.verticalAlignmentMode = .center
+        mapLabel.horizontalAlignmentMode = .center
+        mapLabel.position = CGPoint(x: 0, y: 0)
         mapSelector.addChild(mapLabel)
         
-        // Next button
-        let nextButton = createGlassButton(text: nil, icon: "chevron.right", size: CGSize(width: 36, height: 36))
-        nextButton.position = CGPoint(x: 100, y: 0)
+        // Next button - right side
+        let nextButton = createGlassButton(text: nil, icon: "chevron.right", size: CGSize(width: 40, height: 40))
+        nextButton.position = CGPoint(x: selectorWidth/2 - 30, y: 0)
         nextButton.name = "nextMap"
         mapSelector.addChild(nextButton)
     }
@@ -161,21 +178,21 @@ class ModernLeaderboardScene: SKScene {
     
     private func changeMap(direction: Int) {
         currentMapIndex = (currentMapIndex + direction + maps.count) % maps.count
-        mapLabel.text = formatMapName(maps[currentMapIndex])
+        mapLabel.text = maps[currentMapIndex].name
         
         // Reload leaderboard for new map
         loadLeaderboardData()
     }
     
     private func setupGlassContainer() {
-        // Main glass container with modern design - properly centered
-        let containerSize = CGSize(width: size.width - 40, height: size.height - 220)
+        // Main glass container with modern design - properly centered below map selector
+        let containerSize = CGSize(width: size.width - 40, height: size.height - 250)
         let glassPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: -containerSize.width/2, y: -containerSize.height/2),
                                                          size: containerSize),
                                     cornerRadius: 24)
         
         glassContainer = SKShapeNode(path: glassPath.cgPath)
-        glassContainer.position = CGPoint(x: size.width/2, y: size.height/2 - 20)
+        glassContainer.position = CGPoint(x: size.width/2, y: size.height/2 - 55)
         glassContainer.zPosition = 1
         
         // Glass effect background with better contrast
@@ -203,55 +220,62 @@ class ModernLeaderboardScene: SKScene {
     
     private func setupTopBar() {
         topBar = SKNode()
-        topBar.position = CGPoint(x: 0, y: size.height - 100)
+        topBar.position = CGPoint(x: 0, y: size.height - 55)
         topBar.zPosition = 10
         addChild(topBar)
         
-        // Back button with glass effect
-        let backButton = createGlassButton(text: "Back", icon: "chevron.left", size: CGSize(width: 100, height: 34))
-        backButton.position = CGPoint(x: 70, y: 0)
+        // Back button - text only, no icon (cleaner look)
+        let backButton = createGlassButton(text: "Back", icon: nil, size: CGSize(width: 70, height: 34))
+        backButton.position = CGPoint(x: 50, y: 0)
         backButton.name = "backButton"
         topBar.addChild(backButton)
         
-        // Title - positioned above tabs, under notch for consistency
+        // Title - positioned after back button, left-center aligned to avoid overlap
         let titleLabel = SKLabelNode(text: "Leaderboard")
         titleLabel.fontName = "AvenirNext-Bold"
-        titleLabel.fontSize = 24
+        titleLabel.fontSize = 20
         titleLabel.fontColor = .white
-        titleLabel.position = CGPoint(x: size.width/2, y: 36) // move up ~1rem
+        titleLabel.verticalAlignmentMode = .center
+        titleLabel.horizontalAlignmentMode = .left
+        titleLabel.position = CGPoint(x: 100, y: 0)  // Left-aligned after back button
         topBar.addChild(titleLabel)
         
-        // Profile button
-        let profileButton = createGlassButton(text: nil, icon: "person.circle.fill", size: CGSize(width: 44, height: 44))
-        profileButton.position = CGPoint(x: size.width - 160, y: 0)
-        profileButton.name = "profileButton"
-        topBar.addChild(profileButton)
-
-        // Search friends button
-        let searchButton = createGlassButton(text: nil, icon: "magnifyingglass", size: CGSize(width: 44, height: 44))
-        searchButton.position = CGPoint(x: size.width - 105, y: 0)
-        searchButton.name = "searchButton"
-        topBar.addChild(searchButton)
-
-        // Add friend button
-        let addFriendButton = createGlassButton(text: nil, icon: "person.badge.plus", size: CGSize(width: 44, height: 44))
-        addFriendButton.position = CGPoint(x: size.width - 50, y: 0)
+        // Action buttons - right aligned with consistent spacing (smaller buttons)
+        let buttonSize: CGFloat = 32
+        let buttonSpacing: CGFloat = 6
+        let rightMargin: CGFloat = 14
+        
+        // Add friend button (rightmost)
+        let addFriendButton = createGlassButton(text: nil, icon: "person.badge.plus", size: CGSize(width: buttonSize, height: buttonSize))
+        addFriendButton.position = CGPoint(x: size.width - rightMargin - buttonSize/2, y: 0)
         addFriendButton.name = "addFriendButton"
         topBar.addChild(addFriendButton)
+
+        // Search friends button
+        let searchButton = createGlassButton(text: nil, icon: "magnifyingglass", size: CGSize(width: buttonSize, height: buttonSize))
+        searchButton.position = CGPoint(x: size.width - rightMargin - buttonSize - buttonSpacing - buttonSize/2, y: 0)
+        searchButton.name = "searchButton"
+        topBar.addChild(searchButton)
+        
+        // Profile button
+        let profileButton = createGlassButton(text: nil, icon: "person.circle.fill", size: CGSize(width: buttonSize, height: buttonSize))
+        profileButton.position = CGPoint(x: size.width - rightMargin - (buttonSize + buttonSpacing) * 2 - buttonSize/2, y: 0)
+        profileButton.name = "profileButton"
+        topBar.addChild(profileButton)
     }
     
     private func setupTabs() {
         let tabs: [LeaderboardTab] = [.global, .friends, .weekly]
-        let tabWidth: CGFloat = 110
-        let tabHeight: CGFloat = 44
-        let spacing: CGFloat = 5
+        let tabWidth: CGFloat = (size.width - 50) / 3  // Evenly distribute across screen with margins
+        let tabHeight: CGFloat = 36
+        let spacing: CGFloat = 6
         let totalWidth = (tabWidth * CGFloat(tabs.count)) + (spacing * CGFloat(tabs.count - 1))
         let startX = (size.width - totalWidth) / 2 + tabWidth/2
         
         for (index, tab) in tabs.enumerated() {
             let xPos = startX + CGFloat(index) * (tabWidth + spacing)
             let tabButton = createTabButton(tab: tab, size: CGSize(width: tabWidth, height: tabHeight))
-            tabButton.node.position = CGPoint(x: xPos, y: size.height - 166) // add top padding below title
+            tabButton.node.position = CGPoint(x: xPos, y: size.height - 110)
             tabButton.node.zPosition = 5
             addChild(tabButton.node)
             tabButtons.append(tabButton)
@@ -274,7 +298,7 @@ class ModernLeaderboardScene: SKScene {
         background.lineWidth = 1.5
         container.addChild(background)
         
-        // Icon
+        // Icon - smaller to not crowd text
         var icon: SKSpriteNode? = nil
         let iconName: String
         switch tab {
@@ -289,21 +313,21 @@ class ModernLeaderboardScene: SKScene {
         if let image = UIImage(systemName: iconName) {
             let texture = SKTexture(image: image)
             icon = SKSpriteNode(texture: texture)
-            icon?.size = CGSize(width: 20, height: 20)
-            icon?.position = CGPoint(x: -size.width/2 + 25, y: 0)
+            icon?.size = CGSize(width: 14, height: 14)
+            icon?.position = CGPoint(x: -size.width/2 + 18, y: 0)
             icon?.colorBlendFactor = 1.0
             icon?.color = .white
             container.addChild(icon!)
         }
         
-        // Label with better contrast
+        // Label - smaller font to fit "This Week"
         let label = SKLabelNode(text: tab.title)
-        label.fontName = "AvenirNext-Bold"
-        label.fontSize = 17
+        label.fontName = "AvenirNext-DemiBold"
+        label.fontSize = 12
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
-        label.position = CGPoint(x: 10, y: 0)
+        label.position = CGPoint(x: 6, y: 0)
         container.addChild(label)
         
         return TabButton(node: container, tab: tab, background: background, label: label, icon: icon)
@@ -353,8 +377,8 @@ class ModernLeaderboardScene: SKScene {
         scrollContainer.position = CGPoint(x: 0, y: 0)
         scrollContainer.zPosition = 2
         
-        // Create mask node - centered mask
-        let maskSize = CGSize(width: size.width - 60, height: size.height - 340)
+        // Create mask node - centered mask, adjusted for new container size
+        let maskSize = CGSize(width: size.width - 60, height: size.height - 320)
         let mask = SKShapeNode(rectOf: maskSize, cornerRadius: 16)
         mask.fillColor = .white
         
@@ -362,65 +386,118 @@ class ModernLeaderboardScene: SKScene {
         cropNode.maskNode = mask
         cropNode.addChild(scrollContainer)
         // CropNode is centered within glassContainer (which is already positioned)
-        cropNode.position = CGPoint(x: 0, y: 0)
+        cropNode.position = CGPoint(x: 0, y: -10)
         
         glassContainer.addChild(cropNode)
     }
     
     private func loadLeaderboardData() {
-        // Mock data - replace with actual data loading
-        createMockData()
-        displayLeaderboard()
+        // Load map-specific data from UserDefaults
+        loadMapSpecificData()
+        
+        // Update currentEntries based on the active tab
+        loadDataForTab(activeTab)
     }
     
-    private func createMockData() {
-        // Create privacy settings for mock users
-        var publicPrivacy = UserProfile.PrivacySettings()
-        publicPrivacy.emailVisibility = .everyone
-        publicPrivacy.mutualFriendsVisibility = .everyone
-        publicPrivacy.regionVisibility = .everyone
+    private func loadMapSpecificData() {
+        // Get the current map ID (the actual level ID used in the game)
+        let mapID = maps[currentMapIndex].id
+        let mapName = maps[currentMapIndex].name
         
-        var friendsOnlyPrivacy = UserProfile.PrivacySettings()
-        friendsOnlyPrivacy.emailVisibility = .friendsOnly
-        friendsOnlyPrivacy.mutualFriendsVisibility = .friendsOnly
-        friendsOnlyPrivacy.regionVisibility = .friendsOnly
+        // The key format used by the game is "leaderboard_\(levelId)"
+        // Each level has ONE specific key - no need for multiple mappings
+        let leaderboardKey = "leaderboard_\(mapID)"
         
-        // Global leaderboard
-        globalEntries = [
-            LeaderboardUser(userId: "1", username: "SkyMaster", score: 2430, rank: 1,
-                          avatarURL: nil, customAvatar: nil, isOnline: true, isFriend: false, recentActivity: Date(),
-                          privacySettings: publicPrivacy, region: UserProfile.RegionInfo(state: "California", country: "USA"),
-                          email: "skymaster@example.com"),
-            LeaderboardUser(userId: "2", username: "CloudNinja", score: 2240, rank: 2,
-                          avatarURL: nil, customAvatar: nil, isOnline: false, isFriend: true, recentActivity: Date(),
-                          privacySettings: friendsOnlyPrivacy, region: UserProfile.RegionInfo(state: "New York", country: "USA"),
-                          email: "cloudninja@example.com"),
-            LeaderboardUser(userId: "3", username: "AeroAce", score: 2100, rank: 3,
-                          avatarURL: nil, customAvatar: nil, isOnline: true, isFriend: false, recentActivity: Date(),
-                          privacySettings: publicPrivacy, region: UserProfile.RegionInfo(state: nil, country: "Canada"),
-                          email: "aeroace@example.com"),
-            LeaderboardUser(userId: "4", username: "Player123", score: 1850, rank: 4,
-                          avatarURL: nil, customAvatar: nil, isOnline: false, isFriend: false, recentActivity: Date(),
-                          privacySettings: friendsOnlyPrivacy, region: nil, email: nil),
-            LeaderboardUser(userId: "5", username: "You", score: 1674, rank: 5,
-                          avatarURL: nil, customAvatar: nil, isOnline: true, isFriend: false, recentActivity: Date(),
-                          privacySettings: friendsOnlyPrivacy, region: UserProfile.RegionInfo(state: "Texas", country: "USA"),
-                          email: AuthenticationManager.shared.currentUser?.email)
-        ]
+        var entries: [LeaderboardUser] = []
+        var foundData = false
         
-        // Friends leaderboard
-        friendsEntries = globalEntries.filter { $0.isFriend || $0.username == "You" }
+        print("DEBUG: Loading leaderboard for map: \(mapName) (id: \(mapID))")
+        print("DEBUG: Checking key: \(leaderboardKey)")
+        
+        // Load data from the single correct key
+        if let leaderboardData = UserDefaults.standard.dictionary(forKey: leaderboardKey) as? [String: [String: Any]] {
+            print("DEBUG: Found leaderboard data with key: \(leaderboardKey)")
+            foundData = true
+            
+            for (_, entryData) in leaderboardData {
+                guard let playerName = entryData["playerName"] as? String,
+                      let score = entryData["score"] as? Int else {
+                    continue
+                }
+                
+                // Check if this is the current user
+                let currentPlayerName = AuthenticationManager.shared.currentUser?.username ?? 
+                                      GameCenterManager.shared.getPlayerDisplayName()
+                let isCurrentUser = (playerName == currentPlayerName) || 
+                                   (playerName == "Player" && currentPlayerName.isEmpty) ||
+                                   playerName == "You"
+                
+                // Create a unique ID for this entry
+                let uniqueId = "\(playerName)_\(score)_\(mapID)"
+                
+                entries.append(LeaderboardUser(
+                    userId: uniqueId,
+                    username: isCurrentUser ? "You" : playerName,
+                    score: score,
+                    rank: 0, // Will be set after sorting
+                    avatarURL: nil,
+                    customAvatar: nil,
+                    isOnline: isCurrentUser,
+                    isFriend: false,
+                    recentActivity: Date(),
+                    privacySettings: nil,
+                    region: nil,
+                    email: nil
+                ))
+            }
+        }
+        
+        // Sort by score (highest first) and assign ranks
+        entries.sort { $0.score > $1.score }
+        
+        for (index, entry) in entries.enumerated() {
+            entries[index] = LeaderboardUser(
+                userId: entry.userId,
+                username: entry.username,
+                score: entry.score,
+                rank: index + 1,
+                avatarURL: entry.avatarURL,
+                customAvatar: entry.customAvatar,
+                isOnline: entry.isOnline,
+                isFriend: entry.isFriend,
+                recentActivity: entry.recentActivity,
+                privacySettings: entry.privacySettings,
+                region: entry.region,
+                email: entry.email
+            )
+        }
+        
+        // Store in global entries
+        globalEntries = entries
+        
+        // Friends entries - filter for friends and current user
+        friendsEntries = entries.filter { $0.isFriend || $0.username == "You" }
+        
+        print("DEBUG: Loaded \(entries.count) entries for map \(mapID)")
+        
+        // If no data found, show empty state (don't use mock data)
+        if !foundData {
+            print("DEBUG: No leaderboard data found for \(mapID)")
+            globalEntries = []
+            friendsEntries = []
+        }
     }
     
     private func loadDataForTab(_ tab: LeaderboardTab) {
         switch tab {
         case .global:
-            // For global, show empty for now (will be populated from actual game data)
-            currentEntries = []
+            // Show all entries for global leaderboard
+            currentEntries = globalEntries
         case .friends:
+            // Show only friends and current user
             currentEntries = friendsEntries
         case .weekly:
-            // Show the mock data for weekly to demonstrate the UI
+            // For weekly, show the same global data (would filter by date in production)
             currentEntries = globalEntries
         }
         
@@ -435,15 +512,23 @@ class ModernLeaderboardScene: SKScene {
         
         scrollContainer.removeAllChildren()
         
+        // Reset scroll position to top
+        scrollContainer.position = CGPoint(x: 0, y: 0)
+        
         // Check if there's no data to display
         if currentEntries.isEmpty {
             showNoDataMessage()
             return
         }
         
-        let entryHeight: CGFloat = 80
-        let spacing: CGFloat = 12
-        var yPosition: CGFloat = 100
+        let entryHeight: CGFloat = 70
+        let spacing: CGFloat = 10
+        
+        // Calculate starting Y position - start from top of visible area
+        // The mask is centered at y: -10, with height of size.height - 320
+        let maskHeight = size.height - 320
+        let topOfMask = maskHeight / 2 - 20  // Start slightly below top of mask
+        var yPosition: CGFloat = topOfMask
         
         for (index, entry) in currentEntries.enumerated() {
             let entryNode = createLeaderboardEntry(entry: entry, index: index)
@@ -452,13 +537,14 @@ class ModernLeaderboardScene: SKScene {
             
             yPosition -= (entryHeight + spacing)
             
-            // Animate entries
+            // Smooth staggered entry animation
             entryNode.alpha = 0
-            entryNode.setScale(0.9)
-            let delay = SKAction.wait(forDuration: Double(index) * 0.1)
-            let fadeIn = SKAction.fadeIn(withDuration: 0.3)
-            let scaleUp = SKAction.scale(to: 1.0, duration: 0.3)
+            entryNode.setScale(0.95)
+            let delay = SKAction.wait(forDuration: Double(index) * 0.08)
+            let fadeIn = SKAction.fadeIn(withDuration: 0.25)
+            let scaleUp = SKAction.scale(to: 1.0, duration: 0.25)
             let group = SKAction.group([fadeIn, scaleUp])
+            group.timingMode = .easeOut
             entryNode.run(SKAction.sequence([delay, group]))
         }
     }
@@ -505,12 +591,12 @@ class ModernLeaderboardScene: SKScene {
     
     private func createLeaderboardEntry(entry: LeaderboardUser, index: Int) -> SKNode {
         let container = SKNode()
-        let width: CGFloat = size.width - 60  // Match mask width, properly centered
-        let height: CGFloat = 80
+        let width: CGFloat = size.width - 60  // Slightly narrower than mask for padding
+        let height: CGFloat = 70
         
         // Glass card background
         let cardPath = UIBezierPath(roundedRect: CGRect(x: -width/2, y: -height/2, width: width, height: height),
-                                   cornerRadius: 16)
+                                   cornerRadius: 14)
         let card = SKShapeNode(path: cardPath.cgPath)
         
         // Special styling for top 3
@@ -534,66 +620,86 @@ class ModernLeaderboardScene: SKScene {
         
         container.addChild(card)
         
-        // Rank badge - left of avatar with spacing
+        // Layout constants for proper spacing
+        let leftPadding: CGFloat = -width/2 + 16
+        let rankWidth: CGFloat = 40
+        let avatarSize: CGFloat = 44
+        let avatarX: CGFloat = leftPadding + rankWidth + 8
+        let textStartX: CGFloat = avatarX + avatarSize/2 + 28  // Increased from 12 to 28 (~1rem more spacing)
+        let scoreRightPadding: CGFloat = width/2 - 16
+        
+        // Rank badge - leftmost
         let rankBadge = createRankBadge(rank: entry.rank)
-        rankBadge.position = CGPoint(x: -width/2 + 25, y: 0)
+        rankBadge.position = CGPoint(x: leftPadding + rankWidth/2, y: 0)
         container.addChild(rankBadge)
         
-        // Avatar - after medal with spacing
+        // Avatar - after rank badge
         let avatar = createAvatar(for: entry)
-        avatar.position = CGPoint(x: -width/2 + 85, y: 0)
+        avatar.position = CGPoint(x: avatarX + avatarSize/2, y: 0)
         container.addChild(avatar)
         
-        // Username - positioned left of center with padding after avatar
+        // Username and status container - proper vertical layout
+        let userInfoContainer = SKNode()
+        userInfoContainer.position = CGPoint(x: textStartX, y: 0)
+        container.addChild(userInfoContainer)
+        
+        // Username label - top line
         let usernameLabel = SKLabelNode(text: entry.username)
         usernameLabel.fontName = "AvenirNext-DemiBold"
-        usernameLabel.fontSize = 18
+        usernameLabel.fontSize = 16
         usernameLabel.fontColor = entry.username == "You" ? UIColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0) : .white
         usernameLabel.horizontalAlignmentMode = .left
-        usernameLabel.position = CGPoint(x: -width/2 + 130, y: 0)
-        container.addChild(usernameLabel)
+        usernameLabel.verticalAlignmentMode = .center
         
-        // Online status indicator next to username
+        // Position username based on whether there's a friend badge
+        let hasSecondLine = entry.isFriend && entry.username != "You"
+        usernameLabel.position = CGPoint(x: 0, y: hasSecondLine ? 10 : 0)
+        userInfoContainer.addChild(usernameLabel)
+        
+        // Online status indicator - small dot next to username
         if entry.isOnline {
             let onlineIndicator = SKShapeNode(circleOfRadius: 4)
-            onlineIndicator.fillColor = UIColor(red: 0.0, green: 1.0, blue: 0.0, alpha: 1.0)
-            onlineIndicator.strokeColor = .clear
-            onlineIndicator.position = CGPoint(x: -width/2 + 130 + usernameLabel.frame.width + 8, y: 5)
-            container.addChild(onlineIndicator)
+            onlineIndicator.fillColor = UIColor(red: 0.2, green: 0.9, blue: 0.3, alpha: 1.0)
+            onlineIndicator.strokeColor = UIColor(white: 1.0, alpha: 0.3)
+            onlineIndicator.lineWidth = 1
+            // Position right after username text (estimate width based on character count)
+            let estimatedWidth = CGFloat(entry.username.count) * 9
+            onlineIndicator.position = CGPoint(x: estimatedWidth + 10, y: usernameLabel.position.y)
+            userInfoContainer.addChild(onlineIndicator)
             
-            // Pulsing animation
-            let pulse = SKAction.scale(to: 1.2, duration: 0.5)
-            let shrink = SKAction.scale(to: 1.0, duration: 0.5)
+            // Subtle pulsing animation
+            let pulse = SKAction.scale(to: 1.3, duration: 0.6)
+            let shrink = SKAction.scale(to: 1.0, duration: 0.6)
             onlineIndicator.run(SKAction.repeatForever(SKAction.sequence([pulse, shrink])))
         }
         
-        // Friend indicator below username
-        if entry.isFriend && entry.username != "You" {
+        // Friend badge - below username
+        if hasSecondLine {
             let friendBadge = createFriendBadge()
-            friendBadge.position = CGPoint(x: -width/2 + 130, y: -18)
-            container.addChild(friendBadge)
+            friendBadge.position = CGPoint(x: 30, y: -10)  // Centered below username
+            userInfoContainer.addChild(friendBadge)
         }
         
-        // Score section - stacked on the right side
+        // Score section - right aligned with proper spacing
         let scoreContainer = SKNode()
-        scoreContainer.position = CGPoint(x: width/2 - 30, y: 0)
+        scoreContainer.position = CGPoint(x: scoreRightPadding, y: 0)
         container.addChild(scoreContainer)
         
-        // Score value
+        // Score value - larger and prominent
         let scoreLabel = SKLabelNode(text: "\(entry.score)")
         scoreLabel.fontName = "AvenirNext-Bold"
-        scoreLabel.fontSize = 22
+        scoreLabel.fontSize = 20
         scoreLabel.fontColor = .white
         scoreLabel.horizontalAlignmentMode = .right
         scoreLabel.verticalAlignmentMode = .center
-        scoreLabel.position = CGPoint(x: 0, y: 8)
+        scoreLabel.position = CGPoint(x: 0, y: 6)
         scoreContainer.addChild(scoreLabel)
         
         // Points label below score
         let pointsLabel = SKLabelNode(text: "pts")
         pointsLabel.fontName = "AvenirNext-Regular"
-        pointsLabel.fontSize = 13
-        pointsLabel.fontColor = UIColor(white: 0.7, alpha: 1.0)
+        pointsLabel.fontSize = 11
+        pointsLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
         pointsLabel.horizontalAlignmentMode = .right
         pointsLabel.verticalAlignmentMode = .center
         pointsLabel.position = CGPoint(x: 0, y: -10)
@@ -981,32 +1087,77 @@ class ModernLeaderboardScene: SKScene {
         
         let deltaY = location.y - lastTouchY
         scrollContainer.position.y += deltaY
-        scrollVelocity = deltaY
+        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2  // Smooth velocity calculation
         lastTouchY = location.y
         
-        // Limit scrolling
-        let maxY: CGFloat = 0
-        let minY: CGFloat = -(CGFloat(currentEntries.count) * 92 - 400)
-        scrollContainer.position.y = max(minY, min(maxY, scrollContainer.position.y))
+        // Calculate scroll bounds
+        let entryHeight: CGFloat = 80
+        let contentHeight = CGFloat(currentEntries.count) * entryHeight
+        let visibleHeight = size.height - 320
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(-(contentHeight - visibleHeight + 50), 0)
+        
+        // Apply with rubber band effect at edges
+        if scrollContainer.position.y > maxScrollY {
+            let overscroll = scrollContainer.position.y - maxScrollY
+            scrollContainer.position.y = maxScrollY + overscroll * 0.3
+        } else if scrollContainer.position.y < -minScrollY {
+            let overscroll = -minScrollY - scrollContainer.position.y
+            scrollContainer.position.y = -minScrollY - overscroll * 0.3
+        }
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         isScrolling = false
         
-        // Apply momentum scrolling
-        if abs(scrollVelocity) > 1 {
-            let deceleration = SKAction.customAction(withDuration: 1.0) { [weak self] _, elapsedTime in
+        // Calculate scroll bounds
+        let entryHeight: CGFloat = 80
+        let contentHeight = CGFloat(currentEntries.count) * entryHeight
+        let visibleHeight = size.height - 320
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight + 50, 0)
+        
+        // Snap back if overscrolled
+        if scrollContainer.position.y > maxScrollY {
+            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        } else if scrollContainer.position.y < -minScrollY {
+            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        }
+        
+        // Apply smooth momentum scrolling
+        if abs(scrollVelocity) > 2 {
+            let momentumDuration: TimeInterval = 0.8
+            let friction: CGFloat = 0.95
+            
+            let deceleration = SKAction.customAction(withDuration: momentumDuration) { [weak self] _, elapsedTime in
                 guard let self = self else { return }
-                let decay = 1.0 - (elapsedTime / 1.0)
-                let velocity = self.scrollVelocity * decay * 0.1
+                
+                // Exponential decay for smooth deceleration
+                let progress = elapsedTime / CGFloat(momentumDuration)
+                let decayFactor = pow(friction, elapsedTime * 60)  // 60 fps equivalent
+                let velocity = self.scrollVelocity * decayFactor * 0.15
+                
+                // Stop if velocity is negligible
+                guard abs(velocity) > 0.1 else { return }
+                
                 self.scrollContainer.position.y += velocity
                 
-                // Limit scrolling
-                let maxY: CGFloat = 0
-                let minY: CGFloat = -(CGFloat(self.currentEntries.count) * 92 - 400)
-                self.scrollContainer.position.y = max(minY, min(maxY, self.scrollContainer.position.y))
+                // Clamp to bounds
+                if self.scrollContainer.position.y > maxScrollY {
+                    self.scrollContainer.position.y = maxScrollY
+                    self.scrollContainer.removeAllActions()
+                } else if self.scrollContainer.position.y < -minScrollY {
+                    self.scrollContainer.position.y = -minScrollY
+                    self.scrollContainer.removeAllActions()
+                }
             }
-            scrollContainer.run(deceleration)
+            scrollContainer.run(deceleration, withKey: "momentum")
         }
     }
     

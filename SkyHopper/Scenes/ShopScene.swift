@@ -12,6 +12,19 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     private var shopItems: [SKNode] = []
     private var decorLayer = SKNode()
     private var topBar = SKNode()
+    
+    // Scroll container for smooth scrolling
+    private var scrollContainer: SKNode!
+    private var scrollMask: SKShapeNode!
+    private var cropNode: SKCropNode!
+    
+    // Scroll tracking
+    private var lastTouchY: CGFloat = 0
+    private var isScrolling = false
+    private var scrollVelocity: CGFloat = 0
+    private var contentHeight: CGFloat = 0
+    private var visibleHeight: CGFloat = 0
+    
     // Tab control
     private var tabButtons: [SKShapeNode] = []
     private enum ShopTab {
@@ -64,6 +77,33 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
 
         // Back button / currency row handled by topBar
         createTabButtons()
+        setupScrollContainer()
+    }
+    
+    private func setupScrollContainer() {
+        // Get topBar bottom position for proper content placement
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabHeight: CGFloat = 60
+        
+        // Create crop node for masking scrollable content
+        cropNode = SKCropNode()
+        let contentTop = topBarBottomY - tabHeight - 20
+        cropNode.position = CGPoint(x: size.width / 2, y: contentTop / 2)
+        cropNode.zPosition = 5
+        addChild(cropNode)
+        
+        // Calculate visible area
+        visibleHeight = contentTop - 40  // Leave padding at bottom
+        
+        // Create mask
+        scrollMask = SKShapeNode(rectOf: CGSize(width: size.width - 20, height: visibleHeight), cornerRadius: 12)
+        scrollMask.fillColor = .white
+        cropNode.maskNode = scrollMask
+        
+        // Create scroll container
+        scrollContainer = SKNode()
+        scrollContainer.position = CGPoint(x: 0, y: 0)
+        cropNode.addChild(scrollContainer)
     }
     
     private func createBackButton() {
@@ -179,6 +219,8 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
             item.removeFromParent()
         }
         shopItems.removeAll()
+        scrollContainer?.removeAllChildren()
+        scrollContainer?.position = CGPoint(x: 0, y: 0)  // Reset scroll position
     }
     
     private func showTabContent(_ tab: ShopTab) {
@@ -205,6 +247,8 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     // MARK: - Shop Content
     
     private func showCoinsShop() {
+        guard scrollContainer != nil else { return }
+        
         // Coin packages
         let packages = [
             ("Small Pack", 500, 0.99),
@@ -213,14 +257,9 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
             ("Mega Pack", 12000, 19.99)
         ]
         
-        // Get topBar metrics for proper positioning
-        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
-        let tabHeight: CGFloat = 60
-        // Add more spacing between tabs and content to prevent overlap
-        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
-        
-        let startY = contentTopY
-        let spacing = 120.0
+        let spacing: CGFloat = 115
+        contentHeight = CGFloat(packages.count) * spacing + 50
+        let startY = visibleHeight / 2 - 60
         
         for (index, package) in packages.enumerated() {
             let item = createShopItem(
@@ -228,15 +267,17 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
                 description: "\(package.1) coins",
                 price: "$\(package.2)",
                 icon: "🪙",
-                position: CGPoint(x: size.width / 2, y: startY - spacing * Double(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
             )
             item.name = "coin_package_\(index)"
             shopItems.append(item)
-            addChild(item)
+            scrollContainer.addChild(item)
         }
     }
     
     private func showPowerUpsShop() {
+        guard scrollContainer != nil else { return }
+        
         // Power-up packages
         let packages = [
             ("Extra Life", "One-time revival", 1000, "❤️"),
@@ -247,14 +288,9 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
             ("Double Time", "2x power-up duration", 1500, "⏱️")
         ]
         
-        // Get topBar metrics for proper positioning
-        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
-        let tabHeight: CGFloat = 60
-        // Add more spacing between tabs and content to prevent overlap
-        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
-        
-        let startY = contentTopY
-        let spacing = 120.0
+        let spacing: CGFloat = 115
+        contentHeight = CGFloat(packages.count) * spacing + 50
+        let startY = visibleHeight / 2 - 60
         
         for (index, package) in packages.enumerated() {
             let item = createShopItem(
@@ -262,32 +298,32 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
                 description: package.1,
                 price: "\(package.2) 🪙",
                 icon: package.3,
-                position: CGPoint(x: size.width / 2, y: startY - spacing * Double(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
             )
             item.name = "powerup_package_\(index)"
             shopItems.append(item)
-            addChild(item)
+            scrollContainer.addChild(item)
         }
     }
     
     private func showCharactersShop() {
-        // Get topBar metrics for proper positioning
-        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
-        let tabHeight: CGFloat = 60
-        // Add more spacing between tabs and content to prevent overlap
-        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
+        guard scrollContainer != nil else { return }
+        
+        contentHeight = 100
         
         // Message that this is available in Characters screen
         let message = SKLabelNode(text: "Characters are available in the Characters menu")
         message.fontName = "AvenirNext-Medium"
         message.fontSize = 20
-        message.position = CGPoint(x: size.width / 2, y: contentTopY - 60)
+        message.position = CGPoint(x: 0, y: 0)
         message.zPosition = 10
         shopItems.append(message)
-        addChild(message)
+        scrollContainer.addChild(message)
     }
     
     private func showThemesShop() {
+        guard scrollContainer != nil else { return }
+        
         // Theme packages
         let packages = [
             ("Forest Theme", "Play in the forest", 2000, "🌳"),
@@ -296,14 +332,9 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
             ("Underwater Theme", "Underwater journey", 4000, "🌊")
         ]
         
-        // Get topBar metrics for proper positioning
-        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
-        let tabHeight: CGFloat = 60
-        // Add more spacing between tabs and content to prevent overlap
-        let contentTopY = topBarBottomY - tabHeight - UIConstants.Spacing.xlarge - 40
-        
-        let startY = contentTopY
-        let spacing = 120.0
+        let spacing: CGFloat = 115
+        contentHeight = CGFloat(packages.count) * spacing + 50
+        let startY = visibleHeight / 2 - 60
         
         for (index, package) in packages.enumerated() {
             let item = createShopItem(
@@ -311,11 +342,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
                 description: package.1,
                 price: "\(package.2) 🪙",
                 icon: package.3,
-                position: CGPoint(x: size.width / 2, y: startY - spacing * Double(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
             )
             item.name = "theme_package_\(index)"
             shopItems.append(item)
-            addChild(item)
+            scrollContainer.addChild(item)
         }
     }
     
@@ -471,38 +502,122 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     // MARK: - Touch Handling
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            let location = touch.location(in: self)
-            let touchedNodes = nodes(at: location)
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let touchedNodes = nodes(at: location)
+        
+        // Check for back button first
+        for node in touchedNodes {
+            if node.name == "backButton" || node.parent?.name == "backButton" {
+                handleBackButton()
+                return
+            }
             
-            for node in touchedNodes {
-                if node.name == "backButton" || node.parent?.name == "backButton" {
-                    handleBackButton()
-                    return
+            // Check for tab selection
+            if let name = node.name, name.starts(with: "tab_"), 
+               let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
+                if index == 0 {
+                    showTabContent(.coins)
+                } else if index == 1 {
+                    showTabContent(.powerUps)
+                } else if index == 2 {
+                    showTabContent(.characters)
+                } else if index == 3 {
+                    showTabContent(.themes)
                 }
+                return
+            }
+        }
+        
+        // Check if touch is within scroll area
+        if let crop = cropNode, crop.contains(location) {
+            isScrolling = true
+            lastTouchY = location.y
+            scrollVelocity = 0
+            scrollContainer?.removeAction(forKey: "momentum")
+        }
+        
+        // Check for buy button
+        for node in touchedNodes {
+            if let name = node.name, name.starts(with: "buy_") {
+                handlePurchase(itemName: name)
+                return
+            }
+        }
+    }
+    
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first, isScrolling, let container = scrollContainer else { return }
+        
+        let location = touch.location(in: self)
+        let deltaY = location.y - lastTouchY
+        container.position.y += deltaY
+        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
+        lastTouchY = location.y
+        
+        // Calculate scroll bounds
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        
+        // Rubber band effect at edges
+        if container.position.y > maxScrollY {
+            let overscroll = container.position.y - maxScrollY
+            container.position.y = maxScrollY + overscroll * 0.3
+        } else if container.position.y < -minScrollY {
+            let overscroll = -minScrollY - container.position.y
+            container.position.y = -minScrollY - overscroll * 0.3
+        }
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard isScrolling, let container = scrollContainer else {
+            isScrolling = false
+            return
+        }
+        
+        isScrolling = false
+        
+        // Calculate scroll bounds
+        let maxScrollY: CGFloat = 0
+        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        
+        // Apply momentum scrolling
+        let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
+            guard let self = self else { return }
+            let decay = pow(0.95, Double(elapsedTime * 60))
+            let velocity = self.scrollVelocity * CGFloat(decay)
+            
+            if abs(velocity) > 0.5 {
+                node.position.y += velocity
                 
-                // Check for tab selection
-                if let name = node.name, name.starts(with: "tab_"), 
-                   let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
-                    if index == 0 {
-                        showTabContent(.coins)
-                    } else if index == 1 {
-                        showTabContent(.powerUps)
-                    } else if index == 2 {
-                        showTabContent(.characters)
-                    } else if index == 3 {
-                        showTabContent(.themes)
-                    }
-                    return
-                }
-                
-                // Check for buy button
-                if let name = node.name, name.starts(with: "buy_") {
-                    handlePurchase(itemName: name)
-                    return
+                // Clamp to bounds during momentum
+                if node.position.y > maxScrollY {
+                    node.position.y = maxScrollY
+                    self.scrollVelocity = 0
+                } else if node.position.y < -minScrollY {
+                    node.position.y = -minScrollY
+                    self.scrollVelocity = 0
                 }
             }
         }
+        
+        // Snap back if overscrolled
+        let currentY = container.position.y
+        if currentY > maxScrollY {
+            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            container.run(snapBack, withKey: "momentum")
+        } else if currentY < -minScrollY {
+            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            container.run(snapBack, withKey: "momentum")
+        } else {
+            container.run(momentumAction, withKey: "momentum")
+        }
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        isScrolling = false
     }
     
     private func handleBackButton() {
