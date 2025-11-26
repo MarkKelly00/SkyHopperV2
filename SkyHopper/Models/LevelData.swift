@@ -303,17 +303,17 @@ struct LevelData {
         
         levels.append(LevelData(
             id: "christmas_special",
-            name: "Winter Wonderland",
-            description: "Festive Christmas level with gift obstacles and snowfall.",
+            name: "Santa's Flight",
+            description: "Help Santa navigate through Christmas trees while avoiding evil elves and collecting presents for bonus points!",
             mapTheme: .christmas,
-            difficulty: 2,
+            difficulty: 3,
             unlockRequirement: .seasonal(month: 12),
             obstaclePatterns: [
-                ObstaclePattern.standardPattern(id: "gift_stacks", name: "Gift Stacks", difficulty: 2, gapSize: 130, speed: 130)
+                ObstaclePattern.standardPattern(id: "christmas_trees", name: "Christmas Trees", difficulty: 3, gapSize: 120, speed: 135)
             ],
-            powerUpFrequency: 6.0,
-            specialMechanics: [.movingObstacles],
-            isUnlocked: false
+            powerUpFrequency: 5.0,
+            specialMechanics: [.movingObstacles, .fogEffects],
+            isUnlocked: true
         ))
         
         levels.append(LevelData(

@@ -63,7 +63,7 @@ final class SafeAreaTopBar {
 
         // Add currency display using safe area layout (consistent with MainMenuScene)
         let currencyTopY = safe.safeTopY(offset: -UIConstants.Spacing.medium) // Move up by 1rem for better fit
-        
+
         // Coins display (left side of safe area)
         let coinsIcon = SKLabelNode(text: "🪙")
         coinsIcon.name = "topbar_coinsIcon"

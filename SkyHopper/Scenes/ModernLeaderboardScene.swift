@@ -31,7 +31,7 @@ class ModernLeaderboardScene: SKScene {
         ("level_9", "Space Frontier"),
         ("level_10", "Cosmic Challenge"),
         ("halloween_special", "Haunted Flight"),
-        ("christmas_special", "Winter Wonderland"),
+        ("christmas_special", "Santa's Flight"),
         ("summer_special", "Beach Party"),
         ("premium_level_1", "Lost City")
     ]
@@ -1139,7 +1139,7 @@ class ModernLeaderboardScene: SKScene {
                 guard let self = self else { return }
                 
                 // Exponential decay for smooth deceleration
-                let progress = elapsedTime / CGFloat(momentumDuration)
+                _ = elapsedTime / CGFloat(momentumDuration)
                 let decayFactor = pow(friction, elapsedTime * 60)  // 60 fps equivalent
                 let velocity = self.scrollVelocity * decayFactor * 0.15
                 

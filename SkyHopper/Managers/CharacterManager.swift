@@ -16,6 +16,7 @@ class CharacterManager {
         case duck
         case dragon
         case f22Raptor // New F22 Raptor for Stargate Escape level
+        case santaSleigh // Santa's sleigh with reindeer for Christmas level
     }
     
     struct Aircraft {
@@ -149,6 +150,16 @@ class CharacterManager {
                 unlockCost: 25000,
                 isUnlocked: false,
                 specialAbility: "Stealth Mode - Temporarily invisible to obstacles"
+            ),
+            Aircraft(
+                type: .santaSleigh,
+                name: "Santa's Sleigh",
+                description: "Magical sleigh pulled by reindeer - perfect for delivering presents!",
+                speed: 1.3, // Good speed for Santa
+                size: CGSize(width: 80, height: 40), // Wider for sleigh + reindeer
+                unlockCost: 15000, // Seasonal special
+                isUnlocked: false,
+                specialAbility: "Gift Drop - Collect presents for bonus points"
             )
         ]
     }
@@ -238,6 +249,8 @@ class CharacterManager {
             sprite = createDragonSprite()
         case .mustangPlane:
             sprite = createMustangSprite()
+        case .santaSleigh:
+            sprite = createSantaSleighSprite()
         default:
             // Fallback to helicopter as a safe default
             sprite = createHelicopterSprite()
@@ -652,6 +665,328 @@ class CharacterManager {
         raptor.physicsBody = physicsBody
 
         return raptor
+    }
+    
+    // MARK: - Santa's Sleigh Sprite (Christmas Special)
+    private func createSantaSleighSprite() -> SKSpriteNode {
+        // Create a detailed pixel-art style Santa sleigh with reindeer
+        let sleighContainer = SKSpriteNode(color: .clear, size: CGSize(width: 90, height: 45))
+        sleighContainer.name = "player"
+        
+        // ===== REINDEER (Front) =====
+        let reindeerContainer = SKNode()
+        reindeerContainer.position = CGPoint(x: 30, y: 5)
+        
+        // Lead Reindeer Body
+        let reindeerBodyPath = UIBezierPath()
+        reindeerBodyPath.move(to: CGPoint(x: 0, y: -4))
+        reindeerBodyPath.addLine(to: CGPoint(x: 12, y: -3))
+        reindeerBodyPath.addLine(to: CGPoint(x: 14, y: 0))
+        reindeerBodyPath.addLine(to: CGPoint(x: 12, y: 3))
+        reindeerBodyPath.addLine(to: CGPoint(x: 0, y: 4))
+        reindeerBodyPath.addLine(to: CGPoint(x: -4, y: 2))
+        reindeerBodyPath.addLine(to: CGPoint(x: -4, y: -2))
+        reindeerBodyPath.close()
+        
+        let reindeerBody = SKShapeNode(path: reindeerBodyPath.cgPath)
+        reindeerBody.fillColor = UIColor(red: 0.55, green: 0.35, blue: 0.2, alpha: 1.0) // Brown
+        reindeerBody.strokeColor = UIColor(red: 0.35, green: 0.2, blue: 0.1, alpha: 1.0)
+        reindeerBody.lineWidth = 1
+        reindeerContainer.addChild(reindeerBody)
+        
+        // Reindeer Head
+        let headPath = UIBezierPath(ovalIn: CGRect(x: 12, y: -3, width: 8, height: 6))
+        let head = SKShapeNode(path: headPath.cgPath)
+        head.fillColor = UIColor(red: 0.55, green: 0.35, blue: 0.2, alpha: 1.0)
+        head.strokeColor = UIColor(red: 0.35, green: 0.2, blue: 0.1, alpha: 1.0)
+        head.lineWidth = 1
+        reindeerContainer.addChild(head)
+        
+        // Rudolph's Red Nose (glowing!)
+        let nose = SKShapeNode(circleOfRadius: 2.5)
+        nose.fillColor = UIColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 1.0)
+        nose.strokeColor = UIColor(red: 0.8, green: 0.0, blue: 0.0, alpha: 1.0)
+        nose.lineWidth = 0.5
+        nose.position = CGPoint(x: 22, y: 0)
+        nose.name = "rudolphNose"
+        reindeerContainer.addChild(nose)
+        
+        // Nose glow effect
+        let noseGlow = SKShapeNode(circleOfRadius: 5)
+        noseGlow.fillColor = UIColor(red: 1.0, green: 0.3, blue: 0.3, alpha: 0.4)
+        noseGlow.strokeColor = .clear
+        noseGlow.position = CGPoint(x: 22, y: 0)
+        noseGlow.zPosition = -1
+        reindeerContainer.addChild(noseGlow)
+        
+        // Animate nose glow
+        let glowPulse = SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.7, duration: 0.4),
+            SKAction.fadeAlpha(to: 0.3, duration: 0.4)
+        ])
+        noseGlow.run(SKAction.repeatForever(glowPulse))
+        
+        // Antlers
+        let antlerPath = UIBezierPath()
+        // Left antler
+        antlerPath.move(to: CGPoint(x: 16, y: 3))
+        antlerPath.addLine(to: CGPoint(x: 14, y: 8))
+        antlerPath.addLine(to: CGPoint(x: 12, y: 6))
+        antlerPath.addLine(to: CGPoint(x: 14, y: 10))
+        antlerPath.addLine(to: CGPoint(x: 16, y: 8))
+        // Right antler
+        antlerPath.move(to: CGPoint(x: 16, y: -3))
+        antlerPath.addLine(to: CGPoint(x: 14, y: -8))
+        antlerPath.addLine(to: CGPoint(x: 12, y: -6))
+        antlerPath.addLine(to: CGPoint(x: 14, y: -10))
+        antlerPath.addLine(to: CGPoint(x: 16, y: -8))
+        
+        let antlers = SKShapeNode(path: antlerPath.cgPath)
+        antlers.strokeColor = UIColor(red: 0.4, green: 0.25, blue: 0.1, alpha: 1.0)
+        antlers.lineWidth = 2
+        antlers.lineCap = .round
+        reindeerContainer.addChild(antlers)
+        
+        // Reindeer Legs (animated running)
+        let legsContainer = SKNode()
+        legsContainer.position = CGPoint(x: 4, y: -6)
+        
+        let frontLeg = SKShapeNode(rectOf: CGSize(width: 2, height: 6))
+        frontLeg.fillColor = UIColor(red: 0.45, green: 0.28, blue: 0.15, alpha: 1.0)
+        frontLeg.strokeColor = .clear
+        frontLeg.position = CGPoint(x: 4, y: 0)
+        frontLeg.name = "frontLeg"
+        legsContainer.addChild(frontLeg)
+        
+        let backLeg = SKShapeNode(rectOf: CGSize(width: 2, height: 6))
+        backLeg.fillColor = UIColor(red: 0.45, green: 0.28, blue: 0.15, alpha: 1.0)
+        backLeg.strokeColor = .clear
+        backLeg.position = CGPoint(x: -4, y: 0)
+        backLeg.name = "backLeg"
+        legsContainer.addChild(backLeg)
+        
+        reindeerContainer.addChild(legsContainer)
+        
+        // Animate reindeer legs (running motion)
+        let legForward = SKAction.rotate(byAngle: 0.3, duration: 0.15)
+        let legBack = SKAction.rotate(byAngle: -0.3, duration: 0.15)
+        let legSequence = SKAction.sequence([legForward, legBack])
+        frontLeg.run(SKAction.repeatForever(legSequence))
+        
+        let legBackSequence = SKAction.sequence([legBack, legForward])
+        backLeg.run(SKAction.repeatForever(legBackSequence))
+        
+        // Second Reindeer (slightly behind)
+        let reindeer2 = reindeerContainer.copy() as! SKNode
+        reindeer2.position = CGPoint(x: 15, y: -2)
+        reindeer2.setScale(0.85)
+        reindeer2.alpha = 0.9
+        sleighContainer.addChild(reindeer2)
+        
+        sleighContainer.addChild(reindeerContainer)
+        
+        // ===== REINS =====
+        let reinsPath = UIBezierPath()
+        reinsPath.move(to: CGPoint(x: -8, y: 2))
+        reinsPath.addQuadCurve(to: CGPoint(x: 25, y: 5), controlPoint: CGPoint(x: 10, y: 10))
+        reinsPath.move(to: CGPoint(x: -8, y: -2))
+        reinsPath.addQuadCurve(to: CGPoint(x: 25, y: -5), controlPoint: CGPoint(x: 10, y: -8))
+        
+        let reins = SKShapeNode(path: reinsPath.cgPath)
+        reins.strokeColor = UIColor(red: 0.4, green: 0.2, blue: 0.1, alpha: 1.0)
+        reins.lineWidth = 1.5
+        sleighContainer.addChild(reins)
+        
+        // ===== SLEIGH =====
+        let sleighPath = UIBezierPath()
+        // Sleigh body - curved bottom
+        sleighPath.move(to: CGPoint(x: -35, y: -10))
+        sleighPath.addQuadCurve(to: CGPoint(x: -10, y: -15), controlPoint: CGPoint(x: -25, y: -18))
+        sleighPath.addLine(to: CGPoint(x: 5, y: -15))
+        sleighPath.addQuadCurve(to: CGPoint(x: 10, y: -8), controlPoint: CGPoint(x: 10, y: -15))
+        sleighPath.addLine(to: CGPoint(x: 10, y: 5))
+        sleighPath.addLine(to: CGPoint(x: -35, y: 5))
+        sleighPath.close()
+        
+        let sleigh = SKShapeNode(path: sleighPath.cgPath)
+        sleigh.fillColor = UIColor(red: 0.7, green: 0.1, blue: 0.1, alpha: 1.0) // Christmas red
+        sleigh.strokeColor = UIColor(red: 0.5, green: 0.0, blue: 0.0, alpha: 1.0)
+        sleigh.lineWidth = 2
+        sleighContainer.addChild(sleigh)
+        
+        // Sleigh gold trim
+        let trimPath = UIBezierPath()
+        trimPath.move(to: CGPoint(x: -35, y: 5))
+        trimPath.addLine(to: CGPoint(x: 10, y: 5))
+        trimPath.move(to: CGPoint(x: -35, y: -2))
+        trimPath.addLine(to: CGPoint(x: 10, y: -2))
+        
+        let trim = SKShapeNode(path: trimPath.cgPath)
+        trim.strokeColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // Gold
+        trim.lineWidth = 2
+        sleighContainer.addChild(trim)
+        
+        // Sleigh runner (curved ski)
+        let runnerPath = UIBezierPath()
+        runnerPath.move(to: CGPoint(x: -40, y: -12))
+        runnerPath.addQuadCurve(to: CGPoint(x: 5, y: -18), controlPoint: CGPoint(x: -20, y: -20))
+        runnerPath.addQuadCurve(to: CGPoint(x: 12, y: -14), controlPoint: CGPoint(x: 10, y: -18))
+        
+        let runner = SKShapeNode(path: runnerPath.cgPath)
+        runner.strokeColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // Gold
+        runner.lineWidth = 3
+        runner.lineCap = .round
+        sleighContainer.addChild(runner)
+        
+        // ===== SANTA =====
+        let santaContainer = SKNode()
+        santaContainer.position = CGPoint(x: -15, y: 5)
+        
+        // Santa's body (red coat)
+        let bodyPath = UIBezierPath(roundedRect: CGRect(x: -8, y: -5, width: 16, height: 14), cornerRadius: 3)
+        let santaBody = SKShapeNode(path: bodyPath.cgPath)
+        santaBody.fillColor = UIColor(red: 0.8, green: 0.1, blue: 0.1, alpha: 1.0)
+        santaBody.strokeColor = UIColor(red: 0.5, green: 0.0, blue: 0.0, alpha: 1.0)
+        santaBody.lineWidth = 1
+        santaContainer.addChild(santaBody)
+        
+        // White fur trim on coat
+        let furTrimPath = UIBezierPath(rect: CGRect(x: -8, y: 7, width: 16, height: 3))
+        let furTrim = SKShapeNode(path: furTrimPath.cgPath)
+        furTrim.fillColor = .white
+        furTrim.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+        furTrim.lineWidth = 0.5
+        santaContainer.addChild(furTrim)
+        
+        // Belt
+        let belt = SKShapeNode(rectOf: CGSize(width: 16, height: 3))
+        belt.fillColor = .black
+        belt.strokeColor = .clear
+        belt.position = CGPoint(x: 0, y: 0)
+        santaContainer.addChild(belt)
+        
+        // Belt buckle
+        let buckle = SKShapeNode(rectOf: CGSize(width: 4, height: 3))
+        buckle.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // Gold
+        buckle.strokeColor = .clear
+        buckle.position = CGPoint(x: 0, y: 0)
+        santaContainer.addChild(buckle)
+        
+        // Santa's head
+        let santaHead = SKShapeNode(circleOfRadius: 6)
+        santaHead.fillColor = UIColor(red: 1.0, green: 0.85, blue: 0.75, alpha: 1.0) // Skin tone
+        santaHead.strokeColor = UIColor(red: 0.9, green: 0.75, blue: 0.65, alpha: 1.0)
+        santaHead.lineWidth = 1
+        santaHead.position = CGPoint(x: 0, y: 16)
+        santaContainer.addChild(santaHead)
+        
+        // Santa's hat
+        let hatPath = UIBezierPath()
+        hatPath.move(to: CGPoint(x: -6, y: 20))
+        hatPath.addLine(to: CGPoint(x: 0, y: 30))
+        hatPath.addLine(to: CGPoint(x: 6, y: 20))
+        hatPath.close()
+        
+        let hat = SKShapeNode(path: hatPath.cgPath)
+        hat.fillColor = UIColor(red: 0.8, green: 0.1, blue: 0.1, alpha: 1.0)
+        hat.strokeColor = UIColor(red: 0.5, green: 0.0, blue: 0.0, alpha: 1.0)
+        hat.lineWidth = 1
+        santaContainer.addChild(hat)
+        
+        // Hat pom-pom
+        let pomPom = SKShapeNode(circleOfRadius: 3)
+        pomPom.fillColor = .white
+        pomPom.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+        pomPom.position = CGPoint(x: 0, y: 30)
+        santaContainer.addChild(pomPom)
+        
+        // Hat fur trim
+        let hatFur = SKShapeNode(rectOf: CGSize(width: 14, height: 3))
+        hatFur.fillColor = .white
+        hatFur.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+        hatFur.position = CGPoint(x: 0, y: 20)
+        santaContainer.addChild(hatFur)
+        
+        // Beard
+        let beardPath = UIBezierPath()
+        beardPath.move(to: CGPoint(x: -5, y: 12))
+        beardPath.addQuadCurve(to: CGPoint(x: 0, y: 6), controlPoint: CGPoint(x: -6, y: 8))
+        beardPath.addQuadCurve(to: CGPoint(x: 5, y: 12), controlPoint: CGPoint(x: 6, y: 8))
+        beardPath.close()
+        
+        let beard = SKShapeNode(path: beardPath.cgPath)
+        beard.fillColor = .white
+        beard.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+        beard.lineWidth = 0.5
+        santaContainer.addChild(beard)
+        
+        // Santa's arm (holding reins)
+        let arm = SKShapeNode(rectOf: CGSize(width: 12, height: 4), cornerRadius: 2)
+        arm.fillColor = UIColor(red: 0.8, green: 0.1, blue: 0.1, alpha: 1.0)
+        arm.strokeColor = .clear
+        arm.position = CGPoint(x: 10, y: 4)
+        arm.zRotation = -0.3
+        santaContainer.addChild(arm)
+        
+        sleighContainer.addChild(santaContainer)
+        
+        // ===== GIFT SACK =====
+        let sackPath = UIBezierPath(ovalIn: CGRect(x: -32, y: -8, width: 14, height: 18))
+        let sack = SKShapeNode(path: sackPath.cgPath)
+        sack.fillColor = UIColor(red: 0.6, green: 0.3, blue: 0.1, alpha: 1.0) // Brown sack
+        sack.strokeColor = UIColor(red: 0.4, green: 0.2, blue: 0.05, alpha: 1.0)
+        sack.lineWidth = 1
+        sleighContainer.addChild(sack)
+        
+        // Gifts peeking out
+        let gift1 = SKShapeNode(rectOf: CGSize(width: 5, height: 5))
+        gift1.fillColor = UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1.0) // Green gift
+        gift1.strokeColor = .red
+        gift1.lineWidth = 1
+        gift1.position = CGPoint(x: -28, y: 8)
+        sleighContainer.addChild(gift1)
+        
+        let gift2 = SKShapeNode(rectOf: CGSize(width: 4, height: 4))
+        gift2.fillColor = UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0) // Blue gift
+        gift2.strokeColor = .yellow
+        gift2.lineWidth = 1
+        gift2.position = CGPoint(x: -22, y: 6)
+        sleighContainer.addChild(gift2)
+        
+        // ===== SPARKLE TRAIL EFFECT =====
+        let sparkleEmitter = SKNode()
+        sparkleEmitter.position = CGPoint(x: -40, y: -5)
+        sparkleEmitter.name = "sparkleTrail"
+        
+        // Create sparkle particles
+        for i in 0..<5 {
+            let sparkle = SKShapeNode(circleOfRadius: 2)
+            sparkle.fillColor = UIColor(red: 1.0, green: 1.0, blue: 0.8, alpha: 0.8)
+            sparkle.strokeColor = .clear
+            sparkle.position = CGPoint(x: CGFloat(-i * 8), y: CGFloat.random(in: -5...5))
+            sparkle.alpha = CGFloat(1.0 - Double(i) * 0.2)
+            
+            let twinkle = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.3, duration: 0.2),
+                SKAction.fadeAlpha(to: 1.0, duration: 0.2)
+            ])
+            sparkle.run(SKAction.repeatForever(twinkle))
+            
+            sparkleEmitter.addChild(sparkle)
+        }
+        sleighContainer.addChild(sparkleEmitter)
+        
+        // ===== PHYSICS BODY =====
+        let physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 70, height: 35))
+        physicsBody.isDynamic = true
+        physicsBody.allowsRotation = false
+        physicsBody.affectedByGravity = false
+        physicsBody.categoryBitMask = 1
+        physicsBody.contactTestBitMask = 2 | 4 | 8
+        physicsBody.collisionBitMask = 2
+        sleighContainer.physicsBody = physicsBody
+        
+        return sleighContainer
     }
     
     // Implementation for the biplane aircraft

@@ -26,7 +26,7 @@ class MapManager {
             case .underwater: return "Ocean Depths"
             case .desert: return "Stargate Desert"
             case .halloween: return "Spooky Halloween"
-            case .christmas: return "Winter Wonderland"
+            case .christmas: return "Santa's Flight"
             case .summer: return "Summer Beach"
             }
         }
@@ -53,7 +53,7 @@ class MapManager {
             case .underwater: return UIColor(red: 0.0, green: 0.3, blue: 0.6, alpha: 1.0) // Deep blue
             case .desert: return UIColor(red: 0.96, green: 0.83, blue: 0.6, alpha: 1.0) // Desert sky (warm sand color)
             case .halloween: return UIColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1.0) // Dark night
-            case .christmas: return UIColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1.0) // Snow white
+            case .christmas: return UIColor(red: 0.05, green: 0.08, blue: 0.18, alpha: 1.0) // Dark blue night sky
             case .summer: return UIColor(red: 0.9, green: 0.7, blue: 0.4, alpha: 1.0) // Sunny yellow
             }
         }
@@ -67,7 +67,7 @@ class MapManager {
             case .underwater: return UIColor(red: 0.0, green: 0.4, blue: 0.3, alpha: 1.0) // Seaweed green
             case .desert: return UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 1.0) // Sandy pyramids
             case .halloween: return UIColor(red: 0.5, green: 0.1, blue: 0.0, alpha: 1.0) // Blood red
-            case .christmas: return UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0) // Christmas red
+            case .christmas: return UIColor(red: 0.1, green: 0.4, blue: 0.15, alpha: 1.0) // Christmas tree green
             case .summer: return UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0) // Orange
             }
         }
@@ -300,7 +300,7 @@ class MapManager {
         case .underwater: buildUnderwaterBackground(in: scene)
         case .space: buildSpaceBackground(in: scene)
         case .halloween: buildHalloweenBackground(in: scene)
-        case .christmas: buildMountainBackground(in: scene)
+        case .christmas: buildChristmasBackground(in: scene)
         case .summer: buildCityBackground(in: scene)
         }
 
@@ -505,6 +505,343 @@ class MapManager {
         bat.run(SKAction.repeatForever(SKAction.sequence([flapUp, flapDown])))
         
         return bat
+    }
+    
+    // MARK: - Christmas Background (Santa's Flight)
+    private func buildChristmasBackground(in scene: SKScene) {
+        // Create stunning dark blue night sky with gradient
+        let gradientNode = SKSpriteNode(color: .clear, size: scene.size)
+        gradientNode.position = CGPoint(x: scene.size.width/2, y: scene.size.height/2)
+        gradientNode.zPosition = -15
+        
+        // Create gradient texture
+        let gradientTexture = SKTexture(size: scene.size) { size, context in
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let colors = [
+                UIColor(red: 0.02, green: 0.04, blue: 0.12, alpha: 1.0).cgColor, // Very dark blue (top)
+                UIColor(red: 0.05, green: 0.08, blue: 0.18, alpha: 1.0).cgColor, // Dark blue
+                UIColor(red: 0.08, green: 0.12, blue: 0.25, alpha: 1.0).cgColor, // Medium dark blue
+                UIColor(red: 0.1, green: 0.15, blue: 0.3, alpha: 1.0).cgColor    // Slightly lighter (bottom)
+            ] as CFArray
+            let locations: [CGFloat] = [0.0, 0.3, 0.7, 1.0]
+            
+            if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: locations) {
+                context.drawLinearGradient(gradient,
+                                          start: CGPoint(x: 0, y: size.height),
+                                          end: CGPoint(x: 0, y: 0),
+                                          options: [])
+            }
+        }
+        gradientNode.texture = gradientTexture
+        scene.addChild(gradientNode)
+        
+        // ===== GLIMMERING STARS =====
+        for _ in 0..<80 {
+            let starSize = CGFloat.random(in: 1...3)
+            let star = SKShapeNode(circleOfRadius: starSize)
+            star.fillColor = UIColor(red: 1.0, green: 1.0, blue: CGFloat.random(in: 0.8...1.0), alpha: 1.0)
+            star.strokeColor = .clear
+            star.position = CGPoint(
+                x: CGFloat.random(in: 0...scene.frame.width),
+                y: CGFloat.random(in: scene.frame.height * 0.3...scene.frame.height)
+            )
+            star.zPosition = -12
+            star.alpha = CGFloat.random(in: 0.5...1.0)
+            
+            // Twinkling animation
+            let twinkleDuration = Double.random(in: 0.5...2.0)
+            let fadeOut = SKAction.fadeAlpha(to: CGFloat.random(in: 0.2...0.5), duration: twinkleDuration)
+            let fadeIn = SKAction.fadeAlpha(to: CGFloat.random(in: 0.7...1.0), duration: twinkleDuration)
+            star.run(SKAction.repeatForever(SKAction.sequence([fadeOut, fadeIn])))
+            
+            scene.addChild(star)
+        }
+        
+        // Add some brighter "special" stars with glow
+        for _ in 0..<15 {
+            let starContainer = SKNode()
+            starContainer.position = CGPoint(
+                x: CGFloat.random(in: 0...scene.frame.width),
+                y: CGFloat.random(in: scene.frame.height * 0.4...scene.frame.height * 0.95)
+            )
+            starContainer.zPosition = -11
+            
+            // Star glow
+            let glow = SKShapeNode(circleOfRadius: 6)
+            glow.fillColor = UIColor(red: 1.0, green: 1.0, blue: 0.9, alpha: 0.3)
+            glow.strokeColor = .clear
+            starContainer.addChild(glow)
+            
+            // Star core
+            let core = SKShapeNode(circleOfRadius: 2)
+            core.fillColor = .white
+            core.strokeColor = .clear
+            starContainer.addChild(core)
+            
+            // Sparkle rays
+            for i in 0..<4 {
+                let ray = SKShapeNode(rectOf: CGSize(width: 1, height: 8))
+                ray.fillColor = UIColor(white: 1.0, alpha: 0.6)
+                ray.strokeColor = .clear
+                ray.zRotation = CGFloat(i) * .pi / 4
+                starContainer.addChild(ray)
+            }
+            
+            // Animate sparkle
+            let pulse = SKAction.sequence([
+                SKAction.scale(to: 1.3, duration: 0.8),
+                SKAction.scale(to: 0.8, duration: 0.8)
+            ])
+            starContainer.run(SKAction.repeatForever(pulse))
+            
+            scene.addChild(starContainer)
+        }
+        
+        // ===== FULL MOON (Christmas Eve Moon) =====
+        let moonContainer = SKNode()
+        moonContainer.zPosition = -10
+        moonContainer.position = CGPoint(x: scene.frame.width * 0.8, y: scene.frame.height * 0.75)
+        scene.addChild(moonContainer)
+        
+        // Moon glow (outer)
+        let moonGlowOuter = SKShapeNode(circleOfRadius: 70)
+        moonGlowOuter.fillColor = UIColor(red: 1.0, green: 0.95, blue: 0.8, alpha: 0.15)
+        moonGlowOuter.strokeColor = .clear
+        moonContainer.addChild(moonGlowOuter)
+        
+        // Moon glow (inner)
+        let moonGlowInner = SKShapeNode(circleOfRadius: 50)
+        moonGlowInner.fillColor = UIColor(red: 1.0, green: 0.95, blue: 0.85, alpha: 0.25)
+        moonGlowInner.strokeColor = .clear
+        moonContainer.addChild(moonGlowInner)
+        
+        // Moon body
+        let moon = SKShapeNode(circleOfRadius: 40)
+        moon.fillColor = UIColor(red: 1.0, green: 0.98, blue: 0.9, alpha: 1.0)
+        moon.strokeColor = .clear
+        moonContainer.addChild(moon)
+        
+        // Moon craters (subtle)
+        for _ in 0..<4 {
+            let crater = SKShapeNode(circleOfRadius: CGFloat.random(in: 5...12))
+            crater.fillColor = UIColor(red: 0.95, green: 0.92, blue: 0.85, alpha: 0.4)
+            crater.strokeColor = .clear
+            crater.position = CGPoint(
+                x: CGFloat.random(in: -25...25),
+                y: CGFloat.random(in: -25...25)
+            )
+            moon.addChild(crater)
+        }
+        
+        // ===== FALLING SNOWFLAKES =====
+        for _ in 0..<40 {
+            let snowflake = createSnowflake()
+            snowflake.position = CGPoint(
+                x: CGFloat.random(in: 0...scene.frame.width),
+                y: CGFloat.random(in: 0...scene.frame.height)
+            )
+            snowflake.zPosition = -5
+            scene.addChild(snowflake)
+            
+            // Falling animation
+            let fallDuration = Double.random(in: 8...15)
+            let swayAmount = CGFloat.random(in: 20...50)
+            
+            let fall = SKAction.moveBy(x: 0, y: -scene.frame.height - 50, duration: fallDuration)
+            let sway = SKAction.sequence([
+                SKAction.moveBy(x: swayAmount, y: 0, duration: fallDuration/4),
+                SKAction.moveBy(x: -swayAmount * 2, y: 0, duration: fallDuration/2),
+                SKAction.moveBy(x: swayAmount, y: 0, duration: fallDuration/4)
+            ])
+            let resetPosition = SKAction.run { [weak snowflake] in
+                snowflake?.position = CGPoint(
+                    x: CGFloat.random(in: 0...scene.frame.width),
+                    y: scene.frame.height + 50
+                )
+            }
+            
+            let fallGroup = SKAction.group([fall, sway])
+            let sequence = SKAction.sequence([fallGroup, resetPosition])
+            snowflake.run(SKAction.repeatForever(sequence))
+        }
+        
+        // ===== DISTANT SNOWY HILLS/MOUNTAINS =====
+        addChristmasHills(to: scene)
+        
+        // ===== SNOWY GROUND =====
+        let snowGround = SKShapeNode(rectOf: CGSize(width: scene.frame.width * 2, height: 100))
+        snowGround.fillColor = UIColor(red: 0.95, green: 0.97, blue: 1.0, alpha: 1.0)
+        snowGround.strokeColor = .clear
+        snowGround.position = CGPoint(x: scene.frame.width/2, y: 30)
+        snowGround.zPosition = -3
+        scene.addChild(snowGround)
+        
+        // Snow drifts on ground
+        for i in 0..<8 {
+            let drift = SKShapeNode(ellipseOf: CGSize(width: CGFloat.random(in: 80...150), height: CGFloat.random(in: 30...50)))
+            drift.fillColor = UIColor(white: 1.0, alpha: 0.9)
+            drift.strokeColor = .clear
+            drift.position = CGPoint(x: CGFloat(i) * scene.frame.width/7, y: CGFloat.random(in: 40...60))
+            drift.zPosition = -2
+            scene.addChild(drift)
+        }
+        
+        // ===== DISTANT CHRISTMAS TREES (Silhouettes) =====
+        for i in 0..<6 {
+            let treeSilhouette = createDistantChristmasTree()
+            treeSilhouette.position = CGPoint(
+                x: CGFloat(i) * scene.frame.width/5 + CGFloat.random(in: -30...30),
+                y: CGFloat.random(in: 70...100)
+            )
+            treeSilhouette.zPosition = -4
+            treeSilhouette.setScale(CGFloat.random(in: 0.6...1.0))
+            scene.addChild(treeSilhouette)
+        }
+        
+        // ===== NORTHERN LIGHTS (AURORA) EFFECT =====
+        addAuroraEffect(to: scene)
+    }
+    
+    private func createSnowflake() -> SKNode {
+        let snowflake = SKNode()
+        let size = CGFloat.random(in: 3...8)
+        
+        // Create 6-pointed snowflake
+        for i in 0..<6 {
+            let arm = SKShapeNode(rectOf: CGSize(width: 1, height: size))
+            arm.fillColor = UIColor(white: 1.0, alpha: CGFloat.random(in: 0.6...1.0))
+            arm.strokeColor = .clear
+            arm.zRotation = CGFloat(i) * .pi / 3
+            snowflake.addChild(arm)
+        }
+        
+        // Center dot
+        let center = SKShapeNode(circleOfRadius: 1)
+        center.fillColor = .white
+        center.strokeColor = .clear
+        snowflake.addChild(center)
+        
+        // Gentle rotation
+        let rotate = SKAction.rotate(byAngle: .pi * 2, duration: Double.random(in: 10...20))
+        snowflake.run(SKAction.repeatForever(rotate))
+        
+        return snowflake
+    }
+    
+    private func createDistantChristmasTree() -> SKNode {
+        let tree = SKNode()
+        
+        // Tree silhouette (dark green against night sky)
+        let treePath = UIBezierPath()
+        treePath.move(to: CGPoint(x: 0, y: 60)) // Top
+        treePath.addLine(to: CGPoint(x: -25, y: 20)) // Left middle
+        treePath.addLine(to: CGPoint(x: -15, y: 20))
+        treePath.addLine(to: CGPoint(x: -35, y: -20)) // Left bottom
+        treePath.addLine(to: CGPoint(x: -5, y: -20))
+        treePath.addLine(to: CGPoint(x: -5, y: -30)) // Trunk left
+        treePath.addLine(to: CGPoint(x: 5, y: -30)) // Trunk right
+        treePath.addLine(to: CGPoint(x: 5, y: -20))
+        treePath.addLine(to: CGPoint(x: 35, y: -20)) // Right bottom
+        treePath.addLine(to: CGPoint(x: 15, y: 20))
+        treePath.addLine(to: CGPoint(x: 25, y: 20)) // Right middle
+        treePath.close()
+        
+        let treeShape = SKShapeNode(path: treePath.cgPath)
+        treeShape.fillColor = UIColor(red: 0.05, green: 0.15, blue: 0.08, alpha: 0.8)
+        treeShape.strokeColor = .clear
+        tree.addChild(treeShape)
+        
+        // Add some small lights on distant trees
+        for _ in 0..<5 {
+            let light = SKShapeNode(circleOfRadius: 2)
+            light.fillColor = [UIColor.red, UIColor.yellow, UIColor.green, UIColor.blue, UIColor.orange].randomElement()!
+            light.strokeColor = .clear
+            light.position = CGPoint(
+                x: CGFloat.random(in: -20...20),
+                y: CGFloat.random(in: -15...40)
+            )
+            light.alpha = 0.8
+            
+            // Twinkle
+            let twinkle = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.4, duration: Double.random(in: 0.3...0.8)),
+                SKAction.fadeAlpha(to: 1.0, duration: Double.random(in: 0.3...0.8))
+            ])
+            light.run(SKAction.repeatForever(twinkle))
+            
+            tree.addChild(light)
+        }
+        
+        return tree
+    }
+    
+    private func addChristmasHills(to scene: SKScene) {
+        // Distant snowy hills
+        let hillPath = UIBezierPath()
+        hillPath.move(to: CGPoint(x: 0, y: 80))
+        
+        var x: CGFloat = 0
+        while x < scene.frame.width + 100 {
+            let height = CGFloat.random(in: 100...180)
+            let width = CGFloat.random(in: 80...150)
+            hillPath.addQuadCurve(
+                to: CGPoint(x: x + width, y: 80),
+                controlPoint: CGPoint(x: x + width/2, y: height)
+            )
+            x += width
+        }
+        
+        hillPath.addLine(to: CGPoint(x: scene.frame.width + 100, y: 0))
+        hillPath.addLine(to: CGPoint(x: 0, y: 0))
+        hillPath.close()
+        
+        let hills = SKShapeNode(path: hillPath.cgPath)
+        hills.fillColor = UIColor(red: 0.15, green: 0.2, blue: 0.35, alpha: 0.6)
+        hills.strokeColor = .clear
+        hills.position = CGPoint(x: 0, y: 0)
+        hills.zPosition = -8
+        scene.addChild(hills)
+    }
+    
+    private func addAuroraEffect(to scene: SKScene) {
+        // Create subtle aurora borealis effect
+        let auroraContainer = SKNode()
+        auroraContainer.zPosition = -13
+        auroraContainer.position = CGPoint(x: scene.frame.width/2, y: scene.frame.height * 0.7)
+        scene.addChild(auroraContainer)
+        
+        // Multiple aurora bands
+        for i in 0..<3 {
+            let auroraPath = UIBezierPath()
+            let startY = CGFloat(i) * 30
+            auroraPath.move(to: CGPoint(x: -scene.frame.width/2, y: startY))
+            
+            var x: CGFloat = -scene.frame.width/2
+            while x < scene.frame.width/2 {
+                let controlY = startY + CGFloat.random(in: -20...40)
+                auroraPath.addQuadCurve(
+                    to: CGPoint(x: x + 100, y: startY + CGFloat.random(in: -10...10)),
+                    controlPoint: CGPoint(x: x + 50, y: controlY)
+                )
+                x += 100
+            }
+            
+            let aurora = SKShapeNode(path: auroraPath.cgPath)
+            aurora.strokeColor = UIColor(red: 0.2, green: 0.8, blue: 0.5, alpha: 0.15)
+            aurora.lineWidth = CGFloat.random(in: 15...30)
+            aurora.lineCap = .round
+            auroraContainer.addChild(aurora)
+            
+            // Gentle wave animation
+            let waveUp = SKAction.moveBy(x: 0, y: 20, duration: Double.random(in: 3...5))
+            let waveDown = SKAction.moveBy(x: 0, y: -20, duration: Double.random(in: 3...5))
+            aurora.run(SKAction.repeatForever(SKAction.sequence([waveUp, waveDown])))
+            
+            // Fade animation
+            let fadeOut = SKAction.fadeAlpha(to: 0.05, duration: Double.random(in: 4...7))
+            let fadeIn = SKAction.fadeAlpha(to: 0.2, duration: Double.random(in: 4...7))
+            aurora.run(SKAction.repeatForever(SKAction.sequence([fadeOut, fadeIn])))
+        }
     }
 
     // Helpers

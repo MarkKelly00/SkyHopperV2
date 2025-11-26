@@ -818,12 +818,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
         // Check if this is desert level
         let isDesertLevel = currentLevel?.id == "desert_escape"
         let isHalloweenLevel = currentLevel?.id == "halloween_special"
+        let isChristmasLevel = currentLevel?.id == "christmas_special"
         
         // Create obstacle node based on level theme
         let obstacle = SKSpriteNode(color: isDesertLevel ? 
                                     UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 1.0) : // Sandy color for pyramids
                                     isHalloweenLevel ?
                                     UIColor(red: 0.2, green: 0.4, blue: 0.1, alpha: 1.0) :  // Dark green for vines
+                                    isChristmasLevel ?
+                                    UIColor(red: 0.1, green: 0.35, blue: 0.15, alpha: 1.0) : // Christmas tree green
                                     UIColor(red: 0.3, green: 0.3, blue: 0.3, alpha: 1.0),   // Default gray for city obstacles
                                     size: size)
         obstacle.position = position
@@ -994,6 +997,229 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
             // Add pumpkin spawning (30% chance) similar to stargate portals
             if Bool.random(percentage: 30) && size.height > 100 {
                 createFloatingPumpkin(near: obstacle, at: position)
+            }
+        } else if isChristmasLevel {
+            // CHRISTMAS LEVEL - Create Christmas Tree obstacles (pyramid-shaped like Stargate)
+            obstacle.color = .clear
+            
+            if size.height > 100 {
+                // Create Christmas Tree shape (similar to pyramid physics)
+                let treePath = UIBezierPath()
+                
+                // Tree layers (3 triangular sections)
+                let baseWidth = size.width * 0.9
+                let treeHeight = size.height * 0.85
+                
+                // Bottom layer (widest)
+                treePath.move(to: CGPoint(x: -baseWidth/2, y: -size.height/2))
+                treePath.addLine(to: CGPoint(x: baseWidth/2, y: -size.height/2))
+                treePath.addLine(to: CGPoint(x: baseWidth * 0.3, y: -size.height/2 + treeHeight * 0.35))
+                treePath.addLine(to: CGPoint(x: -baseWidth * 0.3, y: -size.height/2 + treeHeight * 0.35))
+                treePath.close()
+                
+                let bottomLayer = SKShapeNode(path: treePath.cgPath)
+                bottomLayer.fillColor = UIColor(red: 0.1, green: 0.4, blue: 0.15, alpha: 1.0)
+                bottomLayer.strokeColor = UIColor(red: 0.05, green: 0.25, blue: 0.08, alpha: 1.0)
+                bottomLayer.lineWidth = 2
+                obstacle.addChild(bottomLayer)
+                
+                // Middle layer
+                let middlePath = UIBezierPath()
+                middlePath.move(to: CGPoint(x: -baseWidth * 0.35, y: -size.height/2 + treeHeight * 0.3))
+                middlePath.addLine(to: CGPoint(x: baseWidth * 0.35, y: -size.height/2 + treeHeight * 0.3))
+                middlePath.addLine(to: CGPoint(x: baseWidth * 0.2, y: -size.height/2 + treeHeight * 0.65))
+                middlePath.addLine(to: CGPoint(x: -baseWidth * 0.2, y: -size.height/2 + treeHeight * 0.65))
+                middlePath.close()
+                
+                let middleLayer = SKShapeNode(path: middlePath.cgPath)
+                middleLayer.fillColor = UIColor(red: 0.12, green: 0.45, blue: 0.18, alpha: 1.0)
+                middleLayer.strokeColor = UIColor(red: 0.06, green: 0.28, blue: 0.1, alpha: 1.0)
+                middleLayer.lineWidth = 2
+                obstacle.addChild(middleLayer)
+                
+                // Top layer (triangle to point)
+                let topPath = UIBezierPath()
+                topPath.move(to: CGPoint(x: -baseWidth * 0.25, y: -size.height/2 + treeHeight * 0.6))
+                topPath.addLine(to: CGPoint(x: baseWidth * 0.25, y: -size.height/2 + treeHeight * 0.6))
+                topPath.addLine(to: CGPoint(x: 0, y: size.height/2 - 10))
+                topPath.close()
+                
+                let topLayer = SKShapeNode(path: topPath.cgPath)
+                topLayer.fillColor = UIColor(red: 0.15, green: 0.5, blue: 0.2, alpha: 1.0)
+                topLayer.strokeColor = UIColor(red: 0.08, green: 0.3, blue: 0.12, alpha: 1.0)
+                topLayer.lineWidth = 2
+                obstacle.addChild(topLayer)
+                
+                // Tree trunk
+                let trunk = SKShapeNode(rectOf: CGSize(width: baseWidth * 0.15, height: size.height * 0.12))
+                trunk.fillColor = UIColor(red: 0.4, green: 0.25, blue: 0.1, alpha: 1.0)
+                trunk.strokeColor = UIColor(red: 0.25, green: 0.15, blue: 0.05, alpha: 1.0)
+                trunk.lineWidth = 1
+                trunk.position = CGPoint(x: 0, y: -size.height/2 + size.height * 0.06)
+                obstacle.addChild(trunk)
+                
+                // Star on top
+                let star = createChristmasStar()
+                star.position = CGPoint(x: 0, y: size.height/2 - 5)
+                star.setScale(0.8)
+                obstacle.addChild(star)
+                
+                // Christmas lights/ornaments on tree
+                let ornamentColors: [UIColor] = [
+                    UIColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 1.0),  // Red
+                    UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0), // Gold
+                    UIColor(red: 0.2, green: 0.4, blue: 1.0, alpha: 1.0),  // Blue
+                    UIColor(red: 0.9, green: 0.9, blue: 0.9, alpha: 1.0),  // Silver
+                    UIColor(red: 0.6, green: 0.2, blue: 0.8, alpha: 1.0)   // Purple
+                ]
+                
+                let ornamentCount = Int(size.height / 40)
+                for i in 0..<ornamentCount {
+                    let progress = CGFloat(i) / CGFloat(ornamentCount)
+                    let yPos = -size.height/2 + (progress * treeHeight * 0.8) + 20
+                    let maxX = baseWidth * 0.4 * (1.0 - progress * 0.7)
+                    
+                    // Add 2-3 ornaments per row
+                    for _ in 0..<Int.random(in: 2...3) {
+                        let ornament = SKShapeNode(circleOfRadius: CGFloat.random(in: 4...7))
+                        ornament.fillColor = ornamentColors.randomElement()!
+                        ornament.strokeColor = UIColor(white: 1.0, alpha: 0.5)
+                        ornament.lineWidth = 1
+                        ornament.position = CGPoint(
+                            x: CGFloat.random(in: -maxX...maxX),
+                            y: yPos + CGFloat.random(in: -10...10)
+                        )
+                        ornament.zPosition = 1
+                        obstacle.addChild(ornament)
+                        
+                        // Add glow effect
+                        let glow = SKShapeNode(circleOfRadius: 10)
+                        glow.fillColor = ornament.fillColor.withAlphaComponent(0.3)
+                        glow.strokeColor = .clear
+                        glow.position = ornament.position
+                        glow.zPosition = 0
+                        obstacle.addChild(glow)
+                        
+                        // Twinkle animation
+                        let twinkle = SKAction.sequence([
+                            SKAction.fadeAlpha(to: 0.5, duration: Double.random(in: 0.3...0.8)),
+                            SKAction.fadeAlpha(to: 1.0, duration: Double.random(in: 0.3...0.8))
+                        ])
+                        ornament.run(SKAction.repeatForever(twinkle))
+                    }
+                }
+                
+                // Snow on branches
+                for i in 0..<4 {
+                    let snowY = -size.height/2 + treeHeight * CGFloat(i + 1) * 0.22
+                    let snowWidth = baseWidth * (0.8 - CGFloat(i) * 0.15)
+                    
+                    let snow = SKShapeNode(ellipseOf: CGSize(width: snowWidth * 0.6, height: 8))
+                    snow.fillColor = UIColor(white: 1.0, alpha: 0.9)
+                    snow.strokeColor = .clear
+                    snow.position = CGPoint(x: 0, y: snowY)
+                    snow.zPosition = 2
+                    obstacle.addChild(snow)
+                }
+                
+                // Spawn evil elf (40% chance) or floating present (50% chance)
+                if Bool.random(percentage: 40) {
+                    createEvilElf(near: obstacle, at: position)
+                }
+                if Bool.random(percentage: 50) {
+                    createFloatingPresent(near: obstacle, at: position)
+                }
+            } else {
+                // Smaller Christmas obstacles - gift boxes or snowmen
+                let isGiftBox = Bool.random()
+                
+                if isGiftBox {
+                    // Gift box obstacle
+                    let box = SKShapeNode(rectOf: CGSize(width: size.width * 0.8, height: size.height * 0.8), cornerRadius: 3)
+                    box.fillColor = [UIColor.red, UIColor.green, UIColor.blue, UIColor(red: 0.8, green: 0.0, blue: 0.5, alpha: 1.0)].randomElement()!
+                    box.strokeColor = UIColor(red: 0.3, green: 0.15, blue: 0.0, alpha: 1.0)
+                    box.lineWidth = 2
+                    obstacle.addChild(box)
+                    
+                    // Ribbon horizontal
+                    let ribbonH = SKShapeNode(rectOf: CGSize(width: size.width * 0.8, height: size.height * 0.12))
+                    ribbonH.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // Gold
+                    ribbonH.strokeColor = .clear
+                    obstacle.addChild(ribbonH)
+                    
+                    // Ribbon vertical
+                    let ribbonV = SKShapeNode(rectOf: CGSize(width: size.width * 0.12, height: size.height * 0.8))
+                    ribbonV.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+                    ribbonV.strokeColor = .clear
+                    obstacle.addChild(ribbonV)
+                    
+                    // Bow on top
+                    let bow = SKShapeNode(circleOfRadius: size.width * 0.15)
+                    bow.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+                    bow.strokeColor = UIColor(red: 0.8, green: 0.6, blue: 0.0, alpha: 1.0)
+                    bow.lineWidth = 1
+                    bow.position = CGPoint(x: 0, y: size.height * 0.35)
+                    obstacle.addChild(bow)
+                } else {
+                    // Snowman obstacle
+                    // Bottom ball
+                    let bottom = SKShapeNode(circleOfRadius: size.width * 0.35)
+                    bottom.fillColor = .white
+                    bottom.strokeColor = UIColor(white: 0.85, alpha: 1.0)
+                    bottom.lineWidth = 2
+                    bottom.position = CGPoint(x: 0, y: -size.height * 0.25)
+                    obstacle.addChild(bottom)
+                    
+                    // Middle ball
+                    let middle = SKShapeNode(circleOfRadius: size.width * 0.25)
+                    middle.fillColor = .white
+                    middle.strokeColor = UIColor(white: 0.85, alpha: 1.0)
+                    middle.lineWidth = 2
+                    middle.position = CGPoint(x: 0, y: size.height * 0.05)
+                    obstacle.addChild(middle)
+                    
+                    // Head
+                    let head = SKShapeNode(circleOfRadius: size.width * 0.18)
+                    head.fillColor = .white
+                    head.strokeColor = UIColor(white: 0.85, alpha: 1.0)
+                    head.lineWidth = 2
+                    head.position = CGPoint(x: 0, y: size.height * 0.28)
+                    obstacle.addChild(head)
+                    
+                    // Carrot nose
+                    let nosePath = UIBezierPath()
+                    nosePath.move(to: CGPoint(x: 0, y: 0))
+                    nosePath.addLine(to: CGPoint(x: 12, y: -2))
+                    nosePath.addLine(to: CGPoint(x: 0, y: -4))
+                    nosePath.close()
+                    let nose = SKShapeNode(path: nosePath.cgPath)
+                    nose.fillColor = .orange
+                    nose.strokeColor = UIColor(red: 0.8, green: 0.4, blue: 0.0, alpha: 1.0)
+                    nose.position = CGPoint(x: 0, y: size.height * 0.28)
+                    obstacle.addChild(nose)
+                    
+                    // Eyes (coal)
+                    for xOffset in [-5, 5] {
+                        let eye = SKShapeNode(circleOfRadius: 3)
+                        eye.fillColor = .black
+                        eye.strokeColor = .clear
+                        eye.position = CGPoint(x: CGFloat(xOffset), y: size.height * 0.32)
+                        obstacle.addChild(eye)
+                    }
+                    
+                    // Top hat
+                    let hatBase = SKShapeNode(rectOf: CGSize(width: size.width * 0.4, height: 4))
+                    hatBase.fillColor = .black
+                    hatBase.strokeColor = .clear
+                    hatBase.position = CGPoint(x: 0, y: size.height * 0.38)
+                    obstacle.addChild(hatBase)
+                    
+                    let hatTop = SKShapeNode(rectOf: CGSize(width: size.width * 0.25, height: size.height * 0.15))
+                    hatTop.fillColor = .black
+                    hatTop.strokeColor = .clear
+                    hatTop.position = CGPoint(x: 0, y: size.height * 0.45)
+                    obstacle.addChild(hatTop)
+                }
             }
         } else {
             // Regular obstacles for other levels (city buildings, etc.)
@@ -1267,6 +1493,324 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
         eye.fillColor = .black
         eye.strokeColor = .black
         return eye
+    }
+    
+    // MARK: - Christmas Level Helper Functions
+    
+    private func createChristmasStar() -> SKNode {
+        let starContainer = SKNode()
+        
+        // Create 5-pointed star
+        let starPath = UIBezierPath()
+        let outerRadius: CGFloat = 15
+        let innerRadius: CGFloat = 6
+        
+        for i in 0..<10 {
+            let radius = i % 2 == 0 ? outerRadius : innerRadius
+            let angle = CGFloat(i) * .pi / 5 - .pi / 2
+            let point = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            
+            if i == 0 {
+                starPath.move(to: point)
+            } else {
+                starPath.addLine(to: point)
+            }
+        }
+        starPath.close()
+        
+        let star = SKShapeNode(path: starPath.cgPath)
+        star.fillColor = UIColor(red: 1.0, green: 0.9, blue: 0.0, alpha: 1.0) // Bright gold
+        star.strokeColor = UIColor(red: 1.0, green: 0.7, blue: 0.0, alpha: 1.0)
+        star.lineWidth = 1
+        starContainer.addChild(star)
+        
+        // Add glow effect
+        let glow = SKShapeNode(circleOfRadius: 18)
+        glow.fillColor = UIColor(red: 1.0, green: 0.95, blue: 0.5, alpha: 0.4)
+        glow.strokeColor = .clear
+        glow.zPosition = -1
+        starContainer.addChild(glow)
+        
+        // Sparkle animation
+        let pulse = SKAction.sequence([
+            SKAction.scale(to: 1.2, duration: 0.5),
+            SKAction.scale(to: 1.0, duration: 0.5)
+        ])
+        starContainer.run(SKAction.repeatForever(pulse))
+        
+        // Glow pulse
+        let glowPulse = SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.7, duration: 0.3),
+            SKAction.fadeAlpha(to: 0.3, duration: 0.3)
+        ])
+        glow.run(SKAction.repeatForever(glowPulse))
+        
+        return starContainer
+    }
+    
+    private func createEvilElf(near obstacle: SKNode, at position: CGPoint) {
+        // Position the evil elf floating between obstacles
+        let xPos = position.x + CGFloat.random(in: -60...60)
+        let yPos = position.y + CGFloat.random(in: -size.height/4...size.height/4)
+        
+        let elfContainer = SKNode()
+        elfContainer.position = CGPoint(x: xPos, y: yPos)
+        elfContainer.zPosition = 18
+        elfContainer.name = "evil_elf"
+        
+        // Elf body (green tunic)
+        let bodyPath = UIBezierPath(roundedRect: CGRect(x: -8, y: -12, width: 16, height: 18), cornerRadius: 3)
+        let body = SKShapeNode(path: bodyPath.cgPath)
+        body.fillColor = UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1.0)
+        body.strokeColor = UIColor(red: 0.1, green: 0.4, blue: 0.1, alpha: 1.0)
+        body.lineWidth = 1
+        elfContainer.addChild(body)
+        
+        // Belt
+        let belt = SKShapeNode(rectOf: CGSize(width: 16, height: 3))
+        belt.fillColor = .black
+        belt.strokeColor = .clear
+        belt.position = CGPoint(x: 0, y: -5)
+        elfContainer.addChild(belt)
+        
+        // Belt buckle
+        let buckle = SKShapeNode(rectOf: CGSize(width: 4, height: 3))
+        buckle.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+        buckle.strokeColor = .clear
+        buckle.position = CGPoint(x: 0, y: -5)
+        elfContainer.addChild(buckle)
+        
+        // Elf head
+        let head = SKShapeNode(circleOfRadius: 8)
+        head.fillColor = UIColor(red: 1.0, green: 0.85, blue: 0.75, alpha: 1.0)
+        head.strokeColor = UIColor(red: 0.9, green: 0.75, blue: 0.65, alpha: 1.0)
+        head.lineWidth = 1
+        head.position = CGPoint(x: 0, y: 12)
+        elfContainer.addChild(head)
+        
+        // Evil red eyes
+        for xOffset in [-3, 3] {
+            let eye = SKShapeNode(circleOfRadius: 2)
+            eye.fillColor = UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) // Evil red!
+            eye.strokeColor = .clear
+            eye.position = CGPoint(x: CGFloat(xOffset), y: 14)
+            elfContainer.addChild(eye)
+            
+            // Eye glow
+            let eyeGlow = SKShapeNode(circleOfRadius: 4)
+            eyeGlow.fillColor = UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 0.3)
+            eyeGlow.strokeColor = .clear
+            eyeGlow.position = CGPoint(x: CGFloat(xOffset), y: 14)
+            eyeGlow.zPosition = -1
+            elfContainer.addChild(eyeGlow)
+        }
+        
+        // Evil grin
+        let grinPath = UIBezierPath()
+        grinPath.move(to: CGPoint(x: -4, y: 8))
+        grinPath.addQuadCurve(to: CGPoint(x: 4, y: 8), controlPoint: CGPoint(x: 0, y: 5))
+        let grin = SKShapeNode(path: grinPath.cgPath)
+        grin.strokeColor = UIColor(red: 0.3, green: 0.0, blue: 0.0, alpha: 1.0)
+        grin.lineWidth = 1.5
+        elfContainer.addChild(grin)
+        
+        // Pointy elf hat
+        let hatPath = UIBezierPath()
+        hatPath.move(to: CGPoint(x: -10, y: 18))
+        hatPath.addLine(to: CGPoint(x: 0, y: 35))
+        hatPath.addLine(to: CGPoint(x: 10, y: 18))
+        hatPath.close()
+        
+        let hat = SKShapeNode(path: hatPath.cgPath)
+        hat.fillColor = UIColor(red: 0.8, green: 0.1, blue: 0.1, alpha: 1.0) // Red hat
+        hat.strokeColor = UIColor(red: 0.5, green: 0.0, blue: 0.0, alpha: 1.0)
+        hat.lineWidth = 1
+        elfContainer.addChild(hat)
+        
+        // Hat pom-pom
+        let pomPom = SKShapeNode(circleOfRadius: 4)
+        pomPom.fillColor = .white
+        pomPom.strokeColor = UIColor(white: 0.9, alpha: 1.0)
+        pomPom.position = CGPoint(x: 0, y: 35)
+        elfContainer.addChild(pomPom)
+        
+        // Pointy ears
+        for xOffset in [-10, 10] {
+            let earPath = UIBezierPath()
+            let direction: CGFloat = xOffset > 0 ? 1 : -1
+            earPath.move(to: CGPoint(x: CGFloat(xOffset), y: 12))
+            earPath.addLine(to: CGPoint(x: CGFloat(xOffset) + 8 * direction, y: 16))
+            earPath.addLine(to: CGPoint(x: CGFloat(xOffset), y: 10))
+            earPath.close()
+            
+            let ear = SKShapeNode(path: earPath.cgPath)
+            ear.fillColor = UIColor(red: 1.0, green: 0.85, blue: 0.75, alpha: 1.0)
+            ear.strokeColor = .clear
+            elfContainer.addChild(ear)
+        }
+        
+        // Elf legs
+        for xOffset in [-4, 4] {
+            let leg = SKShapeNode(rectOf: CGSize(width: 5, height: 10))
+            leg.fillColor = UIColor(red: 0.2, green: 0.6, blue: 0.2, alpha: 1.0)
+            leg.strokeColor = .clear
+            leg.position = CGPoint(x: CGFloat(xOffset), y: -17)
+            elfContainer.addChild(leg)
+            
+            // Curly elf shoes
+            let shoePath = UIBezierPath()
+            let direction: CGFloat = xOffset > 0 ? 1 : -1
+            shoePath.move(to: CGPoint(x: 0, y: 0))
+            shoePath.addQuadCurve(to: CGPoint(x: 8 * direction, y: 3), controlPoint: CGPoint(x: 4 * direction, y: -2))
+            shoePath.addQuadCurve(to: CGPoint(x: 12 * direction, y: 8), controlPoint: CGPoint(x: 12 * direction, y: 3))
+            
+            let shoe = SKShapeNode(path: shoePath.cgPath)
+            shoe.strokeColor = UIColor(red: 0.1, green: 0.4, blue: 0.1, alpha: 1.0)
+            shoe.fillColor = UIColor(red: 0.2, green: 0.5, blue: 0.2, alpha: 1.0)
+            shoe.lineWidth = 3
+            shoe.lineCap = .round
+            shoe.position = CGPoint(x: CGFloat(xOffset), y: -22)
+            elfContainer.addChild(shoe)
+            
+            // Bell on shoe tip
+            let bell = SKShapeNode(circleOfRadius: 3)
+            bell.fillColor = UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+            bell.strokeColor = UIColor(red: 0.8, green: 0.6, blue: 0.0, alpha: 1.0)
+            bell.position = CGPoint(x: CGFloat(xOffset) + 12 * direction, y: -14)
+            elfContainer.addChild(bell)
+        }
+        
+        // Physics body for collision
+        let physicsBody = SKPhysicsBody(circleOfRadius: 20)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = obstacleCategory
+        physicsBody.contactTestBitMask = playerCategory
+        physicsBody.collisionBitMask = 0
+        elfContainer.physicsBody = physicsBody
+        
+        // Floating/bobbing animation
+        let floatUp = SKAction.moveBy(x: 0, y: 15, duration: 1.0)
+        let floatDown = SKAction.moveBy(x: 0, y: -15, duration: 1.0)
+        floatUp.timingMode = .easeInEaseOut
+        floatDown.timingMode = .easeInEaseOut
+        elfContainer.run(SKAction.repeatForever(SKAction.sequence([floatUp, floatDown])))
+        
+        // Side-to-side menacing movement
+        let moveLeft = SKAction.moveBy(x: -20, y: 0, duration: 1.5)
+        let moveRight = SKAction.moveBy(x: 20, y: 0, duration: 1.5)
+        moveLeft.timingMode = .easeInEaseOut
+        moveRight.timingMode = .easeInEaseOut
+        elfContainer.run(SKAction.repeatForever(SKAction.sequence([moveLeft, moveRight])))
+        
+        // Move with obstacles
+        let moveAction = SKAction.moveBy(x: -(self.size.width + 120), y: 0, duration: TimeInterval(self.size.width / obstacleSpeed))
+        let removeAction = SKAction.removeFromParent()
+        elfContainer.run(SKAction.sequence([moveAction, removeAction]))
+        
+        addChild(elfContainer)
+    }
+    
+    private func createFloatingPresent(near obstacle: SKNode, at position: CGPoint) {
+        // Position the present floating in a collectible location
+        let xPos = position.x + CGFloat.random(in: -80...80)
+        let yPos = position.y + CGFloat.random(in: -size.height/3...size.height/3)
+        
+        let presentContainer = SKNode()
+        presentContainer.position = CGPoint(x: xPos, y: yPos)
+        presentContainer.zPosition = 17
+        presentContainer.name = "christmas_present"
+        
+        let presentSize: CGFloat = 25
+        
+        // Gift box colors
+        let boxColors: [(box: UIColor, ribbon: UIColor)] = [
+            (UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0), UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)), // Red + Gold
+            (UIColor(red: 0.1, green: 0.5, blue: 0.9, alpha: 1.0), UIColor(red: 0.9, green: 0.9, blue: 0.9, alpha: 1.0)), // Blue + Silver
+            (UIColor(red: 0.1, green: 0.7, blue: 0.2, alpha: 1.0), UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0)), // Green + Red
+            (UIColor(red: 0.6, green: 0.2, blue: 0.8, alpha: 1.0), UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)), // Purple + Gold
+            (UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0), UIColor(red: 0.9, green: 0.1, blue: 0.1, alpha: 1.0))  // Gold + Red
+        ]
+        
+        let colorScheme = boxColors.randomElement()!
+        
+        // Gift box
+        let box = SKShapeNode(rectOf: CGSize(width: presentSize, height: presentSize), cornerRadius: 2)
+        box.fillColor = colorScheme.box
+        box.strokeColor = colorScheme.box.withAlphaComponent(0.7)
+        box.lineWidth = 1
+        presentContainer.addChild(box)
+        
+        // Ribbon horizontal
+        let ribbonH = SKShapeNode(rectOf: CGSize(width: presentSize, height: presentSize * 0.15))
+        ribbonH.fillColor = colorScheme.ribbon
+        ribbonH.strokeColor = .clear
+        presentContainer.addChild(ribbonH)
+        
+        // Ribbon vertical
+        let ribbonV = SKShapeNode(rectOf: CGSize(width: presentSize * 0.15, height: presentSize))
+        ribbonV.fillColor = colorScheme.ribbon
+        ribbonV.strokeColor = .clear
+        presentContainer.addChild(ribbonV)
+        
+        // Bow
+        let bowPath = UIBezierPath()
+        // Left loop
+        bowPath.move(to: CGPoint(x: 0, y: presentSize/2 + 3))
+        bowPath.addQuadCurve(to: CGPoint(x: -8, y: presentSize/2 + 8), controlPoint: CGPoint(x: -10, y: presentSize/2 + 2))
+        bowPath.addQuadCurve(to: CGPoint(x: 0, y: presentSize/2 + 3), controlPoint: CGPoint(x: -5, y: presentSize/2 + 12))
+        // Right loop
+        bowPath.addQuadCurve(to: CGPoint(x: 8, y: presentSize/2 + 8), controlPoint: CGPoint(x: 10, y: presentSize/2 + 2))
+        bowPath.addQuadCurve(to: CGPoint(x: 0, y: presentSize/2 + 3), controlPoint: CGPoint(x: 5, y: presentSize/2 + 12))
+        
+        let bow = SKShapeNode(path: bowPath.cgPath)
+        bow.fillColor = colorScheme.ribbon
+        bow.strokeColor = colorScheme.ribbon.withAlphaComponent(0.7)
+        bow.lineWidth = 1
+        presentContainer.addChild(bow)
+        
+        // Sparkle effect around present
+        for i in 0..<4 {
+            let sparkle = SKShapeNode(circleOfRadius: 2)
+            sparkle.fillColor = UIColor(red: 1.0, green: 1.0, blue: 0.8, alpha: 0.8)
+            sparkle.strokeColor = .clear
+            let angle = CGFloat(i) * .pi / 2
+            sparkle.position = CGPoint(x: cos(angle) * (presentSize/2 + 8), y: sin(angle) * (presentSize/2 + 8))
+            presentContainer.addChild(sparkle)
+            
+            // Twinkle animation
+            let twinkle = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.2, duration: Double.random(in: 0.2...0.5)),
+                SKAction.fadeAlpha(to: 1.0, duration: Double.random(in: 0.2...0.5))
+            ])
+            sparkle.run(SKAction.repeatForever(twinkle))
+        }
+        
+        // Physics body for collection (using powerup category for collection)
+        let physicsBody = SKPhysicsBody(circleOfRadius: presentSize/2 + 5)
+        physicsBody.isDynamic = false
+        physicsBody.categoryBitMask = powerUpCategory
+        physicsBody.contactTestBitMask = playerCategory
+        physicsBody.collisionBitMask = 0
+        presentContainer.physicsBody = physicsBody
+        
+        // Gentle floating animation
+        let floatUp = SKAction.moveBy(x: 0, y: 10, duration: 0.8)
+        let floatDown = SKAction.moveBy(x: 0, y: -10, duration: 0.8)
+        floatUp.timingMode = .easeInEaseOut
+        floatDown.timingMode = .easeInEaseOut
+        presentContainer.run(SKAction.repeatForever(SKAction.sequence([floatUp, floatDown])))
+        
+        // Gentle rotation
+        let rotateLeft = SKAction.rotate(byAngle: 0.1, duration: 0.5)
+        let rotateRight = SKAction.rotate(byAngle: -0.1, duration: 0.5)
+        presentContainer.run(SKAction.repeatForever(SKAction.sequence([rotateLeft, rotateRight])))
+        
+        // Move with obstacles
+        let moveAction = SKAction.moveBy(x: -(self.size.width + 120), y: 0, duration: TimeInterval(self.size.width / obstacleSpeed))
+        let removeAction = SKAction.removeFromParent()
+        presentContainer.run(SKAction.sequence([moveAction, removeAction]))
+        
+        addChild(presentContainer)
     }
     
         private func createStargatePortal(near obstacle: SKNode, at position: CGPoint) {
@@ -3386,8 +3930,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
     }
     
     private func handlePlayerPowerUpCollision(powerUpNode: SKNode?) {
-        guard let powerUpNode = powerUpNode,
-              let powerUpTypeString = powerUpNode.userData?.value(forKey: "type") as? String,
+        guard let powerUpNode = powerUpNode else { return }
+        
+        // Check if this is a Christmas present (special collectible)
+        if powerUpNode.name == "christmas_present" {
+            collectChristmasPresent(presentNode: powerUpNode)
+            return
+        }
+        
+        // Handle regular power-ups
+        guard let powerUpTypeString = powerUpNode.userData?.value(forKey: "type") as? String,
               let powerUpType = PowerUpManager.PowerUpType(rawValue: powerUpTypeString) else {
             return
         }
@@ -3450,6 +4002,79 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
             let waitAction = SKAction.wait(forDuration: 0.5)
             explosion.run(SKAction.sequence([waitAction, SKAction.removeFromParent()]))
         }
+    }
+    
+    // MARK: - Christmas Present Collection
+    private func collectChristmasPresent(presentNode: SKNode) {
+        // Award bonus points for collecting presents
+        let bonusPoints = Int.random(in: 50...150)
+        score += bonusPoints
+        updateScore()
+        
+        // Play collection sound
+        playPlayerSound(action: "collect")
+        
+        // Show bonus message
+        showTemporaryMessage("🎁 +\(bonusPoints) pts!")
+        
+        // Visual feedback - festive explosion
+        let colors: [UIColor] = [.red, .green, UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0), .white]
+        
+        for i in 0..<12 {
+            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6))
+            particle.fillColor = colors.randomElement()!
+            particle.strokeColor = .clear
+            particle.position = presentNode.position
+            particle.zPosition = 35
+            addChild(particle)
+            
+            // Burst outward
+            let angle = CGFloat(i) * .pi * 2 / 12
+            let distance: CGFloat = CGFloat.random(in: 40...80)
+            let endPoint = CGPoint(
+                x: presentNode.position.x + cos(angle) * distance,
+                y: presentNode.position.y + sin(angle) * distance
+            )
+            
+            let moveAction = SKAction.move(to: endPoint, duration: 0.4)
+            moveAction.timingMode = .easeOut
+            let fadeAction = SKAction.fadeOut(withDuration: 0.3)
+            let scaleAction = SKAction.scale(to: 0.3, duration: 0.4)
+            let removeAction = SKAction.removeFromParent()
+            
+            let group = SKAction.group([moveAction, fadeAction, scaleAction])
+            particle.run(SKAction.sequence([group, removeAction]))
+        }
+        
+        // Sparkle trail effect
+        for _ in 0..<6 {
+            let sparkle = SKShapeNode(circleOfRadius: 2)
+            sparkle.fillColor = UIColor(red: 1.0, green: 1.0, blue: 0.8, alpha: 1.0)
+            sparkle.strokeColor = .clear
+            sparkle.position = CGPoint(
+                x: presentNode.position.x + CGFloat.random(in: -20...20),
+                y: presentNode.position.y + CGFloat.random(in: -20...20)
+            )
+            sparkle.zPosition = 36
+            addChild(sparkle)
+            
+            let twinkle = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.3, duration: 0.1),
+                SKAction.fadeAlpha(to: 1.0, duration: 0.1),
+                SKAction.fadeOut(withDuration: 0.3),
+                SKAction.removeFromParent()
+            ])
+            sparkle.run(twinkle)
+        }
+        
+        // Remove the present
+        let scaleUp = SKAction.scale(to: 1.3, duration: 0.1)
+        let fadeOut = SKAction.fadeOut(withDuration: 0.2)
+        let remove = SKAction.removeFromParent()
+        presentNode.run(SKAction.sequence([scaleUp, fadeOut, remove]))
+        
+        // Track collection
+        playerData.recordPowerUpCollected()
     }
     
     private func showPowerUpMessage(for powerUpType: PowerUpManager.PowerUpType) {

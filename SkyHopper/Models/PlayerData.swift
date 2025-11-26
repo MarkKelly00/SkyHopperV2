@@ -91,8 +91,8 @@ class PlayerData {
         // Ensure thread-safe access to UserDefaults
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let defaults = UserDefaults.standard
-            
+        let defaults = UserDefaults.standard
+        
             defaults.set(self.highScore, forKey: "highScore")
             defaults.set(self.totalGamesPlayed, forKey: "totalGamesPlayed")
             defaults.set(self.totalDistance, forKey: "totalDistance")
@@ -101,20 +101,20 @@ class PlayerData {
             defaults.set(self.totalDeaths, forKey: "totalDeaths")
             defaults.set(self.longestRunTime, forKey: "longestRunTime")
             defaults.set(self.fastestCompletionTime, forKey: "fastestCompletionTime")
-            
-            // Save complex data
+        
+        // Save complex data
             defaults.set(self.mapHighScores, forKey: "mapHighScores")
             defaults.set(self.mapBestTimes.mapValues { $0 }, forKey: "mapBestTimes")
             defaults.set(self.achievements, forKey: "achievementProgress")
             defaults.set(self.missionProgress, forKey: "missionProgress")
-            
-            // Daily login data
+        
+        // Daily login data
             defaults.set(self.consecutiveDays, forKey: "consecutiveDays")
             defaults.set(self.lastLoginDate, forKey: "lastLoginDate")
-            
-            // Save daily challenges
+        
+        // Save daily challenges
             if let challengeData = try? JSONEncoder().encode(self.currentDailyChallenges) {
-                defaults.set(challengeData, forKey: "dailyChallenges")
+            defaults.set(challengeData, forKey: "dailyChallenges")
                 defaults.set(self.lastDailyChallengeDate, forKey: "lastDailyChallengeDate")
             }
             

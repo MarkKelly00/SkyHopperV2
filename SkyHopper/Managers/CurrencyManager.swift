@@ -85,7 +85,7 @@ class CurrencyManager {
         // Ensure thread-safe access to UserDefaults
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let defaults = UserDefaults.standard
+        let defaults = UserDefaults.standard
             defaults.set(self.coins, forKey: self.coinsKey)
             defaults.set(self.gems, forKey: self.gemsKey)
             print("DEBUG: CurrencyManager saved - Coins: \(self.coins), Gems: \(self.gems)")

@@ -454,7 +454,7 @@ class MainMenuScene: SKScene {
             let fadeOut = SKAction.fadeOut(withDuration: 0.3)
             let block = SKAction.run { [weak self] in
                 guard let self = self else { return }
-                self.transitionToMapSelection()
+                    self.transitionToMapSelection()
             }
             let sequence = SKAction.sequence([fadeOut, block])
             self.run(sequence)

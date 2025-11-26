@@ -681,24 +681,58 @@ class AudioManager {
             
             // First try to load from our new Resources/Audio/Music directory
             let soundtrackName: String
+            let soundtrackSubdirectory: String? // Some soundtracks are in SFX folder
             switch mapTheme {
             case .city:
                 soundtrackName = "city_soundtrack"
+                soundtrackSubdirectory = nil
             case .forest:
                 soundtrackName = "forest_soundtrack"
+                soundtrackSubdirectory = nil
             case .mountain:
                 soundtrackName = "mountain_soundtrack"
+                soundtrackSubdirectory = nil
             case .space:
                 soundtrackName = "space_soundtrack"
+                soundtrackSubdirectory = nil
             case .underwater:
                 soundtrackName = "water_soundtrack"
+                soundtrackSubdirectory = nil
             case .desert:
                 soundtrackName = "menu_soundtrack" // Fallback for desert
-            default:
-                soundtrackName = "menu_soundtrack"
+                soundtrackSubdirectory = nil
+            case .christmas:
+                soundtrackName = "holiday_soundtrack" // Christmas/Holiday music
+                soundtrackSubdirectory = "Audio/SFX" // Holiday soundtrack is in SFX folder
+            case .halloween:
+                soundtrackName = "menu_soundtrack" // Fallback for halloween
+                soundtrackSubdirectory = nil
+            case .summer:
+                soundtrackName = "random_soundtrack" // Summer uses random soundtrack
+                soundtrackSubdirectory = "Audio/SFX"
             }
             
-            // Try to load from root directory first
+            // Try to load from specified subdirectory first (for seasonal themes)
+            if let subdirectory = soundtrackSubdirectory,
+               let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav", subdirectory: subdirectory) {
+                print("DEBUG: Found \(soundtrackName).wav in \(subdirectory)")
+                do {
+                    musicPlayer?.stop()
+                    musicPlayer = try AVAudioPlayer(contentsOf: url)
+                    musicPlayer?.numberOfLoops = -1
+                    musicPlayer?.volume = musicVolume
+                    musicPlayer?.prepareToPlay()
+                    musicPlayer?.play()
+                    
+                    print("DEBUG: Playing music theme from \(subdirectory): \(soundtrackName)")
+                    isMusicPlaying = true
+                    return
+                } catch {
+                    print("DEBUG: Could not load theme music from \(subdirectory) for \(mapTheme): \(error)")
+                }
+            }
+            
+            // Try to load from root directory
             if let url = Bundle.main.url(forResource: soundtrackName, withExtension: "wav") {
                 print("DEBUG: Found \(soundtrackName).wav in root bundle")
                 do {
@@ -1144,6 +1178,8 @@ class AudioManager {
             playEffect(.rocketCrash)
         case .mustangPlane:
             playEffect(.biplaneCrash) // Similar to biplane
+        case .santaSleigh:
+            playEffect(.crash)
         case .mapDefault:
             // Use theme-specific crash sound
             playEffect(.crash)
