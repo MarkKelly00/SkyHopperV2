@@ -57,7 +57,7 @@ class CharacterManager {
                 description: "The classic helicopter with balanced stats",
                 speed: 1.0,
                 size: CGSize(width: 50, height: 30),
-                unlockCost: 750, // Increased from 500
+                unlockCost: 1750, // Increased from 500
                 isUnlocked: true,
                 specialAbility: "None - Balanced starter craft"
             ),
@@ -87,7 +87,7 @@ class CharacterManager {
                 description: "Classic WWII fighter with style",
                 speed: 1.1,
                 size: CGSize(width: 55, height: 25),
-                unlockCost: 6500, // Increased from 4000
+                unlockCost: 8500, // Increased from 4000
                 isUnlocked: false,
                 specialAbility: "Barrel Roll - Invincibility during roll animation"
             ),
@@ -97,7 +97,7 @@ class CharacterManager {
                 description: "Old-school biplane with charm",
                 speed: 1.0,
                 size: CGSize(width: 56, height: 34),
-                unlockCost: 3500, // Increased from 2000
+                unlockCost: 7500, // Increased from 2000
                 isUnlocked: false,
                 specialAbility: "Lucky Clover - Higher chance of power-up spawns"
             ),
@@ -107,7 +107,7 @@ class CharacterManager {
                 description: "Majestic bird with natural flying ability",
                 speed: 1.2,
                 size: CGSize(width: 52, height: 32),
-                unlockCost: 15000, // Increased from 10000
+                unlockCost: 16000, // Increased from 10000
                 isUnlocked: false,
                 specialAbility: "Wind Rider - Less affected by obstacle patterns"
             ),
@@ -117,7 +117,7 @@ class CharacterManager {
                 description: "Smooth hovering craft with perfect balance",
                 speed: 1.1,
                 size: CGSize(width: 56, height: 26),
-                unlockCost: 10000, // Increased from 6000
+                unlockCost: 20000, // Increased from 6000
                 isUnlocked: false,
                 specialAbility: "Tractor Beam - Attract nearby coins briefly"
             ),
@@ -127,7 +127,7 @@ class CharacterManager {
                 description: "Quirky duck with surprising skills",
                 speed: 0.8, // Slowest
                 size: CGSize(width: 40, height: 35), // Small size helps compensate
-                unlockCost: 12000, // Increased from 7500
+                unlockCost: 16000, // Increased from 7500
                 isUnlocked: false,
                 specialAbility: "Water Landing - Survive one water crash per run"
             ),
@@ -147,7 +147,7 @@ class CharacterManager {
                 description: "Advanced stealth tactical fighter with superior maneuverability",
                 speed: 1.6, // Fastest aircraft
                 size: CGSize(width: 60, height: 20), // Long and sleek
-                unlockCost: 25000,
+                unlockCost: 55000,
                 isUnlocked: false,
                 specialAbility: "Stealth Mode - Temporarily invisible to obstacles"
             ),
@@ -157,7 +157,7 @@ class CharacterManager {
                 description: "Magical sleigh pulled by reindeer - perfect for delivering presents!",
                 speed: 1.3, // Good speed for Santa
                 size: CGSize(width: 80, height: 40), // Wider for sleigh + reindeer
-                unlockCost: 15000, // Seasonal special
+                unlockCost: 45000, // Seasonal special
                 isUnlocked: false,
                 specialAbility: "Gift Drop - Collect presents for bonus points"
             )
@@ -981,6 +981,7 @@ class CharacterManager {
         physicsBody.isDynamic = true
         physicsBody.allowsRotation = false
         physicsBody.affectedByGravity = false
+        physicsBody.density = 0.3 // Lower density so it moves more like lighter aircraft
         physicsBody.categoryBitMask = 1
         physicsBody.contactTestBitMask = 2 | 4 | 8
         physicsBody.collisionBitMask = 2

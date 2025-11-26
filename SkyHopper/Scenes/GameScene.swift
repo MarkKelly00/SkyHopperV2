@@ -292,7 +292,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
                 case .underwater: aircraftType = .duck
                 case .space: aircraftType = .ufo
                 case .desert: aircraftType = .f22Raptor
-                case .halloween, .christmas, .summer: aircraftType = .fighterJet
+                case .halloween, .summer: aircraftType = .fighterJet
+                case .christmas: aircraftType = .santaSleigh
                 }
             } else {
                 // Default if we can't determine map theme
@@ -1240,8 +1241,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
         
         // Create appropriate physics body based on obstacle type
         let physicsBody: SKPhysicsBody
-        if isDesertLevel && size.height > 100 {
-            // Create triangular physics body for pyramids to match visual shape
+        if (isDesertLevel || isChristmasLevel) && size.height > 100 {
+            // Create triangular physics body for pyramids/trees to match visual shape
             let physicsSize = PowerUpManager.shared.isShrinkActive ? 
                 CGSize(width: size.width * 0.7, height: size.height * 0.7) : size
             
