@@ -750,6 +750,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
                     return
                 }
                 // Other city levels use default obstacle pattern
+            case .christmas:
+                createChristmasObstacles(obstacleWidth: obstacleWidth, gapHeight: gapHeight)
+                return
             default:
                 break
             }
@@ -2016,7 +2019,102 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
         playerData.recordDistance(pyramidCount)
         playerData.updateChallengeProgress(id: "obstacles", value: distance + pyramidCount)
     }
-    
+
+    private func createChristmasObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
+        // Create 1-2 Christmas trees from the ground with varying heights (like pyramids)
+        let treeCount = Int.random(in: 1...2)
+
+        // Create a gap in a random horizontal position
+        let gapXOffset = CGFloat.random(in: -obstacleWidth...obstacleWidth) * 0.5
+
+        for i in 0..<treeCount {
+            // Create tree sizes with different heights and widths
+            let treeWidth = obstacleWidth + CGFloat.random(in: -10...20) // Vary width slightly
+            let maxHeight = size.height * 0.7 // Max tree height - leaves room to fly over
+            let minHeight = size.height * 0.3 // Min tree height
+
+            // Calculate height - first tree is usually taller
+            let treeHeight = i == 0 ?
+                CGFloat.random(in: minHeight + 50...maxHeight) :
+                CGFloat.random(in: minHeight...maxHeight - 50)
+
+            // Calculate horizontal position - space them out
+            var xOffset: CGFloat = 0
+            if treeCount > 1 {
+                // If we have multiple trees, space them out horizontally
+                if i == 0 {
+                    xOffset = gapXOffset - obstacleWidth * 1.0
+                } else {
+                    xOffset = gapXOffset + obstacleWidth * 1.0
+                }
+            } else {
+                // For single tree, use the gap offset directly
+                xOffset = gapXOffset
+            }
+
+            // Position relative to bottom of screen (like pyramids)
+            let position = CGPoint(
+                x: size.width + 40 + xOffset,
+                y: treeHeight / 2 // From bottom of screen
+            )
+
+            // Create obstacle
+            let obstacle = createObstacle(
+                size: CGSize(width: treeWidth, height: treeHeight),
+                position: position
+            )
+
+            // Add the obstacle to the scene
+            addChild(obstacle)
+
+            // Animate obstacle movement
+            let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+            let removeAction = SKAction.removeFromParent()
+            let sequence = SKAction.sequence([moveAction, removeAction])
+            obstacle.run(sequence)
+
+            // Create gifts or evil elves between trees (reduced frequency)
+            if Bool.random(percentage: 25) && i == 0 { // Only 25% chance, and only for first tree
+                let collectibleX = position.x + CGFloat.random(in: -40...40)
+                let collectibleY = position.y + treeHeight * 0.6 + CGFloat.random(in: 30...80) // Position above tree
+
+                if Bool.random(percentage: 40) { // 40% evil elves, 60% gifts
+                    createEvilElf(near: obstacle, at: CGPoint(x: collectibleX, y: collectibleY))
+                } else {
+                    createFloatingPresent(near: obstacle, at: CGPoint(x: collectibleX, y: collectibleY))
+                }
+            }
+        }
+
+        // Create score node that's used for all obstacles
+        let scoreNode = SKNode()
+        scoreNode.position = CGPoint(x: size.width + 40, y: size.height / 2)
+
+        // Make score detection span full height
+        let scorePhysics = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: size.height))
+        scorePhysics.isDynamic = false
+        scorePhysics.categoryBitMask = scoreCategory
+        scorePhysics.contactTestBitMask = playerCategory
+        scorePhysics.collisionBitMask = 0
+        scorePhysics.usesPreciseCollisionDetection = true
+
+        scoreNode.physicsBody = scorePhysics
+        scoreNode.name = "scoreNode"
+
+        // Add score node to the scene
+        addChild(scoreNode)
+
+        // Animate score node
+        let moveAction = SKAction.moveBy(x: -(size.width + 120), y: 0, duration: TimeInterval(size.width / obstacleSpeed))
+        let removeAction = SKAction.removeFromParent()
+        let sequence = SKAction.sequence([moveAction, removeAction])
+        scoreNode.run(sequence)
+
+        // Track obstacles created for statistics
+        playerData.recordDistance(treeCount)
+        playerData.updateChallengeProgress(id: "obstacles", value: distance + treeCount)
+    }
+
     // Mountain obstacles: ground-attached triangular peaks (like pyramids), with snow caps and optional icicle hazards
     private func createMountainObstacles(obstacleWidth: CGFloat, gapHeight: CGFloat) {
         // Create 1-2 mountain peaks similar to City Beginnings difficulty for 1-star maps
@@ -4006,8 +4104,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
     
     // MARK: - Christmas Present Collection
     private func collectChristmasPresent(presentNode: SKNode) {
-        // Award bonus points for collecting presents
-        let bonusPoints = Int.random(in: 50...150)
+        // Award bonus points for collecting presents (only 3pts, very rare)
+        let bonusPoints = 3
         score += bonusPoints
         updateScore()
         
