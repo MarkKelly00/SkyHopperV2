@@ -19,9 +19,11 @@ class AuthenticationScene: SKScene {
     private var submitButton: SKNode!
     private var appleSignInButton: SKNode!
     private var googleSignInButton: SKNode!
+    private var privacyCheckbox: SKNode!
     
     // Mode
     private var isSignUpMode = true
+    private var privacyPolicyAccepted = false
     
     // Layout constants
     private let formWidth: CGFloat = 320
@@ -119,8 +121,9 @@ class AuthenticationScene: SKScene {
         let socialSectionHeight: CGFloat = 100
         let padding: CGFloat = 40
         
-        let containerHeight = toggleHeight + (fieldsCount * (fieldHeight + fieldSpacing)) + 
-                            submitButtonHeight + socialSectionHeight + padding * 2
+        let privacyCheckboxHeight: CGFloat = 40
+        let containerHeight = toggleHeight + (fieldsCount * (fieldHeight + fieldSpacing)) +
+                            submitButtonHeight + privacyCheckboxHeight + socialSectionHeight + padding * 2
         
         let containerSize = CGSize(width: formWidth + 40, height: containerHeight)
         let containerPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: -containerSize.width/2, y: -containerSize.height/2),
@@ -280,10 +283,16 @@ class AuthenticationScene: SKScene {
         let bottomPadding: CGFloat = 40
         
         // Submit button
+        // Privacy Policy Checkbox
+        privacyCheckbox = createPrivacyCheckbox()
+        privacyCheckbox.position = CGPoint(x: 0, y: -containerHeight/2 + 170)
+        privacyCheckbox.name = "privacyCheckbox"
+        formContainer.addChild(privacyCheckbox)
+
         submitButton = createGlassButton(text: isSignUpMode ? "Create Account" : "Login",
                                        size: CGSize(width: formWidth - 40, height: 50),
                                        isPrimary: true)
-        submitButton.position = CGPoint(x: 0, y: -containerHeight/2 + 140)
+        submitButton.position = CGPoint(x: 0, y: -containerHeight/2 + 120)
         submitButton.name = "submitButton"
         formContainer.addChild(submitButton)
         
@@ -336,7 +345,42 @@ class AuthenticationScene: SKScene {
         
         return container
     }
-    
+
+    private func createPrivacyCheckbox() -> SKNode {
+        let container = SKNode()
+
+        // Checkbox square
+        let checkboxSize: CGFloat = 20
+        let checkbox = SKShapeNode(rectOf: CGSize(width: checkboxSize, height: checkboxSize), cornerRadius: 4)
+        checkbox.fillColor = UIColor(white: 1.0, alpha: 0.1)
+        checkbox.strokeColor = UIColor(white: 1.0, alpha: 0.3)
+        checkbox.lineWidth = 1.5
+        checkbox.position = CGPoint(x: -formWidth/2 + 30, y: 0)
+        checkbox.name = "checkbox"
+        container.addChild(checkbox)
+
+        // Checkmark (initially hidden)
+        let checkmark = SKLabelNode(text: "✓")
+        checkmark.fontName = "AvenirNext-Bold"
+        checkmark.fontSize = 16
+        checkmark.fontColor = UIColor(red: 0.3, green: 0.8, blue: 0.3, alpha: 1.0)
+        checkmark.position = CGPoint(x: -formWidth/2 + 30, y: -2)
+        checkmark.name = "checkmark"
+        checkmark.isHidden = true
+        container.addChild(checkmark)
+
+        // Privacy policy text
+        let privacyText = SKLabelNode(text: "I agree to the Privacy Policy")
+        privacyText.fontName = "AvenirNext-Regular"
+        privacyText.fontSize = 14
+        privacyText.fontColor = UIColor(white: 0.8, alpha: 1.0)
+        privacyText.horizontalAlignmentMode = .left
+        privacyText.position = CGPoint(x: -formWidth/2 + 60, y: 0)
+        container.addChild(privacyText)
+
+        return container
+    }
+
     private func createSocialButton(type: SocialLoginType) -> SKNode {
         let container = SKNode()
         
@@ -440,6 +484,8 @@ class AuthenticationScene: SKScene {
                 handleAppleSignIn()
             case "googleSignIn":
                 handleGoogleSignIn()
+            case "privacyCheckbox", "checkbox":
+                togglePrivacyCheckbox()
             default:
                 break
             }
@@ -474,7 +520,29 @@ class AuthenticationScene: SKScene {
         }
     }
     
+    private func togglePrivacyCheckbox() {
+        privacyPolicyAccepted.toggle()
+
+        // Update checkbox appearance
+        if let checkmark = privacyCheckbox.childNode(withName: "checkmark") {
+            checkmark.isHidden = !privacyPolicyAccepted
+        }
+
+        if let checkbox = privacyCheckbox.childNode(withName: "checkbox") as? SKShapeNode {
+            if privacyPolicyAccepted {
+                checkbox.fillColor = UIColor(red: 0.3, green: 0.8, blue: 0.3, alpha: 0.3)
+            } else {
+                checkbox.fillColor = UIColor(white: 1.0, alpha: 0.1)
+            }
+        }
+    }
+
     private func handleSubmit() {
+        guard privacyPolicyAccepted else {
+            showError("Please accept the Privacy Policy to continue")
+            return
+        }
+
         guard let email = emailField?.text, !email.isEmpty,
               let password = passwordField?.text, !password.isEmpty else {
             showError("Please fill in all required fields")

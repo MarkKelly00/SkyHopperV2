@@ -313,7 +313,7 @@ struct LevelData {
             ],
             powerUpFrequency: 5.0,
             specialMechanics: [.movingObstacles, .fogEffects],
-            isUnlocked: true
+            isUnlocked: false
         ))
         
         levels.append(LevelData(

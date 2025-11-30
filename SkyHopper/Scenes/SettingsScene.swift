@@ -208,8 +208,156 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
     }
     
     private func showPrivacyPolicy() {
-        showMessage("Privacy Policy will open in Safari")
-        // In a real app, this would open the privacy policy URL
+        // Create privacy policy dialog
+        let dialog = createPrivacyPolicyDialog()
+        dialog.name = "privacyDialog"
+        addChild(dialog)
+    }
+
+    private func createPrivacyPolicyDialog() -> SKNode {
+        let dialogWidth: CGFloat = size.width * 0.9
+        let dialogHeight: CGFloat = size.height * 0.8
+
+        let dialog = SKShapeNode(rectOf: CGSize(width: dialogWidth, height: dialogHeight), cornerRadius: 20)
+        dialog.fillColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 0.95)
+        dialog.strokeColor = .white
+        dialog.lineWidth = 2
+        dialog.position = CGPoint(x: size.width/2, y: size.height/2)
+        dialog.zPosition = 200
+
+        // Title
+        let titleLabel = SKLabelNode(text: "Privacy Policy")
+        titleLabel.fontName = UIConstants.Text.boldFont
+        titleLabel.fontSize = 24
+        titleLabel.fontColor = .white
+        titleLabel.position = CGPoint(x: 0, y: dialogHeight/2 - 40)
+        dialog.addChild(titleLabel)
+
+        // Scrollable text area
+        let scrollContainer = SKNode()
+        scrollContainer.position = CGPoint(x: 0, y: 20)
+
+        let privacyText = """
+        SkyHopper - Privacy Policy
+
+        Last Updated: November 30, 2025
+
+        Welcome to SkyHopper! This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile game application (the "App").
+
+        1. INFORMATION WE COLLECT
+
+        1.1 Personal Information
+        - Email address (if you create an account)
+        - Username and display name
+        - Apple ID or Google account information (if using social sign-in)
+        - Profile picture/avatar (if uploaded)
+
+        1.2 Game Data and Analytics
+        - High scores and game statistics
+        - Level completion data
+        - Achievement progress
+        - Daily login streaks
+        - In-game purchases and currency
+        - Device information (iOS version, device model)
+
+        1.3 Game Center Data
+        - Leaderboard scores
+        - Achievement unlocks
+        - Game Center player ID
+
+        2. HOW WE USE YOUR INFORMATION
+
+        We use the collected information to:
+        - Provide and maintain the game service
+        - Track and display leaderboards
+        - Award achievements
+        - Process in-app purchases
+        - Improve game performance and features
+        - Provide customer support
+        - Send game-related notifications
+
+        3. INFORMATION SHARING AND DISCLOSURE
+
+        We do not sell, trade, or otherwise transfer your personal information to third parties except:
+        - Game Center (Apple's gaming service) for leaderboards and achievements
+        - When required by law
+        - With your explicit consent
+
+        4. DATA SECURITY
+
+        We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
+
+        5. CHILDREN'S PRIVACY
+
+        SkyHopper is not specifically designed for children under 13. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will delete it immediately.
+
+        6. YOUR RIGHTS
+
+        You have the right to:
+        - Access your personal information
+        - Correct inaccurate information
+        - Delete your account and data
+        - Opt out of data collection (though this may limit game functionality)
+
+        7. CHANGES TO THIS PRIVACY POLICY
+
+        We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy in the App.
+
+        8. CONTACT US
+
+        If you have any questions about this Privacy Policy, please contact us at:
+        Email: makllipse@gmail.com
+
+        By using SkyHopper, you agree to this Privacy Policy.
+        """
+
+        // Split text into lines for display
+        let lines = privacyText.components(separatedBy: "\n")
+        var yPosition: CGFloat = dialogHeight/2 - 80
+
+        for line in lines {
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                yPosition -= 8 // Extra space for empty lines
+                continue
+            }
+
+            let lineLabel = SKLabelNode(text: line)
+            lineLabel.fontName = UIConstants.Text.regularFont
+            lineLabel.fontSize = line.hasPrefix("SkyHopper") || line.hasPrefix("Last Updated") ? 18 : 14
+            lineLabel.fontColor = .white
+            lineLabel.horizontalAlignmentMode = .center
+            lineLabel.position = CGPoint(x: 0, y: yPosition)
+            lineLabel.zPosition = 1
+
+            // Handle long lines
+            if lineLabel.frame.width > dialogWidth - 40 {
+                lineLabel.fontSize = 12
+            }
+
+            scrollContainer.addChild(lineLabel)
+            yPosition -= line.hasPrefix("SkyHopper") || line.hasPrefix("Last Updated") ? 25 : 18
+        }
+
+        dialog.addChild(scrollContainer)
+
+        // Close button
+        let closeButton = SKShapeNode(rectOf: CGSize(width: 80, height: 30), cornerRadius: 5)
+        closeButton.fillColor = UIColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 1.0)
+        closeButton.strokeColor = .white
+        closeButton.lineWidth = 1
+        closeButton.position = CGPoint(x: dialogWidth/2 - 50, y: dialogHeight/2 - 25)
+        closeButton.name = "closePrivacyButton"
+
+        let closeLabel = SKLabelNode(text: "Close")
+        closeLabel.fontName = UIConstants.Text.boldFont
+        closeLabel.fontSize = 14
+        closeLabel.fontColor = .white
+        closeLabel.verticalAlignmentMode = .center
+        closeButton.addChild(closeLabel)
+
+        dialog.addChild(closeButton)
+
+        return dialog
     }
     
     private func showCredits() {
@@ -509,6 +657,11 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
                 if node.name == "confirmReset" || node.parent?.name == "confirmReset" {
                     childNode(withName: "resetConfirmPopup")?.removeFromParent()
                     resetGameData()
+                    return
+                }
+
+                if node.name == "closePrivacyButton" || node.parent?.name == "closePrivacyButton" {
+                    childNode(withName: "privacyDialog")?.removeFromParent()
                     return
                 }
             }
