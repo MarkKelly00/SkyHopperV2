@@ -25,8 +25,8 @@ class GameViewController: UIViewController, GameCenterManagerDelegate {
         
         // Check for entitlements file
         let entitlementPaths = [
-            Bundle.main.bundlePath + "/SkyHopper.entitlements",
-            Bundle.main.bundlePath + "/Contents/Resources/SkyHopper.entitlements"
+            Bundle.main.bundlePath + "/HopVerse.entitlements",
+            Bundle.main.bundlePath + "/Contents/Resources/HopVerse.entitlements"
         ]
         for path in entitlementPaths {
             if FileManager.default.fileExists(atPath: path) {

@@ -1,8 +1,9 @@
 //
 //  AppDelegate.swift
-//  SkyHopper
+//  HopVerse
 //
 //  Created by Mark Kelly on 7/31/25.
+//  Copyright © 2025 MKP LLC. All rights reserved.
 //
 
 import UIKit

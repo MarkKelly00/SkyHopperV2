@@ -20,10 +20,13 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     
     // Scroll tracking
     private var lastTouchY: CGFloat = 0
+    private var touchStartY: CGFloat = 0  // Track initial touch position
+    private var totalScrollDistance: CGFloat = 0  // Track total scroll distance
     private var isScrolling = false
     private var scrollVelocity: CGFloat = 0
     private var contentHeight: CGFloat = 0
     private var visibleHeight: CGFloat = 0
+    private let scrollThreshold: CGFloat = 10  // Minimum distance to consider as scroll vs tap
     
     // Character selection
     private var selectedIndex: Int = 0
@@ -128,18 +131,24 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         characterNodes.removeAll()
         scrollContainer.removeAllChildren()
         
-        // Setup grid layout within scroll container
+        // Setup grid layout within scroll container - professional consistent spacing
         let columns = 3
-        let xSpacing: CGFloat = 120
-        let ySpacing: CGFloat = 170
+        let cardWidth: CGFloat = 116  // Card size
+        let cardHeight: CGFloat = 116
+        let horizontalGap: CGFloat = 14  // Gap between cards horizontally
+        let verticalGap: CGFloat = 85    // Gap between rows (includes name + button + padding)
+        
+        // Calculate spacing based on card size + gaps
+        let xSpacing: CGFloat = cardWidth + horizontalGap
+        let ySpacing: CGFloat = cardHeight + verticalGap
         let totalGridWidth = xSpacing * CGFloat(columns - 1)
         
         // Calculate number of rows
         let rows = (characters.count + columns - 1) / columns
-        contentHeight = CGFloat(rows) * ySpacing + 50
+        contentHeight = CGFloat(rows) * ySpacing + 120  // Extra padding at bottom for last row
         
-        // Start from top of scroll container
-        let startY = visibleHeight / 2 - 80
+        // Start from top of scroll container - move grid up closer to title
+        let startY = visibleHeight / 2 - 60
         
         for (index, aircraft) in characters.enumerated() {
             let row = index / columns
@@ -175,27 +184,28 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         characterSprite.zPosition = 1
         containerNode.addChild(characterSprite)
         
-        // Add name label
-        let nameLabel = SKLabelNode(text: aircraft.type.rawValue.capitalized)
-        nameLabel.fontName = "AvenirNext-Medium"
-        nameLabel.fontSize = 14
-        nameLabel.fontColor = .black
-        nameLabel.position = CGPoint(x: 0, y: -frameSize.height/2 - 15)
+        // Add name label - format nicely with spaces for camelCase
+        let displayName = formatCharacterName(aircraft.type.rawValue)
+        let nameLabel = SKLabelNode(text: displayName)
+        nameLabel.fontName = "AvenirNext-DemiBold"
+        nameLabel.fontSize = 13
+        nameLabel.fontColor = .white
+        nameLabel.position = CGPoint(x: 0, y: -frameSize.height/2 - 18)
         containerNode.addChild(nameLabel)
         
         // Add lock or select button
         if aircraft.isUnlocked {
-            // Display "Selected" or "Select" button
+            // Display "Selected" or "Select" button - clean iOS style
             let buttonText = isSelected ? "Selected" : "Select"
-            let selectButton = SKShapeNode(rectOf: CGSize(width: 80, height: 30), cornerRadius: 5)
-            selectButton.fillColor = isSelected ? .green : .blue
-            selectButton.strokeColor = .white
-            selectButton.lineWidth = 1
-            selectButton.position = CGPoint(x: 0, y: -frameSize.height/2 - 40)
+            let selectButton = SKShapeNode(rectOf: CGSize(width: 90, height: 32), cornerRadius: 8)
+            selectButton.fillColor = isSelected ? UIColor(red: 0.2, green: 0.8, blue: 0.4, alpha: 1.0) : UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
+            selectButton.strokeColor = .clear
+            selectButton.lineWidth = 0
+            selectButton.position = CGPoint(x: 0, y: -frameSize.height/2 - 48)
             selectButton.name = "select_\(aircraft.type.rawValue)"
             
             let buttonLabel = SKLabelNode(text: buttonText)
-            buttonLabel.fontName = "AvenirNext-Medium"
+            buttonLabel.fontName = "AvenirNext-Bold"
             buttonLabel.fontSize = 14
             buttonLabel.fontColor = .white
             buttonLabel.verticalAlignmentMode = .center
@@ -204,44 +214,55 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
             
             containerNode.addChild(selectButton)
         } else {
-            // Display lock with price
-            let lockNode = SKNode()
-            lockNode.position = CGPoint(x: 0, y: -frameSize.height/2 - 40)
+            // Display professional price button with lock icon
+            let priceButton = SKShapeNode(rectOf: CGSize(width: 90, height: 32), cornerRadius: 8)
+            priceButton.fillColor = UIColor(red: 0.55, green: 0.45, blue: 0.25, alpha: 1.0)
+            priceButton.strokeColor = UIColor(red: 0.75, green: 0.65, blue: 0.35, alpha: 1.0)
+            priceButton.lineWidth = 1.5
+            priceButton.position = CGPoint(x: 0, y: -frameSize.height/2 - 48)
+            priceButton.name = "unlock_\(aircraft.type.rawValue)"
             
+            // Lock icon on the left
             let lockIcon = SKLabelNode(text: "🔒")
-            lockIcon.fontSize = 20
+            lockIcon.fontSize = 14
             lockIcon.verticalAlignmentMode = .center
-            lockIcon.position = CGPoint(x: -20, y: 0)
-            lockNode.addChild(lockIcon)
+            lockIcon.position = CGPoint(x: -32, y: 0)
+            priceButton.addChild(lockIcon)
             
-            let priceLabel = SKLabelNode(text: "\(aircraft.unlockCost)")
-            priceLabel.fontName = "AvenirNext-Medium"
-            priceLabel.fontSize = 14
-            priceLabel.fontColor = .yellow
+            // Price text - formatted with comma for thousands
+            let formattedPrice = formatPrice(aircraft.unlockCost)
+            let priceLabel = SKLabelNode(text: formattedPrice)
+            priceLabel.fontName = "AvenirNext-Bold"
+            priceLabel.fontSize = 13
+            priceLabel.fontColor = .white
             priceLabel.verticalAlignmentMode = .center
-            priceLabel.horizontalAlignmentMode = .left
-            priceLabel.position = CGPoint(x: -5, y: 0)
-            lockNode.addChild(priceLabel)
+            priceLabel.horizontalAlignmentMode = .center
+            priceLabel.position = CGPoint(x: 8, y: 0)
+            priceButton.addChild(priceLabel)
             
-            let coinIcon = SKLabelNode(text: "🪙")
-            coinIcon.fontSize = 16
-            coinIcon.verticalAlignmentMode = .center
-            coinIcon.position = CGPoint(x: 25, y: 0)
-            lockNode.addChild(coinIcon)
-            
-            // Make the whole lock node tappable to purchase
-            let unlockButton = SKShapeNode(rectOf: CGSize(width: 80, height: 30), cornerRadius: 5)
-            unlockButton.fillColor = UIColor(red: 0.8, green: 0.6, blue: 0.0, alpha: 0.7)
-            unlockButton.strokeColor = .white
-            unlockButton.lineWidth = 1
-            unlockButton.name = "unlock_\(aircraft.type.rawValue)"
-            unlockButton.alpha = 0.5 // Semi-transparent to indicate it's a button
-            lockNode.addChild(unlockButton)
-            
-            containerNode.addChild(lockNode)
+            containerNode.addChild(priceButton)
         }
         
         return containerNode
+    }
+    
+    // Helper to format character names with spaces
+    private func formatCharacterName(_ name: String) -> String {
+        var result = ""
+        for char in name {
+            if char.isUppercase && !result.isEmpty {
+                result += " "
+            }
+            result += String(char)
+        }
+        return result.capitalized
+    }
+    
+    // Helper to format price with comma separator
+    private func formatPrice(_ price: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: price)) ?? "\(price)"
     }
     
     private func selectCharacter(at index: Int) {
@@ -370,46 +391,18 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
             }
         }
         
-        // Check if touch is within scroll area
+        // Check if touch is within scroll area - start tracking for potential scroll
         if let crop = cropNode, crop.contains(location) {
             isScrolling = true
             lastTouchY = location.y
+            touchStartY = location.y  // Remember start position
+            totalScrollDistance = 0   // Reset scroll distance
             scrollVelocity = 0
             scrollContainer?.removeAction(forKey: "momentum")
         }
         
-        // Check for button interactions (only if not scrolling significantly)
-        for node in touchedNodes {
-            // Check for character selection
-            if let name = node.name, name.starts(with: "select_") {
-                let characterName = String(name.dropFirst("select_".count))
-                if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
-                    selectCharacter(at: index)
-                    return
-                }
-            }
-            
-            // Check for character unlock
-            if let name = node.name, name.starts(with: "unlock_") {
-                let characterName = String(name.dropFirst("unlock_".count))
-                if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
-                    unlockCharacter(at: index)
-                    return
-                }
-            }
-            
-            // Check for character node selection
-            if let name = node.name, name.starts(with: "character_") {
-                if let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
-                    if characters[index].isUnlocked {
-                        selectCharacter(at: index)
-                    } else {
-                        unlockCharacter(at: index)
-                    }
-                    return
-                }
-            }
-        }
+        // Don't handle character selection on touchesBegan
+        // Wait for touchesEnded to distinguish taps from scrolls
     }
     
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -417,6 +410,10 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         
         let location = touch.location(in: self)
         let deltaY = location.y - lastTouchY
+        
+        // Track total scroll distance to distinguish scrolls from taps
+        totalScrollDistance += abs(deltaY)
+        
         container.position.y += deltaY
         scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
         lastTouchY = location.y
@@ -436,7 +433,55 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isScrolling, let container = scrollContainer else {
+        guard let touch = touches.first else {
+            isScrolling = false
+            return
+        }
+        
+        let location = touch.location(in: self)
+        let wasTap = totalScrollDistance < scrollThreshold
+        
+        // If it was a tap (not a scroll), handle character selection
+        if wasTap {
+            let touchedNodes = nodes(at: location)
+            for node in touchedNodes {
+                // Check for character selection button
+                if let name = node.name, name.starts(with: "select_") {
+                    let characterName = String(name.dropFirst("select_".count))
+                    if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+                        selectCharacter(at: index)
+                        isScrolling = false
+                        return
+                    }
+                }
+                
+                // Check for character unlock button
+                if let name = node.name, name.starts(with: "unlock_") {
+                    let characterName = String(name.dropFirst("unlock_".count))
+                    if let index = characters.firstIndex(where: { $0.type.rawValue == characterName }) {
+                        unlockCharacter(at: index)
+                        isScrolling = false
+                        return
+                    }
+                }
+                
+                // Check for character node tap (anywhere on the card)
+                if let name = node.name, name.starts(with: "character_") {
+                    if let indexStr = name.split(separator: "_").last, let index = Int(indexStr) {
+                        if characters[index].isUnlocked {
+                            selectCharacter(at: index)
+                        } else {
+                            unlockCharacter(at: index)
+                        }
+                        isScrolling = false
+                        return
+                    }
+                }
+            }
+        }
+        
+        // Handle momentum scrolling
+        guard let container = scrollContainer else {
             isScrolling = false
             return
         }

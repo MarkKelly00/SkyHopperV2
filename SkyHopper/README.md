@@ -1,8 +1,8 @@
-# SkyHopper 🐦
+# HopVerse 🐦
 
 A modern, addictive endless runner game for iOS featuring stunning visuals, immersive audio, and comprehensive social features. Built with Swift and SpriteKit.
 
-![SkyHopper Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=SkyHopper+-+Endless+Runner)
+![HopVerse Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=HopVerse+-+Endless+Runner)
 
 ## ✨ Features
 
@@ -46,13 +46,13 @@ A modern, addictive endless runner game for iOS featuring stunning visuals, imme
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/MarkKelly00/SkyHopperV2.git
-   cd SkyHopper
+   git clone https://github.com/MarkKelly00/HopVerseV2.git
+   cd HopVerse
    ```
 
 2. **Open in Xcode**
    ```bash
-   open SkyHopper.xcodeproj
+   open HopVerse.xcodeproj
    ```
 
 3. **Configure Game Center**
@@ -72,7 +72,7 @@ A modern, addictive endless runner game for iOS featuring stunning visuals, imme
 ## 📱 Game Structure
 
 ```
-SkyHopper/
+HopVerse/
 ├── Controllers/
 │   ├── AppDelegate.swift          # App lifecycle management
 │   └── GameViewController.swift   # Main game view controller

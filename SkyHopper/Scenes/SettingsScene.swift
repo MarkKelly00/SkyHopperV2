@@ -17,6 +17,10 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
     private var resetButton: SKShapeNode!
     private var topBar = SKNode()
     
+    // Privacy policy scrolling
+    private var isScrollingPrivacy = false
+    private var lastScrollY: CGFloat = 0
+    
     // MARK: - Scene Lifecycle
     
     override func didMove(to view: SKView) {
@@ -215,73 +219,106 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
     }
 
     private func createPrivacyPolicyDialog() -> SKNode {
-        let dialogWidth: CGFloat = size.width * 0.9
-        let dialogHeight: CGFloat = size.height * 0.8
+        // Calculate content height first to determine proper dialog size
+        let contentHeight = calculatePrivacyPolicyContentHeight()
 
+        // iOS-style dialog sizing (fits content with proper margins)
+        let dialogWidth: CGFloat = size.width * 0.85
+        let dialogHeight: CGFloat = min(contentHeight + 140, size.height * 0.85) // Content + margins, max 85% screen height
+
+        // Main dialog with iOS 26 styling
         let dialog = SKShapeNode(rectOf: CGSize(width: dialogWidth, height: dialogHeight), cornerRadius: 20)
-        dialog.fillColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 0.95)
-        dialog.strokeColor = .white
-        dialog.lineWidth = 2
+        dialog.fillColor = UIColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 0.95) // Darker, more iOS-like
+        dialog.strokeColor = UIColor(white: 0.2, alpha: 0.5)
+        dialog.lineWidth = 0.5 // Subtle border
         dialog.position = CGPoint(x: size.width/2, y: size.height/2)
         dialog.zPosition = 200
+        dialog.name = "privacyDialog"
 
-        // Title
+        // Blur effect background (iOS-style)
+        let blurNode = SKEffectNode()
+        blurNode.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 10])
+        blurNode.shouldRasterize = true
+        let blurShape = SKShapeNode(rectOf: CGSize(width: dialogWidth - 4, height: dialogHeight - 4), cornerRadius: 18)
+        blurShape.fillColor = UIColor(white: 0.1, alpha: 0.3)
+        blurShape.strokeColor = .clear
+        blurNode.addChild(blurShape)
+        blurNode.zPosition = -1
+        dialog.addChild(blurNode)
+
+        // Title with iOS typography
         let titleLabel = SKLabelNode(text: "Privacy Policy")
         titleLabel.fontName = UIConstants.Text.boldFont
-        titleLabel.fontSize = 24
+        titleLabel.fontSize = 22 // Slightly smaller for iOS style
         titleLabel.fontColor = .white
-        titleLabel.position = CGPoint(x: 0, y: dialogHeight/2 - 40)
+        titleLabel.position = CGPoint(x: 0, y: dialogHeight/2 - 35)
         dialog.addChild(titleLabel)
 
-        // Scrollable text area
-        let scrollContainer = SKNode()
-        scrollContainer.position = CGPoint(x: 0, y: 20)
+        // Scroll view container (iOS-style)
+        let scrollViewHeight: CGFloat = dialogHeight - 110
+        let scrollViewWidth: CGFloat = dialogWidth - 40
 
+        // Create a crop node to mask content outside scroll area
+        let cropNode = SKCropNode()
+        let maskShape = SKShapeNode(rectOf: CGSize(width: scrollViewWidth, height: scrollViewHeight))
+        maskShape.fillColor = .white
+        maskShape.strokeColor = .clear
+        cropNode.maskNode = maskShape
+        cropNode.position = CGPoint(x: 0, y: -20)
+
+        // Scrollable content container
+        let scrollContainer = SKNode()
+        scrollContainer.name = "scrollContainer"
+        cropNode.addChild(scrollContainer)
+
+        dialog.addChild(cropNode)
+
+        // Create formatted text content
         let privacyText = """
-        SkyHopper - Privacy Policy
+        HopVerse - Privacy Policy
 
         Last Updated: November 30, 2025
 
-        Welcome to SkyHopper! This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile game application (the "App").
+        Welcome to HopVerse! This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile game application (the "App").
 
         1. INFORMATION WE COLLECT
 
         1.1 Personal Information
-        - Email address (if you create an account)
-        - Username and display name
-        - Apple ID or Google account information (if using social sign-in)
-        - Profile picture/avatar (if uploaded)
+        • Email address (if you create an account)
+        • Username and display name
+        • Apple ID or Google account information (if using social sign-in)
+        • Profile picture/avatar (if uploaded)
 
         1.2 Game Data and Analytics
-        - High scores and game statistics
-        - Level completion data
-        - Achievement progress
-        - Daily login streaks
-        - In-game purchases and currency
-        - Device information (iOS version, device model)
+        • High scores and game statistics
+        • Level completion data
+        • Achievement progress
+        • Daily login streaks
+        • In-game purchases and currency
+        • Device information (iOS version, device model)
 
         1.3 Game Center Data
-        - Leaderboard scores
-        - Achievement unlocks
-        - Game Center player ID
+        • Leaderboard scores
+        • Achievement unlocks
+        • Game Center player ID
 
         2. HOW WE USE YOUR INFORMATION
 
         We use the collected information to:
-        - Provide and maintain the game service
-        - Track and display leaderboards
-        - Award achievements
-        - Process in-app purchases
-        - Improve game performance and features
-        - Provide customer support
-        - Send game-related notifications
+        • Provide and maintain the game service
+        • Track and display leaderboards
+        • Award achievements
+        • Process in-app purchases
+        • Improve game performance and features
+        • Provide customer support
+        • Send game-related notifications
 
         3. INFORMATION SHARING AND DISCLOSURE
 
         We do not sell, trade, or otherwise transfer your personal information to third parties except:
-        - Game Center (Apple's gaming service) for leaderboards and achievements
-        - When required by law
-        - With your explicit consent
+        • Game Center (Apple's gaming service) for leaderboards and achievements
+        • When required by law
+        • With your explicit consent
 
         4. DATA SECURITY
 
@@ -289,15 +326,15 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
 
         5. CHILDREN'S PRIVACY
 
-        SkyHopper is not specifically designed for children under 13. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will delete it immediately.
+        HopVerse is not specifically designed for children under 13. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will delete it immediately.
 
         6. YOUR RIGHTS
 
         You have the right to:
-        - Access your personal information
-        - Correct inaccurate information
-        - Delete your account and data
-        - Opt out of data collection (though this may limit game functionality)
+        • Access your personal information
+        • Correct inaccurate information
+        • Delete your account and data
+        • Opt out of data collection (though this may limit game functionality)
 
         7. CHANGES TO THIS PRIVACY POLICY
 
@@ -308,56 +345,267 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
         If you have any questions about this Privacy Policy, please contact us at:
         Email: makllipse@gmail.com
 
-        By using SkyHopper, you agree to this Privacy Policy.
+        By using HopVerse, you agree to this Privacy Policy.
         """
 
-        // Split text into lines for display
-        let lines = privacyText.components(separatedBy: "\n")
-        var yPosition: CGFloat = dialogHeight/2 - 80
+        // Layout text with proper iOS typography and spacing
+        // Text starts at TOP of scroll area (positive Y) and goes DOWN (decreasing Y)
+        let sections = privacyText.components(separatedBy: "\n\n")
+        var currentY: CGFloat = scrollViewHeight/2 - 30 // Start near top of visible area
 
-        for line in lines {
-            if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                yPosition -= 8 // Extra space for empty lines
-                continue
+        for section in sections {
+            let lines = section.components(separatedBy: "\n")
+            var isFirstLineInSection = true
+
+            for (_, line) in lines.enumerated() {
+                if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    continue
+                }
+
+                let lineLabel = SKLabelNode(text: line)
+                lineLabel.fontName = UIConstants.Text.regularFont
+                lineLabel.horizontalAlignmentMode = .left
+
+                // Ensure text fits within scroll view width with proper margins
+                let maxTextWidth = scrollViewWidth - 30 // 15px margin on each side
+                lineLabel.position = CGPoint(x: -maxTextWidth/2, y: currentY)
+
+                // iOS-style typography hierarchy
+                if line.contains("HopVerse") || line.contains("Last Updated") {
+                    lineLabel.fontSize = 16
+                    lineLabel.fontName = UIConstants.Text.boldFont
+                    lineLabel.fontColor = UIColor(white: 0.9, alpha: 1.0)
+                } else if line.hasPrefix("1.") || line.hasPrefix("2.") || line.hasPrefix("3.") ||
+                          line.hasPrefix("4.") || line.hasPrefix("5.") || line.hasPrefix("6.") ||
+                          line.hasPrefix("7.") || line.hasPrefix("8.") {
+                    lineLabel.fontSize = 15
+                    lineLabel.fontName = UIConstants.Text.boldFont
+                    lineLabel.fontColor = UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0) // iOS blue
+                } else if line.contains("•") {
+                    lineLabel.fontSize = 13
+                    lineLabel.fontColor = UIColor(white: 0.8, alpha: 1.0)
+                } else {
+                    lineLabel.fontSize = 14
+                    lineLabel.fontColor = UIColor(white: 0.85, alpha: 1.0)
+                }
+
+                // Handle long lines with proper word wrapping
+                let words = line.components(separatedBy: " ")
+                var wrappedLines: [String] = []
+                var currentLine = ""
+                
+                // Create a test label to measure text width
+                let testLabel = SKLabelNode(fontNamed: lineLabel.fontName)
+                testLabel.fontSize = lineLabel.fontSize
+                
+                for word in words {
+                    let testText = currentLine.isEmpty ? word : currentLine + " " + word
+                    testLabel.text = testText
+                    
+                    if testLabel.frame.width > maxTextWidth && !currentLine.isEmpty {
+                        wrappedLines.append(currentLine)
+                        currentLine = word
+                    } else {
+                        currentLine = testText
+                    }
+                }
+                if !currentLine.isEmpty {
+                    wrappedLines.append(currentLine)
+                }
+                
+                // If no wrapping needed, use original
+                if wrappedLines.isEmpty {
+                    wrappedLines = [line]
+                }
+                
+                // Add all wrapped lines
+                for (wrapIndex, wrappedLine) in wrappedLines.enumerated() {
+                    if wrapIndex == 0 {
+                        lineLabel.text = wrappedLine
+                        scrollContainer.addChild(lineLabel)
+                        currentY -= isFirstLineInSection ? 28 : 20
+                    } else {
+                        let continuedLabel = SKLabelNode(text: wrappedLine)
+                        continuedLabel.fontName = lineLabel.fontName
+                        continuedLabel.fontSize = lineLabel.fontSize
+                        continuedLabel.fontColor = lineLabel.fontColor
+                        continuedLabel.horizontalAlignmentMode = .left
+                        continuedLabel.position = CGPoint(x: -maxTextWidth/2, y: currentY)
+                        scrollContainer.addChild(continuedLabel)
+                        currentY -= 18  // Slightly less spacing for wrapped continuation
+                    }
+                }
+                isFirstLineInSection = false
             }
 
-            let lineLabel = SKLabelNode(text: line)
-            lineLabel.fontName = UIConstants.Text.regularFont
-            lineLabel.fontSize = line.hasPrefix("SkyHopper") || line.hasPrefix("Last Updated") ? 18 : 14
-            lineLabel.fontColor = .white
-            lineLabel.horizontalAlignmentMode = .center
-            lineLabel.position = CGPoint(x: 0, y: yPosition)
-            lineLabel.zPosition = 1
-
-            // Handle long lines
-            if lineLabel.frame.width > dialogWidth - 40 {
-                lineLabel.fontSize = 12
-            }
-
-            scrollContainer.addChild(lineLabel)
-            yPosition -= line.hasPrefix("SkyHopper") || line.hasPrefix("Last Updated") ? 25 : 18
+            currentY -= 12 // Extra space between sections
         }
 
-        dialog.addChild(scrollContainer)
+        // Position scroll container at origin - content positions handle the layout
+        scrollContainer.position = CGPoint(x: 0, y: 0)
 
-        // Close button
-        let closeButton = SKShapeNode(rectOf: CGSize(width: 80, height: 30), cornerRadius: 5)
-        closeButton.fillColor = UIColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 1.0)
-        closeButton.strokeColor = .white
-        closeButton.lineWidth = 1
-        closeButton.position = CGPoint(x: dialogWidth/2 - 50, y: dialogHeight/2 - 25)
+        // Scroll indicator with iOS-style animation
+        let scrollIndicator = SKLabelNode(text: "Swipe up to read more")
+        scrollIndicator.fontName = UIConstants.Text.regularFont
+        scrollIndicator.fontSize = 12
+        scrollIndicator.fontColor = UIColor(white: 0.5, alpha: 1.0)
+        scrollIndicator.position = CGPoint(x: 0, y: -scrollViewHeight/2 + 25)
+
+        // Subtle pulsing animation
+        let fadeIn = SKAction.fadeAlpha(to: 0.6, duration: 1.0)
+        let fadeOut = SKAction.fadeAlpha(to: 0.3, duration: 1.0)
+        scrollIndicator.run(SKAction.repeatForever(SKAction.sequence([fadeIn, fadeOut])))
+        dialog.addChild(scrollIndicator)
+
+        // iOS-style close button
+        let closeButton = SKShapeNode(circleOfRadius: 18)
+        closeButton.fillColor = UIColor(white: 0.2, alpha: 0.8)
+        closeButton.strokeColor = UIColor(white: 0.4, alpha: 0.5)
+        closeButton.lineWidth = 0.5
+        closeButton.position = CGPoint(x: dialogWidth/2 - 25, y: dialogHeight/2 - 25)
         closeButton.name = "closePrivacyButton"
 
-        let closeLabel = SKLabelNode(text: "Close")
-        closeLabel.fontName = UIConstants.Text.boldFont
-        closeLabel.fontSize = 14
-        closeLabel.fontColor = .white
-        closeLabel.verticalAlignmentMode = .center
-        closeButton.addChild(closeLabel)
+        // iOS close symbol (X)
+        let closeX = SKLabelNode(text: "×")
+        closeX.fontName = "Helvetica-Bold"
+        closeX.fontSize = 20
+        closeX.fontColor = UIColor(white: 0.8, alpha: 1.0)
+        closeX.verticalAlignmentMode = .center
+        closeX.horizontalAlignmentMode = .center
+        closeButton.addChild(closeX)
 
         dialog.addChild(closeButton)
 
+        // Store scroll bounds for smooth iOS-style scrolling
+        // Content starts at top (scrollViewHeight/2 - 30) and goes down to currentY
+        // When scrolling UP (to read more), we move the container UP (increase Y)
+        let contentTopY = scrollViewHeight/2 - 30 // Where content starts
+        let contentBottomY = currentY // Where content ends (negative value)
+        let totalContentHeight = contentTopY - contentBottomY // Total height of content
+        let visibleHeight = scrollViewHeight - 40 // Visible scroll area height
+        
+        // Initial position is 0 (content at top visible)
+        // To see bottom content, we need to move container UP (positive direction)
+        // maxScroll = how far UP we can scroll to see bottom content
+        let maxScroll: CGFloat = max(0, totalContentHeight - visibleHeight)
+        // minScroll = 0 (can't scroll down past the top)
+        let minScroll: CGFloat = 0
+        
+        let scrollData = NSMutableDictionary()
+        scrollData["scrollMinY"] = minScroll
+        scrollData["scrollMaxY"] = maxScroll
+        scrollData["scrollMomentum"] = 0.0
+        dialog.userData = scrollData
+
+        // Debug output
+        print("DEBUG: Privacy scroll - contentTopY: \(contentTopY), contentBottomY: \(contentBottomY), totalContentHeight: \(totalContentHeight), visibleHeight: \(visibleHeight), maxScroll: \(maxScroll), minScroll: \(minScroll)")
+
         return dialog
+    }
+
+    private func calculatePrivacyPolicyContentHeight() -> CGFloat {
+        let privacyText = """
+        HopVerse - Privacy Policy
+
+        Last Updated: November 30, 2025
+
+        Welcome to HopVerse! This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile game application (the "App").
+
+        1. INFORMATION WE COLLECT
+
+        1.1 Personal Information
+        • Email address (if you create an account)
+        • Username and display name
+        • Apple ID or Google account information (if using social sign-in)
+        • Profile picture/avatar (if uploaded)
+
+        1.2 Game Data and Analytics
+        • High scores and game statistics
+        • Level completion data
+        • Achievement progress
+        • Daily login streaks
+        • In-game purchases and currency
+        • Device information (iOS version, device model)
+
+        1.3 Game Center Data
+        • Leaderboard scores
+        • Achievement unlocks
+        • Game Center player ID
+
+        2. HOW WE USE YOUR INFORMATION
+
+        We use the collected information to:
+        • Provide and maintain the game service
+        • Track and display leaderboards
+        • Award achievements
+        • Process in-app purchases
+        • Improve game performance and features
+        • Provide customer support
+        • Send game-related notifications
+
+        3. INFORMATION SHARING AND DISCLOSURE
+
+        We do not sell, trade, or otherwise transfer your personal information to third parties except:
+        • Game Center (Apple's gaming service) for leaderboards and achievements
+        • When required by law
+        • With your explicit consent
+
+        4. DATA SECURITY
+
+        We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
+
+        5. CHILDREN'S PRIVACY
+
+        HopVerse is not specifically designed for children under 13. We do not knowingly collect personal information from children under 13. If we learn that we have collected personal information from a child under 13, we will delete it immediately.
+
+        6. YOUR RIGHTS
+
+        You have the right to:
+        • Access your personal information
+        • Correct inaccurate information
+        • Delete your account and data
+        • Opt out of data collection (though this may limit game functionality)
+
+        7. CHANGES TO THIS PRIVACY POLICY
+
+        We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy in the App.
+
+        8. CONTACT US
+
+        If you have any questions about this Privacy Policy, please contact us at:
+        Email: makllipse@gmail.com
+
+        By using HopVerse, you agree to this Privacy Policy.
+        """
+
+        let sections = privacyText.components(separatedBy: "\n\n")
+        var totalHeight: CGFloat = 0
+
+        for section in sections {
+            let lines = section.components(separatedBy: "\n")
+
+            for (_, line) in lines.enumerated() {
+                if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    continue
+                }
+
+                if line.contains("HopVerse") || line.contains("Last Updated") {
+                    totalHeight += 28
+                } else if line.hasPrefix("1.") || line.hasPrefix("2.") || line.hasPrefix("3.") ||
+                          line.hasPrefix("4.") || line.hasPrefix("5.") || line.hasPrefix("6.") ||
+                          line.hasPrefix("7.") || line.hasPrefix("8.") {
+                    totalHeight += 28
+                } else if line.contains("•") {
+                    totalHeight += 20
+                } else {
+                    totalHeight += 22
+                }
+            }
+
+            totalHeight += 12 // Extra space between sections
+        }
+
+        return totalHeight
     }
     
     private func showCredits() {
@@ -392,7 +640,7 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
         
         // Credits text
         let credits = [
-            "SkyHopper Game",
+            "HopVerse Game",
             "Created by MAKLLIPSE",
             "",
             "Programming: MAKLLIPSE",
@@ -610,6 +858,20 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
         for touch in touches {
             let location = touch.location(in: self)
             let touchedNodes = nodes(at: location)
+
+            // If privacy dialog is visible, block all touches except for the close button
+            if let privacyDialog = childNode(withName: "privacyDialog") {
+                // Check if close button was tapped
+                for node in touchedNodes {
+                    if node.name == "closePrivacyButton" || node.parent?.name == "closePrivacyButton" {
+                        privacyDialog.removeFromParent()
+                        return
+                    }
+                }
+                // Block all other touches when privacy dialog is visible (consume the touch)
+                lastScrollY = location.y
+                return
+            }
             
             for node in touchedNodes {
                 if node.name == "backButton" || node.parent?.name == "backButton" {
@@ -663,9 +925,162 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
                 if node.name == "closePrivacyButton" || node.parent?.name == "closePrivacyButton" {
                     childNode(withName: "privacyDialog")?.removeFromParent()
                     return
-                }
             }
         }
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first,
+              let privacyDialog = childNode(withName: "privacyDialog"),
+              let cropNode = privacyDialog.children.first(where: { $0 is SKCropNode }) as? SKCropNode,
+              let scrollContainer = cropNode.childNode(withName: "scrollContainer"),
+              let scrollData = privacyDialog.userData,
+              let scrollMinY = scrollData["scrollMinY"] as? CGFloat,
+              let scrollMaxY = scrollData["scrollMaxY"] as? CGFloat else { return }
+
+        let location = touch.location(in: self)
+
+        // Only scroll if we're not over a button (allow scrolling in text area only)
+        let touchedNodes = nodes(at: location)
+        let hasInteractiveElement = touchedNodes.contains { node in
+            let nodeName = node.name ?? ""
+            return nodeName.contains("Button") || nodeName.contains("Toggle") || nodeName.contains("checkbox")
+        }
+
+        if hasInteractiveElement {
+            return // Don't scroll if touching interactive elements
+        }
+        let previousLocation = touch.previousLocation(in: self)
+
+        // Check if touch is within privacy dialog bounds
+        let dialogBounds = privacyDialog.calculateAccumulatedFrame()
+        if dialogBounds.contains(location) {
+            let deltaY = location.y - previousLocation.y
+
+            // iOS natural scrolling behavior:
+            // - Swipe UP (finger moves up, deltaY is negative) = see content BELOW = move container UP
+            // - Content is positioned with positive Y at top, going negative downward
+            // - To see content below, container.position.y needs to INCREASE (shift content up)
+            // - So: swipe up (deltaY < 0) should increase position.y → use + deltaY... wait no
+            // Actually: when finger moves UP, deltaY is NEGATIVE
+            // We want content to move UP (reveal below) → position.y should INCREASE
+            // So we ADD the NEGATIVE of deltaY → position.y + (-deltaY) = position.y - deltaY... 
+            // But that's inverted. Let's think again:
+            // Standard iOS: drag finger DOWN = content moves DOWN (scroll up to see above)
+            // drag finger UP = content moves UP (scroll down to see below)
+            // In SpriteKit with crop node: moving container.y UP reveals content that was BELOW
+            // So swipe UP (deltaY negative) → container goes UP → ADD to position.y
+            // That means: newY = position.y + deltaY... but deltaY is negative when swiping up
+            // So position decreases... that's wrong.
+            // Let's just use: newY = position.y + deltaY (standard) and see
+            let newY = scrollContainer.position.y + deltaY
+
+            // Apply resistance at scroll boundaries (iOS rubber banding effect)
+            let constrainedY: CGFloat
+            if newY > scrollMaxY {
+                let overscroll = newY - scrollMaxY
+                constrainedY = scrollMaxY + overscroll * 0.3 // Rubber band at bottom
+            } else if newY < scrollMinY {
+                let overscroll = scrollMinY - newY
+                constrainedY = scrollMinY - overscroll * 0.3 // Rubber band at top
+            } else {
+                constrainedY = newY
+            }
+
+            scrollContainer.position.y = constrainedY
+            isScrollingPrivacy = true
+
+            // Store momentum for smooth deceleration
+            if let userData = privacyDialog.userData {
+                userData["scrollMomentum"] = deltaY * 0.8 // Dampened momentum
+            }
+        }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // Apply iOS-style momentum scrolling
+        if isScrollingPrivacy,
+           let privacyDialog = childNode(withName: "privacyDialog"),
+           let cropNode = privacyDialog.children.first(where: { $0 is SKCropNode }) as? SKCropNode,
+           let scrollContainer = cropNode.childNode(withName: "scrollContainer"),
+           let scrollData = privacyDialog.userData,
+           let scrollMinY = scrollData["scrollMinY"] as? CGFloat,
+           let scrollMaxY = scrollData["scrollMaxY"] as? CGFloat,
+           let momentum = scrollData["scrollMomentum"] as? CGFloat {
+
+            // Apply momentum-based scrolling animation
+            applyScrollMomentum(to: scrollContainer, momentum: momentum, minY: scrollMinY, maxY: scrollMaxY)
+        }
+
+        isScrollingPrivacy = false
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // Reset momentum on touch cancellation
+        if let privacyDialog = childNode(withName: "privacyDialog"),
+           let userData = privacyDialog.userData {
+            userData["scrollMomentum"] = 0.0
+        }
+        isScrollingPrivacy = false
+    }
+
+    private func applyScrollMomentum(to scrollContainer: SKNode, momentum: CGFloat, minY: CGFloat, maxY: CGFloat) {
+        guard abs(momentum) > 0.5 else {
+            // Snap to bounds if momentum is too low
+            snapToScrollBounds(scrollContainer, minY: minY, maxY: maxY)
+            return
+        }
+
+        let damping: CGFloat = 0.95
+        var currentMomentum = momentum
+        var currentY = scrollContainer.position.y
+
+        // Apply momentum animation
+        let momentumAction = SKAction.customAction(withDuration: 0.5) { node, elapsedTime in
+            if abs(currentMomentum) < 0.1 {
+                // Stop animation when momentum is low
+                node.removeAction(forKey: "scrollMomentum")
+                self.snapToScrollBounds(node, minY: minY, maxY: maxY)
+                return
+            }
+
+            currentY += currentMomentum
+            currentMomentum *= damping
+
+            // Apply boundary constraints with rubber band effect
+            if currentY > maxY {
+                let overscroll = currentY - maxY
+                currentY = maxY + overscroll * 0.3
+                currentMomentum *= 0.5 // Reduce momentum on boundary
+            } else if currentY < minY {
+                let overscroll = minY - currentY
+                currentY = minY - overscroll * 0.3
+                currentMomentum *= 0.5 // Reduce momentum on boundary
+            }
+
+            node.position.y = currentY
+        }
+
+        scrollContainer.run(momentumAction, withKey: "scrollMomentum")
+    }
+
+    private func snapToScrollBounds(_ scrollContainer: SKNode, minY: CGFloat, maxY: CGFloat) {
+        let currentY = scrollContainer.position.y
+        let targetY: CGFloat
+
+        if currentY > maxY {
+            targetY = maxY
+        } else if currentY < minY {
+            targetY = minY
+        } else {
+            return // Already within bounds
+        }
+
+        // Smooth snap animation
+        let snapAction = SKAction.moveTo(y: targetY, duration: 0.2)
+        snapAction.timingMode = .easeOut
+        scrollContainer.run(snapAction)
     }
     
     private func handleBackButton() {
