@@ -1,9 +1,13 @@
 import SpriteKit
+import StoreKit
 
-class ShopScene: SKScene, CurrencyManagerDelegate {
+class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
     
     // Currency manager
     private let currencyManager = CurrencyManager.shared
+    
+    // StoreKit manager for IAP
+    private let storeKitManager = StoreKitManager.shared
     
     // UI elements
     private var backButton: SKShapeNode!
@@ -12,6 +16,9 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     private var shopItems: [SKNode] = []
     private var decorLayer = SKNode()
     private var topBar = SKNode()
+    
+    // Loading overlay
+    private var loadingOverlay: SKNode?
     
     // Scroll container for smooth scrolling
     private var scrollContainer: SKNode!
@@ -40,10 +47,20 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     override func didMove(to view: SKView) {
         setupScene()
         setupUI()
-        showTabContent(.coins)
         
-        // Register as currency delegate to update display
+        // Set up delegates
         currencyManager.delegate = self
+        storeKitManager.delegate = self
+        
+        // Load products if not already loaded
+        Task { @MainActor in
+            if storeKitManager.products.isEmpty {
+                showLoadingOverlay(message: "Loading Store...")
+                await storeKitManager.loadProducts()
+                hideLoadingOverlay()
+            }
+            showTabContent(.coins)
+        }
         
         #if DEBUG
         UILinter.run(scene: self, topBar: topBar)
@@ -54,6 +71,30 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     
     func currencyDidChange() {
         SafeAreaTopBar.updateCurrency(in: topBar)
+    }
+    
+    // MARK: - StoreKit Manager Delegate
+    
+    func purchaseDidComplete(productID: String, success: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            self?.hideLoadingOverlay()
+            
+            if success {
+                self?.showMessage("Purchase Successful! ✓")
+            } else {
+                self?.showMessage("Purchase Failed")
+            }
+        }
+    }
+    
+    func purchaseDidDeliver(productID: String, coins: Int) {
+        DispatchQueue.main.async { [weak self] in
+            if coins > 0 {
+                self?.showMessage("+\(coins) Coins! 🪙")
+            }
+            // Refresh currency display
+            self?.currencyDidChange()
+        }
     }
     
     private func setupScene() {
@@ -78,6 +119,28 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         // Back button / currency row handled by topBar
         createTabButtons()
         setupScrollContainer()
+        createRestoreButton()
+    }
+    
+    private func createRestoreButton() {
+        let safeArea = SafeAreaLayout(scene: self)
+        
+        // Create restore purchases button at bottom
+        let restoreButton = SKShapeNode(rectOf: CGSize(width: 180, height: 36), cornerRadius: 18)
+        restoreButton.fillColor = UIColor(white: 0.3, alpha: 0.8)
+        restoreButton.strokeColor = .white
+        restoreButton.lineWidth = 1
+        restoreButton.position = CGPoint(x: size.width / 2, y: safeArea.safeBottomY(offset: 30))
+        restoreButton.zPosition = UIConstants.Z.ui
+        restoreButton.name = "restoreButton"
+        addChild(restoreButton)
+        
+        let restoreLabel = SKLabelNode(text: "Restore Purchases")
+        restoreLabel.fontName = "AvenirNext-Medium"
+        restoreLabel.fontSize = 14
+        restoreLabel.fontColor = .white
+        restoreLabel.verticalAlignmentMode = .center
+        restoreButton.addChild(restoreLabel)
     }
     
     private func setupScrollContainer() {
@@ -92,8 +155,8 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         cropNode.zPosition = 5
         addChild(cropNode)
         
-        // Calculate visible area
-        visibleHeight = contentTop - 40  // Leave padding at bottom
+        // Calculate visible area (leave room for restore button)
+        visibleHeight = contentTop - 80  // Leave padding at bottom for restore button
         
         // Create mask
         scrollMask = SKShapeNode(rectOf: CGSize(width: size.width - 20, height: visibleHeight), cornerRadius: 12)
@@ -249,25 +312,39 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     private func showCoinsShop() {
         guard scrollContainer != nil else { return }
         
-        // Coin packages
-        let packages = [
-            ("Small Pack", 500, 0.99),
-            ("Medium Pack", 1500, 2.99),
-            ("Large Pack", 5000, 9.99),
-            ("Mega Pack", 12000, 19.99)
-        ]
+        // Get real products from StoreKit
+        let coinProducts = storeKitManager.coinPackProducts
+        
+        if coinProducts.isEmpty {
+            // Show loading message if products aren't loaded yet
+            let message = SKLabelNode(text: "Loading store products...")
+            message.fontName = "AvenirNext-Medium"
+            message.fontSize = 18
+            message.position = CGPoint(x: 0, y: 0)
+            message.zPosition = 10
+            shopItems.append(message)
+            scrollContainer.addChild(message)
+            
+            contentHeight = 100
+            return
+        }
         
         let spacing: CGFloat = 115
-        contentHeight = CGFloat(packages.count) * spacing + 50
+        contentHeight = CGFloat(coinProducts.count) * spacing + 50
         let startY = visibleHeight / 2 - 60
         
-        for (index, package) in packages.enumerated() {
+        for (index, product) in coinProducts.enumerated() {
+            // Get coin amount from ProductID
+            let productID = StoreKitManager.ProductID(rawValue: product.id)
+            let coinAmount = productID?.coinAmount ?? 0
+            
             let item = createShopItem(
-                title: package.0,
-                description: "\(package.1) coins",
-                price: "$\(package.2)",
+                title: product.displayName,
+                description: "\(coinAmount) coins",
+                price: product.displayPrice,
                 icon: "🪙",
-                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index)),
+                productID: product.id
             )
             item.name = "coin_package_\(index)"
             shopItems.append(item)
@@ -278,7 +355,7 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     private func showPowerUpsShop() {
         guard scrollContainer != nil else { return }
         
-        // Power-up packages
+        // Power-up packages (using in-game currency)
         let packages = [
             ("Extra Life", "One-time revival", 1000, "❤️"),
             ("3x Shield", "Block 3 obstacles", 800, "🛡️"),
@@ -298,9 +375,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
                 description: package.1,
                 price: "\(package.2) 🪙",
                 icon: package.3,
-                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index)),
+                productID: nil  // Not an IAP product
             )
             item.name = "powerup_package_\(index)"
+            item.userData = ["coinPrice": package.2]
             shopItems.append(item)
             scrollContainer.addChild(item)
         }
@@ -324,7 +403,7 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
     private func showThemesShop() {
         guard scrollContainer != nil else { return }
         
-        // Theme packages
+        // Theme packages (using in-game currency)
         let packages = [
             ("Forest Theme", "Play in the forest", 2000, "🌳"),
             ("Mountain Theme", "Mountain adventure", 3000, "🏔️"),
@@ -342,18 +421,26 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
                 description: package.1,
                 price: "\(package.2) 🪙",
                 icon: package.3,
-                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index))
+                position: CGPoint(x: 0, y: startY - spacing * CGFloat(index)),
+                productID: nil  // Not an IAP product
             )
             item.name = "theme_package_\(index)"
+            item.userData = ["coinPrice": package.2]
             shopItems.append(item)
             scrollContainer.addChild(item)
         }
     }
     
-    private func createShopItem(title: String, description: String, price: String, icon: String, position: CGPoint) -> SKNode {
+    private func createShopItem(title: String, description: String, price: String, icon: String, position: CGPoint, productID: String?) -> SKNode {
         let containerNode = SKNode()
         containerNode.position = position
         containerNode.zPosition = 10
+        
+        // Store product ID for IAP items
+        if let productID = productID {
+            containerNode.userData = containerNode.userData ?? NSMutableDictionary()
+            containerNode.userData?["productID"] = productID
+        }
         
         // Create background
         let background = SKShapeNode(rectOf: CGSize(width: size.width - 60, height: 100), cornerRadius: 15)
@@ -390,9 +477,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         descLabel.position = CGPoint(x: -background.frame.width/2 + 80, y: -10)
         containerNode.addChild(descLabel)
         
-        // Add purchase button
+        // Add purchase button - green for IAP (real money), blue for in-game currency
         let buyButton = SKShapeNode(rectOf: CGSize(width: 100, height: 40), cornerRadius: 10)
-        buyButton.fillColor = UIColor(red: 0.0, green: 0.6, blue: 0.3, alpha: 1.0)
+        buyButton.fillColor = productID != nil 
+            ? UIColor(red: 0.0, green: 0.6, blue: 0.3, alpha: 1.0)  // Green for real money
+            : UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1.0)  // Blue for coins
         buyButton.strokeColor = .white
         buyButton.lineWidth = 1
         buyButton.position = CGPoint(x: background.frame.width/2 - 60, y: 0)
@@ -402,7 +491,7 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         // Add price label
         let priceLabel = SKLabelNode(text: price)
         priceLabel.fontName = "AvenirNext-Bold"
-        priceLabel.fontSize = 16
+        priceLabel.fontSize = 14
         priceLabel.fontColor = .white
         priceLabel.verticalAlignmentMode = .center
         priceLabel.horizontalAlignmentMode = .center
@@ -411,25 +500,108 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         return containerNode
     }
     
+    // MARK: - Loading Overlay
+    
+    private func showLoadingOverlay(message: String = "Processing...") {
+        guard loadingOverlay == nil else { return }
+        
+        let overlay = SKNode()
+        overlay.zPosition = 1000
+        
+        // Dark background
+        let background = SKShapeNode(rectOf: size)
+        background.fillColor = UIColor(white: 0, alpha: 0.7)
+        background.strokeColor = .clear
+        background.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.addChild(background)
+        
+        // Loading container
+        let container = SKShapeNode(rectOf: CGSize(width: 200, height: 100), cornerRadius: 15)
+        container.fillColor = UIColor(white: 0.2, alpha: 0.95)
+        container.strokeColor = .white
+        container.lineWidth = 2
+        container.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.addChild(container)
+        
+        // Loading text
+        let loadingLabel = SKLabelNode(text: message)
+        loadingLabel.fontName = "AvenirNext-Bold"
+        loadingLabel.fontSize = 18
+        loadingLabel.fontColor = .white
+        loadingLabel.verticalAlignmentMode = .center
+        loadingLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.addChild(loadingLabel)
+        
+        // Spinner animation
+        let spinner = SKLabelNode(text: "⟳")
+        spinner.fontSize = 30
+        spinner.position = CGPoint(x: size.width / 2, y: size.height / 2 + 30)
+        let rotate = SKAction.rotate(byAngle: -.pi * 2, duration: 1.0)
+        spinner.run(SKAction.repeatForever(rotate))
+        overlay.addChild(spinner)
+        
+        addChild(overlay)
+        loadingOverlay = overlay
+    }
+    
+    private func hideLoadingOverlay() {
+        loadingOverlay?.removeFromParent()
+        loadingOverlay = nil
+    }
+    
     // MARK: - Purchase Handling
     
-    private func handlePurchase(itemName: String) {
-        // This is where actual purchase logic would go
-        // For now, just show a message
-        showMessage("Purchase feature will be available soon!")
+    private func handlePurchase(itemName: String, node: SKNode) {
+        // Check if this is an IAP product
+        if let productID = node.userData?["productID"] as? String {
+            // Real money purchase via StoreKit
+            handleIAPPurchase(productID: productID)
+        } else if let coinPrice = node.userData?["coinPrice"] as? Int {
+            // In-game currency purchase
+            handleCoinPurchase(itemName: itemName, coinPrice: coinPrice)
+        }
+    }
+    
+    private func handleIAPPurchase(productID: String) {
+        guard let product = storeKitManager.products.first(where: { $0.id == productID }) else {
+            showMessage("Product not available")
+            return
+        }
         
-        // For demo purposes, add some coins
-        if itemName == "buy_Small_Pack" {
-            // Add some free coins for testing
-            _ = currencyManager.addCoins(100)
-            updateCurrencyDisplay()
-            showMessage("+100 Coins (Demo)")
+        showLoadingOverlay(message: "Processing Purchase...")
+        
+        Task { @MainActor in
+            let success = await storeKitManager.purchase(product)
+            hideLoadingOverlay()
+            
+            if !success && storeKitManager.errorMessage == nil {
+                // User cancelled, no message needed
+            }
+        }
+    }
+    
+    private func handleCoinPurchase(itemName: String, coinPrice: Int) {
+        if currencyManager.spendCoins(coinPrice) {
+            showMessage("Purchased \(itemName)!")
+            // TODO: Grant the purchased item (power-up, theme, etc.)
+        } else {
+            showMessage("Not enough coins!")
+        }
+    }
+    
+    private func handleRestorePurchases() {
+        showLoadingOverlay(message: "Restoring Purchases...")
+        
+        Task { @MainActor in
+            await storeKitManager.restorePurchases()
+            hideLoadingOverlay()
+            showMessage("Purchases Restored!")
         }
     }
     
     private func updateCurrencyDisplay() {
-        coinsLabel.text = "\(currencyManager.getCoins())"
-        gemsLabel.text = "\(currencyManager.getGems())"
+        coinsLabel?.text = "\(currencyManager.getCoins())"
+        gemsLabel?.text = "\(currencyManager.getGems())"
     }
     
     // MARK: - Helpers
@@ -491,7 +663,7 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         addChild(message)
         
         let fadeIn = SKAction.fadeIn(withDuration: 0.3)
-        let wait = SKAction.wait(forDuration: 1.0)
+        let wait = SKAction.wait(forDuration: 1.5)
         let fadeOut = SKAction.fadeOut(withDuration: 0.3)
         let remove = SKAction.removeFromParent()
         
@@ -510,6 +682,12 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         for node in touchedNodes {
             if node.name == "backButton" || node.parent?.name == "backButton" {
                 handleBackButton()
+                return
+            }
+            
+            // Check for restore button
+            if node.name == "restoreButton" || node.parent?.name == "restoreButton" {
+                handleRestorePurchases()
                 return
             }
             
@@ -540,7 +718,10 @@ class ShopScene: SKScene, CurrencyManagerDelegate {
         // Check for buy button
         for node in touchedNodes {
             if let name = node.name, name.starts(with: "buy_") {
-                handlePurchase(itemName: name)
+                // Find the parent container node that has the product info
+                if let containerNode = node.parent {
+                    handlePurchase(itemName: name, node: containerNode)
+                }
                 return
             }
         }

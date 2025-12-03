@@ -1,0 +1,145 @@
+{
+  "identifier" : "F1D3E8A2-7B4C-4D5E-9F8A-1B2C3D4E5F6G",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "coins_small_001",
+      "localizations" : [
+        {
+          "description" : "500 coins to spend in the game",
+          "displayName" : "Small Pack",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.skyhopper.coins.small",
+      "referenceName" : "Coins - Small Pack",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "coins_medium_001",
+      "localizations" : [
+        {
+          "description" : "1500 coins to spend in the game",
+          "displayName" : "Medium Pack",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.skyhopper.coins.medium",
+      "referenceName" : "Coins - Medium Pack",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "coins_large_001",
+      "localizations" : [
+        {
+          "description" : "5000 coins to spend in the game",
+          "displayName" : "Large Pack",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.skyhopper.coins.large",
+      "referenceName" : "Coins - Large Pack",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "coins_mega_001",
+      "localizations" : [
+        {
+          "description" : "12000 coins to spend in the game",
+          "displayName" : "Mega Pack",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.skyhopper.coins.mega",
+      "referenceName" : "Coins - Mega Pack",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : true,
+      "internalID" : "remove_ads_001",
+      "localizations" : [
+        {
+          "description" : "Remove all advertisements from the game permanently",
+          "displayName" : "Remove Ads",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.skyhopper.removeads",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "skyhopper_app_001",
+    "_developerTeamID" : "YOUR_TEAM_ID",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
+
