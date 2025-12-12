@@ -35,6 +35,7 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     private var achievementsContainer: SKShapeNode!
     private var referralsContainer: SKShapeNode!
     private var settingsContainer: SKShapeNode!
+    private var deleteConfirmationNode: SKNode?
     
     // Profile elements
     private var avatarNode: SKNode!
@@ -725,7 +726,8 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
             ("bell", "Notifications", "notificationsButton"),
             ("lock", "Privacy", "privacyButton"),
             ("questionmark.circle", "Help", "helpButton"),
-            ("arrow.right.square", "Sign Out", "signOutButton")
+            ("arrow.right.square", "Sign Out", "signOutButton"),
+            ("trash", "Delete Account", "deleteAccountButton")
         ]
         
         let buttonWidth: CGFloat = size.width - 60
@@ -972,21 +974,147 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
 
         // Load friend list
         friendsScrollContainer.removeAllChildren()
-
-        // Mock friends data
-        let friends = [
-            ("Player123", true),
-            ("GameMaster", false),
-            ("SkyHero", true)
-        ]
-
+        
         var yPos: CGFloat = 50
-        for friend in friends {
-            let friendNode = createFriendItem(username: friend.0, isOnline: friend.1)
-            friendNode.position = CGPoint(x: 0, y: yPos)
-            friendsScrollContainer.addChild(friendNode)
-            yPos -= 60
+        
+        // Load and display pending friend requests FIRST
+        let pendingRequests = AuthenticationManager.shared.getPendingFriendRequests()
+        friendRequests = pendingRequests
+        
+        if !pendingRequests.isEmpty {
+            // Section header for pending requests
+            let headerLabel = SKLabelNode(text: "Pending Friend Requests")
+            headerLabel.fontName = "AvenirNext-Bold"
+            headerLabel.fontSize = 14
+            headerLabel.fontColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
+            headerLabel.horizontalAlignmentMode = .left
+            headerLabel.position = CGPoint(x: -(size.width - 80) / 2, y: yPos)
+            friendsScrollContainer.addChild(headerLabel)
+            yPos -= 35
+            
+            for request in pendingRequests {
+                let requestNode = createFriendRequestItem(request: request)
+                requestNode.position = CGPoint(x: 0, y: yPos)
+                friendsScrollContainer.addChild(requestNode)
+                yPos -= 70
+            }
+            
+            yPos -= 15 // Extra spacing between sections
         }
+        
+        // Section header for friends
+        let friendsHeader = SKLabelNode(text: "Friends")
+        friendsHeader.fontName = "AvenirNext-Bold"
+        friendsHeader.fontSize = 14
+        friendsHeader.fontColor = UIColor(white: 0.7, alpha: 1.0)
+        friendsHeader.horizontalAlignmentMode = .left
+        friendsHeader.position = CGPoint(x: -(size.width - 80) / 2, y: yPos)
+        friendsScrollContainer.addChild(friendsHeader)
+        yPos -= 35
+        
+        // Load actual friends from storage
+        let storedFriends = AuthenticationManager.shared.getFriendsList()
+        
+        if storedFriends.isEmpty {
+            // Show placeholder if no friends
+            let noFriendsLabel = SKLabelNode(text: "No friends yet. Add friends from the leaderboard!")
+            noFriendsLabel.fontName = "AvenirNext-Regular"
+            noFriendsLabel.fontSize = 14
+            noFriendsLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            noFriendsLabel.position = CGPoint(x: 0, y: yPos)
+            friendsScrollContainer.addChild(noFriendsLabel)
+        } else {
+            for friend in storedFriends {
+                let friendNode = createFriendItem(username: friend.username, isOnline: false)
+                friendNode.position = CGPoint(x: 0, y: yPos)
+                friendsScrollContainer.addChild(friendNode)
+                yPos -= 60
+            }
+        }
+    }
+    
+    private func createFriendRequestItem(request: FriendRequest) -> SKNode {
+        let container = SKNode()
+        container.name = "friendRequest_\(request.id)"
+        let width: CGFloat = size.width - 80
+        
+        // Background card
+        let background = SKShapeNode(rectOf: CGSize(width: width, height: 60), cornerRadius: 12)
+        background.fillColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 0.8)
+        background.strokeColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.5)
+        background.lineWidth = 1
+        container.addChild(background)
+        
+        // Avatar
+        let avatar = SKShapeNode(circleOfRadius: 20)
+        avatar.fillColor = UIColor(red: 0.3, green: 0.2, blue: 0.4, alpha: 1.0)
+        avatar.strokeColor = UIColor(white: 1.0, alpha: 0.2)
+        avatar.lineWidth = 1
+        avatar.position = CGPoint(x: -width/2 + 35, y: 0)
+        container.addChild(avatar)
+        
+        // Initial
+        let initial = SKLabelNode(text: String(request.fromUsername.prefix(1)).uppercased())
+        initial.fontName = "AvenirNext-Bold"
+        initial.fontSize = 16
+        initial.fontColor = .white
+        initial.verticalAlignmentMode = .center
+        initial.position = avatar.position
+        container.addChild(initial)
+        
+        // Username
+        let nameLabel = SKLabelNode(text: request.fromUsername)
+        nameLabel.fontName = "AvenirNext-Medium"
+        nameLabel.fontSize = 15
+        nameLabel.fontColor = .white
+        nameLabel.horizontalAlignmentMode = .left
+        nameLabel.verticalAlignmentMode = .center
+        nameLabel.position = CGPoint(x: -width/2 + 65, y: 8)
+        container.addChild(nameLabel)
+        
+        // "wants to be friends" text
+        let subLabel = SKLabelNode(text: "wants to be friends")
+        subLabel.fontName = "AvenirNext-Regular"
+        subLabel.fontSize = 12
+        subLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
+        subLabel.horizontalAlignmentMode = .left
+        subLabel.verticalAlignmentMode = .center
+        subLabel.position = CGPoint(x: -width/2 + 65, y: -8)
+        container.addChild(subLabel)
+        
+        // Accept button
+        let acceptButton = SKShapeNode(rectOf: CGSize(width: 60, height: 32), cornerRadius: 8)
+        acceptButton.fillColor = UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1.0)
+        acceptButton.strokeColor = .clear
+        acceptButton.position = CGPoint(x: width/2 - 95, y: 0)
+        acceptButton.name = "acceptFriend_\(request.id)"
+        container.addChild(acceptButton)
+        
+        let acceptLabel = SKLabelNode(text: "Accept")
+        acceptLabel.fontName = "AvenirNext-Bold"
+        acceptLabel.fontSize = 12
+        acceptLabel.fontColor = .white
+        acceptLabel.verticalAlignmentMode = .center
+        acceptLabel.position = acceptButton.position
+        container.addChild(acceptLabel)
+        
+        // Decline button
+        let declineButton = SKShapeNode(rectOf: CGSize(width: 60, height: 32), cornerRadius: 8)
+        declineButton.fillColor = UIColor(red: 0.6, green: 0.2, blue: 0.2, alpha: 1.0)
+        declineButton.strokeColor = .clear
+        declineButton.position = CGPoint(x: width/2 - 30, y: 0)
+        declineButton.name = "declineFriend_\(request.id)"
+        container.addChild(declineButton)
+        
+        let declineLabel = SKLabelNode(text: "Decline")
+        declineLabel.fontName = "AvenirNext-Bold"
+        declineLabel.fontSize = 12
+        declineLabel.fontColor = .white
+        declineLabel.verticalAlignmentMode = .center
+        declineLabel.position = declineButton.position
+        container.addChild(declineLabel)
+        
+        return container
     }
     
     private func createFriendItem(username: String, isOnline: Bool) -> SKNode {
@@ -1091,6 +1219,12 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
                 handleAddFriend()
             case "signOutButton":
                 handleSignOut()
+            case "deleteAccountButton":
+                handleDeleteAccountTap()
+            case "confirmDeleteAccount":
+                performAccountDeletion()
+            case "cancelDeleteAccount":
+                dismissDeleteConfirmation()
             case "notificationsButton":
                 print("Notifications settings")
             case "privacyButton":
@@ -1098,7 +1232,14 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
             case "helpButton":
                 print("Help")
             default:
-                break
+                // Check for friend request actions
+                if nodeName.starts(with: "acceptFriend_") {
+                    let requestId = String(nodeName.dropFirst("acceptFriend_".count))
+                    handleFriendRequestResponse(requestId: requestId, accept: true)
+                } else if nodeName.starts(with: "declineFriend_") {
+                    let requestId = String(nodeName.dropFirst("declineFriend_".count))
+                    handleFriendRequestResponse(requestId: requestId, accept: false)
+                }
             }
         }
         
@@ -1235,8 +1376,19 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     private func handleShareReferral() {
         guard let user = AuthenticationManager.shared.currentUser else { return }
 
-        let shareText = "Join me on Sky Hopper! Use my referral code \(user.referralCode) to get 500 bonus points! 🚁"
-        let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+        let appStoreURL = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID_HERE")
+        let deepLinkURL = URL(string: "hopverse://referral?code=\(user.referralCode)")
+        let shareText = """
+        Join me on Sky Hopper! Use my referral code \(user.referralCode) to get 500 bonus points! 🚁
+        Download: https://apps.apple.com/app/idYOUR_APP_ID_HERE
+        Already installed? Open: hopverse://referral?code=\(user.referralCode)
+        """
+        
+        var items: [Any] = [shareText]
+        if let appStoreURL { items.append(appStoreURL) }
+        if let deepLinkURL { items.append(deepLinkURL) }
+        
+        let activityVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
 
         if let viewController = view?.window?.rootViewController {
             viewController.present(activityVC, animated: true)
@@ -1317,6 +1469,66 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         }
     }
     
+    private func handleFriendRequestResponse(requestId: String, accept: Bool) {
+        AuthenticationManager.shared.respondToFriendRequest(requestId: requestId, accept: accept) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    // Show confirmation
+                    let message = accept ? "Friend request accepted!" : "Friend request declined."
+                    self?.showTemporaryMessage(message)
+                    
+                    // Reload friends list to reflect changes
+                    self?.loadFriends()
+                    
+                case .failure(let error):
+                    let alert = UIAlertController(
+                        title: "Error",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+                    if let viewController = self?.view?.window?.rootViewController {
+                        viewController.present(alert, animated: true)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func showTemporaryMessage(_ text: String) {
+        let messageNode = SKLabelNode(text: text)
+        messageNode.fontName = "AvenirNext-Bold"
+        messageNode.fontSize = 18
+        messageNode.fontColor = .white
+        messageNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        messageNode.zPosition = 1000
+        messageNode.alpha = 0
+        
+        // Background
+        let padding: CGFloat = 24
+        let bgWidth = messageNode.frame.width + padding * 2
+        let bgHeight: CGFloat = 50
+        let background = SKShapeNode(rectOf: CGSize(width: bgWidth, height: bgHeight), cornerRadius: 12)
+        background.fillColor = UIColor(red: 0.1, green: 0.6, blue: 0.3, alpha: 0.95)
+        background.strokeColor = .clear
+        background.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        background.zPosition = 999
+        background.alpha = 0
+        
+        addChild(background)
+        addChild(messageNode)
+        
+        let fadeIn = SKAction.fadeIn(withDuration: 0.2)
+        let wait = SKAction.wait(forDuration: 1.5)
+        let fadeOut = SKAction.fadeOut(withDuration: 0.3)
+        let remove = SKAction.removeFromParent()
+        let sequence = SKAction.sequence([fadeIn, wait, fadeOut, remove])
+        
+        messageNode.run(sequence)
+        background.run(sequence)
+    }
+    
     private func handleSignOut() {
         AuthenticationManager.shared.logout()
         
@@ -1324,6 +1536,106 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         let authScene = AuthenticationScene(size: size)
         authScene.scaleMode = .aspectFill
         view?.presentScene(authScene, transition: transition)
+    }
+    
+    private func handleDeleteAccountTap() {
+        // Prevent stacking multiple confirmations
+        guard deleteConfirmationNode == nil else { return }
+        
+        let overlay = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        overlay.fillColor = UIColor(white: 0, alpha: 0.65)
+        overlay.strokeColor = .clear
+        overlay.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.zPosition = 500
+        
+        let panelSize = CGSize(width: size.width - 80, height: 200)
+        let panel = SKShapeNode(rectOf: panelSize, cornerRadius: 18)
+        panel.fillColor = UIColor(white: 0.15, alpha: 0.9)
+        panel.strokeColor = UIColor(white: 1.0, alpha: 0.15)
+        panel.lineWidth = 1.5
+        panel.position = .zero
+        overlay.addChild(panel)
+        
+        let title = SKLabelNode(text: "Delete Account?")
+        title.fontName = "AvenirNext-Bold"
+        title.fontSize = 22
+        title.fontColor = .white
+        title.position = CGPoint(x: 0, y: 50)
+        overlay.addChild(title)
+        
+        let message = SKLabelNode(text: "This will remove your profile and local data.")
+        message.fontName = "AvenirNext-Regular"
+        message.fontSize = 16
+        message.fontColor = UIColor(white: 0.85, alpha: 1.0)
+        message.position = CGPoint(x: 0, y: 10)
+        overlay.addChild(message)
+        
+        // Buttons
+        let buttonWidth: CGFloat = (panelSize.width - 60) / 2
+        let buttonHeight: CGFloat = 44
+        
+        let cancelButton = createSettingButton(icon: "xmark", text: "Cancel", size: CGSize(width: buttonWidth, height: buttonHeight))
+        cancelButton.position = CGPoint(x: -buttonWidth/2 - 10, y: -50)
+        cancelButton.name = "cancelDeleteAccount"
+        overlay.addChild(cancelButton)
+        
+        let confirmButton = createSettingButton(icon: "trash", text: "Delete", size: CGSize(width: buttonWidth, height: buttonHeight))
+        confirmButton.position = CGPoint(x: buttonWidth/2 + 10, y: -50)
+        confirmButton.name = "confirmDeleteAccount"
+        if let bg = confirmButton.children.first as? SKShapeNode {
+            bg.fillColor = UIColor(red: 0.85, green: 0.2, blue: 0.25, alpha: 0.9)
+            bg.strokeColor = UIColor(red: 1.0, green: 0.4, blue: 0.4, alpha: 1.0)
+        }
+        overlay.addChild(confirmButton)
+        
+        deleteConfirmationNode = overlay
+        addChild(overlay)
+    }
+    
+    private func dismissDeleteConfirmation() {
+        deleteConfirmationNode?.removeFromParent()
+        deleteConfirmationNode = nil
+    }
+    
+    private func performAccountDeletion() {
+        guard let overlay = deleteConfirmationNode else { return }
+        
+        // Update UI to show progress
+        overlay.children.compactMap { $0 as? SKLabelNode }.forEach { label in
+            label.text = "Deleting..."
+        }
+        
+        AuthenticationManager.shared.deleteAccount { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch result {
+                case .success:
+                    self.dismissDeleteConfirmation()
+                    let transition = SKTransition.fade(withDuration: 0.5)
+                    let authScene = AuthenticationScene(size: self.size)
+                    authScene.scaleMode = .aspectFill
+                    self.view?.presentScene(authScene, transition: transition)
+                case .failure(let error):
+                    self.showTransientError(error.localizedDescription)
+                    self.dismissDeleteConfirmation()
+                }
+            }
+        }
+    }
+    
+    private func showTransientError(_ message: String) {
+        let label = SKLabelNode(text: message)
+        label.fontName = "AvenirNext-Medium"
+        label.fontSize = 16
+        label.fontColor = UIColor(red: 1.0, green: 0.4, blue: 0.4, alpha: 1.0)
+        label.position = CGPoint(x: size.width / 2, y: size.height / 2 - 120)
+        label.zPosition = 600
+        addChild(label)
+        
+        let wait = SKAction.wait(forDuration: 2.5)
+        let fade = SKAction.fadeOut(withDuration: 0.5)
+        let remove = SKAction.removeFromParent()
+        label.run(SKAction.sequence([wait, fade, remove]))
     }
     
     // MARK: - UIImagePickerControllerDelegate
@@ -1335,6 +1647,7 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
             // Save image data
             if let imageData = image.jpegData(compressionQuality: 0.8) {
                 // Would save to user profile
+                AuthenticationManager.shared.updateCustomAvatar(imageData)
                 print("Avatar image selected: \(imageData.count) bytes")
                 
                 // Update avatar display

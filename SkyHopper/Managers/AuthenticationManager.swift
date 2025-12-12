@@ -1,6 +1,9 @@
 import Foundation
 import AuthenticationServices
 import CryptoKit
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 // TODO: Add GoogleSignIn SDK
 // import GoogleSignIn
 
@@ -62,6 +65,13 @@ class AuthenticationManager: NSObject {
             UserDefaults.standard.set(true, forKey: isAuthenticatedKey)
         }
     }
+
+    /// Persist a custom avatar image for the signed-in user.
+    func updateCustomAvatar(_ data: Data?) {
+        guard var user = currentUser else { return }
+        user.customAvatar = data
+        saveCurrentUser(user)
+    }
     
     func logout() {
         currentUser = nil
@@ -73,12 +83,25 @@ class AuthenticationManager: NSObject {
         return currentUser != nil && UserDefaults.standard.bool(forKey: isAuthenticatedKey)
     }
     
+    var isGuest: Bool {
+        return currentUser?.isGuestUser ?? false
+    }
+    
     var hasCompletedOnboarding: Bool {
         return UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     }
     
     func setOnboardingCompleted() {
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+    }
+    
+    /// Create a local-only guest profile so users can reach gameplay without registration.
+    func continueAsGuest(completion: @escaping (Result<UserProfile, Error>) -> Void) {
+        let guest = UserProfile.guestProfile()
+        saveCurrentUser(guest)
+        UserDefaults.standard.set(true, forKey: isAuthenticatedKey)
+        setOnboardingCompleted()
+        completion(.success(guest))
     }
     
     // MARK: - Email Authentication
@@ -182,6 +205,50 @@ class AuthenticationManager: NSObject {
         UserDefaults.standard.set(hashString, forKey: key)
     }
     
+    /// Purges local data for account deletion (used for guests and fallback paths).
+    private func purgeLocalAccountData(email: String?) {
+        // Remove stored password for the email if present
+        if let email = email {
+            let key = "password_\(email)"
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        UserDefaults.standard.removeObject(forKey: "friendRequests")
+        UserDefaults.standard.removeObject(forKey: "takenUsernames")
+        logout()
+    }
+    
+    /// Delete the signed-in account. Uses Firebase Auth if present, otherwise falls back to local deletion.
+    func deleteAccount(completion: @escaping (Result<Void, Error>) -> Void) {
+        let email = currentUser?.email
+        
+        // Guest accounts only need local cleanup
+        if isGuest {
+            purgeLocalAccountData(email: email)
+            completion(.success(()))
+            return
+        }
+        
+        #if canImport(FirebaseAuth)
+        if let firebaseUser = Auth.auth().currentUser {
+            firebaseUser.delete { [weak self] error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    self?.purgeLocalAccountData(email: email)
+                    completion(.success(()))
+                }
+            }
+            return
+        }
+        #endif
+        
+        // Fallback: remove local data
+        purgeLocalAccountData(email: email)
+        completion(.success(()))
+    }
+    
     private func verifyPassword(for email: String, password: String) -> Bool {
         // In real app, verify against server
         let key = "password_\(email)"
@@ -250,6 +317,83 @@ class AuthenticationManager: NSObject {
         }
     }
     
+    /// Get pending friend requests for the current user
+    func getPendingFriendRequests() -> [FriendRequest] {
+        guard let currentUser = currentUser else { return [] }
+        
+        let requestsData = UserDefaults.standard.array(forKey: "friendRequests") as? [[String: Any]] ?? []
+        var pendingRequests: [FriendRequest] = []
+        
+        for dict in requestsData {
+            if let data = try? JSONSerialization.data(withJSONObject: dict),
+               let request = try? JSONDecoder().decode(FriendRequest.self, from: data) {
+                // Return requests sent TO the current user that are still pending
+                if (request.toUserId == currentUser.id || request.toUserId == currentUser.username) &&
+                   request.status == .pending {
+                    pendingRequests.append(request)
+                }
+            }
+        }
+        
+        return pendingRequests
+    }
+    
+    /// Respond to a friend request (accept or decline)
+    func respondToFriendRequest(requestId: String, accept: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        var requestsData = UserDefaults.standard.array(forKey: "friendRequests") as? [[String: Any]] ?? []
+        
+        for (index, dict) in requestsData.enumerated() {
+            if let data = try? JSONSerialization.data(withJSONObject: dict),
+               var request = try? JSONDecoder().decode(FriendRequest.self, from: data),
+               request.id == requestId {
+                
+                // Create updated request with new status
+                let updatedRequest = FriendRequest(
+                    id: request.id,
+                    fromUserId: request.fromUserId,
+                    fromUsername: request.fromUsername,
+                    fromAvatar: request.fromAvatar,
+                    toUserId: request.toUserId,
+                    status: accept ? .accepted : .declined,
+                    sentDate: request.sentDate
+                )
+                
+                // Update in storage
+                if let encoded = try? JSONEncoder().encode(updatedRequest),
+                   let updatedDict = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+                    requestsData[index] = updatedDict
+                    UserDefaults.standard.set(requestsData, forKey: "friendRequests")
+                    
+                    // If accepted, add to friends list
+                    if accept {
+                        addFriend(userId: request.fromUserId, username: request.fromUsername)
+                    }
+                    
+                    completion(.success(()))
+                    return
+                }
+            }
+        }
+        
+        completion(.failure(AuthError.unknownError))
+    }
+    
+    /// Add a friend to the current user's friends list
+    private func addFriend(userId: String, username: String) {
+        var friends = UserDefaults.standard.array(forKey: "userFriends") as? [[String: String]] ?? []
+        friends.append(["userId": userId, "username": username])
+        UserDefaults.standard.set(friends, forKey: "userFriends")
+    }
+    
+    /// Get the current user's friends list
+    func getFriendsList() -> [(userId: String, username: String)] {
+        let friends = UserDefaults.standard.array(forKey: "userFriends") as? [[String: String]] ?? []
+        return friends.compactMap { dict in
+            guard let userId = dict["userId"], let username = dict["username"] else { return nil }
+            return (userId: userId, username: username)
+        }
+    }
+    
     // MARK: - Referral System
     
     func applyReferralCode(_ code: String, completion: @escaping (Result<Int, Error>) -> Void) {
@@ -274,7 +418,9 @@ class AuthenticationManager: NSObject {
 extension AuthenticationManager: ASAuthorizationControllerDelegate {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            authCompletion?(.failure(AuthError.unknownError))
+            DispatchQueue.main.async { [weak self] in
+                self?.authCompletion?(.failure(AuthError.unknownError))
+            }
             return
         }
         
@@ -288,11 +434,41 @@ extension AuthenticationManager: ASAuthorizationControllerDelegate {
         saveCurrentUser(user)
         setOnboardingCompleted()
         
-        authCompletion?(.success(user))
+        DispatchQueue.main.async { [weak self] in
+            self?.authCompletion?(.success(user))
+        }
     }
     
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        authCompletion?(.failure(error))
+        let mapped = mapAppleError(error)
+        DispatchQueue.main.async { [weak self] in
+            self?.authCompletion?(.failure(mapped))
+        }
+    }
+    
+    /// Converts common Apple sign-in errors into user-friendly messages.
+    private func mapAppleError(_ error: Error) -> Error {
+        if let authError = error as? ASAuthorizationError {
+            let message: String
+            switch authError.code {
+            case .canceled:
+                message = "Sign in was canceled. Please try again."
+            case .failed:
+                message = "Sign in with Apple failed. Please check your iCloud account and try again."
+            case .invalidResponse:
+                message = "Invalid response from Apple ID. Please retry."
+            case .notHandled:
+                message = "Sign in with Apple could not be completed. Please try again."
+            case .unknown:
+                message = "An unknown Apple sign-in error occurred."
+            case .notInteractive:
+                message = "Apple sign-in requires user interaction. Please try again."
+            @unknown default:
+                message = "Sign in with Apple encountered an unexpected error."
+            }
+            return NSError(domain: "SignInWithApple", code: authError.code.rawValue, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        return error
     }
 }
 

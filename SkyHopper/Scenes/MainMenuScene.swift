@@ -423,6 +423,36 @@ class MainMenuScene: SKScene {
         notification.run(sequence)
     }
     
+    private func showGuestRestrictionMessage(_ text: String) {
+        let message = SKLabelNode(text: text)
+        message.fontName = "AvenirNext-Bold"
+        message.fontSize = 18
+        message.fontColor = .white
+        message.position = CGPoint(x: size.width / 2, y: size.height - 200)
+        message.zPosition = 200
+        
+        let background = SKShapeNode(rect: CGRect(x: -190, y: -18, width: 380, height: 36), cornerRadius: 14)
+        background.fillColor = UIColor(red: 0.9, green: 0.35, blue: 0.35, alpha: 0.85)
+        background.strokeColor = .white
+        background.lineWidth = 1.5
+        background.zPosition = -1
+        message.addChild(background)
+        
+        addChild(message)
+        
+        let fadeOut = SKAction.fadeOut(withDuration: 0.5)
+        let wait = SKAction.wait(forDuration: 2.5)
+        let remove = SKAction.removeFromParent()
+        message.run(SKAction.sequence([wait, fadeOut, remove]))
+    }
+    
+    private func presentAuthenticationScene() {
+        let transition = SKTransition.fade(withDuration: 0.35)
+        let authScene = AuthenticationScene(size: size)
+        authScene.scaleMode = .resizeFill
+        view?.presentScene(authScene, transition: transition)
+    }
+    
     // MARK: - Touch Handling
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -481,6 +511,12 @@ class MainMenuScene: SKScene {
     
     private func handleProfileButton() {
         animateButtonPress(profileButton) {
+            guard !AuthenticationManager.shared.isGuest else {
+                self.showGuestRestrictionMessage("Sign in to view your profile")
+                self.presentAuthenticationScene()
+                return
+            }
+            
             let transition = SKTransition.fade(withDuration: 0.5)
             let profileScene = ProfileSettingsScene(size: self.size)
             profileScene.scaleMode = .aspectFill
@@ -490,6 +526,12 @@ class MainMenuScene: SKScene {
     
     private func handleLeaderboardButton() {
         animateButtonPress(leaderboardButton) {
+            guard !AuthenticationManager.shared.isGuest else {
+                self.showGuestRestrictionMessage("Sign in to access leaderboards")
+                self.presentAuthenticationScene()
+                return
+            }
+            
             // Use custom leaderboard scene instead of Game Center default
             let transition = SKTransition.fade(withDuration: 0.5)
             let leaderboardScene = ModernLeaderboardScene(size: self.size)

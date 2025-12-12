@@ -1,4 +1,5 @@
 import SpriteKit
+import SpriteKit
 import GameKit
 
 // MARK: - Extensions
@@ -4547,11 +4548,17 @@ class GameScene: SKScene, SKPhysicsContactDelegate, GameCenterManagerDelegate {
         let timestamp = Date().timeIntervalSince1970
         let entryKey = "\(timestamp)"
         
-        leaderboardEntries[entryKey] = [
+        var entry: [String: Any] = [
             "playerName": playerName,
             "score": score,
             "date": timestamp
         ]
+        
+        if let avatar = AuthenticationManager.shared.currentUser?.customAvatar {
+            entry["avatar"] = avatar
+        }
+        
+        leaderboardEntries[entryKey] = entry
         
         // Keep only top 10 scores
         let sortedEntries = leaderboardEntries.sorted { (entry1, entry2) in

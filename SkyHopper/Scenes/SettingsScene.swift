@@ -15,6 +15,8 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
     private var privacyButton: SKShapeNode!
     private var creditsButton: SKShapeNode!
     private var resetButton: SKShapeNode!
+    private var signOutButton: SKShapeNode!
+    private var deleteButton: SKShapeNode!
     private var topBar = SKNode()
     
     // Privacy policy scrolling
@@ -121,6 +123,24 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
         )
         resetButton.name = "resetButton"
         addChild(resetButton)
+        
+        // Sign out
+        signOutButton = createButton(
+            title: "Sign Out",
+            position: CGPoint(x: size.width / 2, y: topBarBottomY - 490),
+            color: UIColor(red: 0.35, green: 0.55, blue: 0.95, alpha: 1.0)
+        )
+        signOutButton.name = "signOutButton"
+        addChild(signOutButton)
+        
+        // Delete account
+        deleteButton = createButton(
+            title: "Delete Account",
+            position: CGPoint(x: size.width / 2, y: topBarBottomY - 560),
+            color: UIColor(red: 0.85, green: 0.25, blue: 0.3, alpha: 1.0)
+        )
+        deleteButton.name = "deleteAccountButton"
+        addChild(deleteButton)
     }
     
     private func createToggleSwitch(position: CGPoint, isOn: Bool) -> SKShapeNode {
@@ -785,6 +805,69 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
         run(SKAction.sequence([wait, returnToMenu]))
     }
     
+    private func handleSignOut() {
+        AuthenticationManager.shared.logout()
+        let transition = SKTransition.fade(withDuration: 0.4)
+        let authScene = AuthenticationScene(size: size)
+        authScene.scaleMode = .aspectFill
+        view?.presentScene(authScene, transition: transition)
+    }
+    
+    private func confirmDeleteAccount() {
+        // Simple confirmation pop-up
+        let popupSize = CGSize(width: size.width - 80, height: 200)
+        let popup = SKShapeNode(rectOf: popupSize, cornerRadius: 18)
+        popup.name = "deleteConfirmPopup"
+        popup.fillColor = UIColor(white: 0.15, alpha: 0.95)
+        popup.strokeColor = UIColor(white: 1.0, alpha: 0.15)
+        popup.lineWidth = 1.5
+        popup.position = CGPoint(x: size.width/2, y: size.height/2)
+        popup.zPosition = 500
+        
+        let title = SKLabelNode(text: "Delete Account?")
+        title.fontName = "AvenirNext-Bold"
+        title.fontSize = 22
+        title.fontColor = .white
+        title.position = CGPoint(x: 0, y: 50)
+        popup.addChild(title)
+        
+        let message = SKLabelNode(text: "This will remove your profile and local data.")
+        message.fontName = "AvenirNext-Regular"
+        message.fontSize = 16
+        message.fontColor = UIColor(white: 0.85, alpha: 1.0)
+        message.position = CGPoint(x: 0, y: 10)
+        popup.addChild(message)
+        
+        let buttonWidth: CGFloat = (popupSize.width - 60) / 2
+        
+        let cancel = createButton(title: "Cancel", position: CGPoint(x: -buttonWidth/2 - 10, y: -50))
+        cancel.name = "cancelDeleteAccount"
+        popup.addChild(cancel)
+        
+        let confirm = createButton(title: "Delete", position: CGPoint(x: buttonWidth/2 + 10, y: -50), color: UIColor(red: 0.85, green: 0.25, blue: 0.3, alpha: 1.0))
+        confirm.name = "confirmDeleteAccount"
+        popup.addChild(confirm)
+        
+        addChild(popup)
+    }
+    
+    private func performDeleteAccount() {
+        AuthenticationManager.shared.deleteAccount { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch result {
+                case .success:
+                    let transition = SKTransition.fade(withDuration: 0.4)
+                    let authScene = AuthenticationScene(size: self.size)
+                    authScene.scaleMode = .aspectFill
+                    self.view?.presentScene(authScene, transition: transition)
+                case .failure(let error):
+                    self.showMessage(error.localizedDescription)
+                }
+            }
+        }
+    }
+    
     // MARK: - Helpers
     
     private func addCloudsBackground() {
@@ -903,6 +986,27 @@ class SettingsScene: SKScene, CurrencyManagerDelegate {
                 
                 if node.name == "resetButton" || node.parent?.name == "resetButton" {
                     confirmResetData()
+                    return
+                }
+                
+                if node.name == "signOutButton" || node.parent?.name == "signOutButton" {
+                    handleSignOut()
+                    return
+                }
+                
+                if node.name == "deleteAccountButton" || node.parent?.name == "deleteAccountButton" {
+                    confirmDeleteAccount()
+                    return
+                }
+                
+                if node.name == "cancelDeleteAccount" || node.parent?.name == "cancelDeleteAccount" {
+                    childNode(withName: "deleteConfirmPopup")?.removeFromParent()
+                    return
+                }
+                
+                if node.name == "confirmDeleteAccount" || node.parent?.name == "confirmDeleteAccount" {
+                    childNode(withName: "deleteConfirmPopup")?.removeFromParent()
+                    performDeleteAccount()
                     return
                 }
                 

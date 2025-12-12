@@ -13,9 +13,10 @@ struct UserProfile: Codable {
     let referralCount: Int
     let totalPoints: Int
     let dateJoined: Date
-    let customAvatar: Data? // For uploaded avatars
+    var customAvatar: Data? // For uploaded avatars
     let privacySettings: PrivacySettings
     let region: RegionInfo?
+    var isGuest: Bool? // Optional so older stored profiles decode without breaking
     
     struct PrivacySettings: Codable {
         var emailVisibility: PrivacyLevel
@@ -52,6 +53,7 @@ struct UserProfile: Codable {
         self.customAvatar = nil
         self.privacySettings = PrivacySettings()
         self.region = nil
+        self.isGuest = false
         
         switch authProvider {
         case .apple:
@@ -66,6 +68,10 @@ struct UserProfile: Codable {
             self.appleID = nil
             self.googleID = nil
             self.avatarURL = nil
+        case .guest:
+            self.appleID = nil
+            self.googleID = nil
+            self.avatarURL = nil
         }
     }
     
@@ -73,11 +79,30 @@ struct UserProfile: Codable {
         case apple
         case google
         case email
+        case guest
     }
     
     static func generateReferralCode() -> String {
         let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return String((0..<6).map { _ in letters.randomElement()! })
+    }
+    
+    /// Guest profile factory for local-only play
+    static func guestProfile() -> UserProfile {
+        let guestSuffix = Int.random(in: 1000...9999)
+        var profile = UserProfile(
+            username: "Guest\(guestSuffix)",
+            email: "guest\(guestSuffix)@local",
+            authProvider: .guest,
+            authID: UUID().uuidString
+        )
+        profile.isGuest = true
+        return profile
+    }
+    
+    /// Safe guest flag (nil decodes as false)
+    var isGuestUser: Bool {
+        return isGuest ?? false
     }
 }
 

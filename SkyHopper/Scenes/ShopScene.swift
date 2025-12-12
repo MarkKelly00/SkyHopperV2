@@ -220,8 +220,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         // Get topBar metrics for proper positioning
         let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
         
-        let tabWidth = size.width / 4
-        let tabHeight: CGFloat = 40
+        let compact = size.width < 420
+        let tabHeight: CGFloat = compact ? 36 : 40
+        let availableWidth = size.width - 24
+        let tabWidth = availableWidth / 4
+        let startX = (size.width - availableWidth) / 2 + tabWidth / 2
         let tabY = topBarBottomY - tabHeight/2 - UIConstants.Spacing.small
         
         // Create tab buttons
@@ -235,17 +238,20 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         for (index, (title, tab)) in tabConfigs.enumerated() {
             let tabButton = createTabButton(
                 title: title,
-                position: CGPoint(x: tabWidth * CGFloat(index) + tabWidth/2, y: tabY),
+                position: CGPoint(x: startX + tabWidth * CGFloat(index), y: tabY),
                 isSelected: tab == currentTab,
-                tag: index
+                tag: index,
+                width: tabWidth - 6
             )
             tabButtons.append(tabButton)
             addChild(tabButton)
         }
     }
     
-    private func createTabButton(title: String, position: CGPoint, isSelected: Bool, tag: Int) -> SKShapeNode {
-        let tabButton = SKShapeNode(rectOf: CGSize(width: size.width/4 - 10, height: 40), cornerRadius: 10)
+    private func createTabButton(title: String, position: CGPoint, isSelected: Bool, tag: Int, width: CGFloat) -> SKShapeNode {
+        let compact = size.width < 420
+        let buttonHeight: CGFloat = compact ? 36 : 40
+        let tabButton = SKShapeNode(rectOf: CGSize(width: width, height: buttonHeight), cornerRadius: 10)
         tabButton.fillColor = isSelected ? .blue : UIColor(white: 0.7, alpha: 0.5)
         tabButton.strokeColor = isSelected ? .white : UIColor(white: 0.8, alpha: 0.8)
         tabButton.lineWidth = isSelected ? 2 : 1
@@ -255,7 +261,7 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         
         let tabLabel = SKLabelNode(text: title)
         tabLabel.fontName = "AvenirNext-Medium"
-        tabLabel.fontSize = 18
+        tabLabel.fontSize = compact ? 14 : 18
         tabLabel.fontColor = isSelected ? .white : UIColor(white: 0.2, alpha: 1.0)
         tabLabel.verticalAlignmentMode = .center
         tabLabel.horizontalAlignmentMode = .center
@@ -316,10 +322,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         let coinProducts = storeKitManager.coinPackProducts
         
         if coinProducts.isEmpty {
-            // Show loading message if products aren't loaded yet
-            let message = SKLabelNode(text: "Loading store products...")
+            // Show clear message if products aren't loaded (e.g., not submitted for review)
+            let unavailableText = storeKitManager.errorMessage ?? "Store unavailable. Products pending review or network issue."
+            let message = SKLabelNode(text: unavailableText)
             message.fontName = "AvenirNext-Medium"
-            message.fontSize = 18
+            message.fontSize = 16
             message.position = CGPoint(x: 0, y: 0)
             message.zPosition = 10
             shopItems.append(message)
@@ -552,6 +559,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
     // MARK: - Purchase Handling
     
     private func handlePurchase(itemName: String, node: SKNode) {
+        if let _ = node.userData?["productID"], !storeKitManager.isStoreReady {
+            showMessage("Store unavailable. Please try again later.")
+            return
+        }
+        
         // Check if this is an IAP product
         if let productID = node.userData?["productID"] as? String {
             // Real money purchase via StoreKit
@@ -732,21 +744,26 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         
         let location = touch.location(in: self)
         let deltaY = location.y - lastTouchY
-        container.position.y += deltaY
-        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
+        // CORRECTED iOS-style scrolling:
+        // Swipe UP (negative deltaY) = show content below (move container UP = positive position)
+        // Swipe DOWN (positive deltaY) = show content above (move container DOWN = negative position)
+        container.position.y -= deltaY  // INVERTED for correct iOS direction
+        scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2  // Invert velocity too
         lastTouchY = location.y
         
         // Calculate scroll bounds
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        // maxScrollUp = how far we can scroll up to show bottom content (positive)
+        // maxScrollDown = 0 (starting position, can't go negative)
+        let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
+        let maxScrollDown: CGFloat = 0
         
         // Rubber band effect at edges
-        if container.position.y > maxScrollY {
-            let overscroll = container.position.y - maxScrollY
-            container.position.y = maxScrollY + overscroll * 0.3
-        } else if container.position.y < -minScrollY {
-            let overscroll = -minScrollY - container.position.y
-            container.position.y = -minScrollY - overscroll * 0.3
+        if container.position.y > maxScrollUp {
+            let overscroll = container.position.y - maxScrollUp
+            container.position.y = maxScrollUp + overscroll * 0.3
+        } else if container.position.y < maxScrollDown {
+            let overscroll = maxScrollDown - container.position.y
+            container.position.y = maxScrollDown - overscroll * 0.3
         }
     }
     
@@ -758,11 +775,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         
         isScrolling = false
         
-        // Calculate scroll bounds
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        // Calculate scroll bounds (matching touchesMoved)
+        let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
+        let maxScrollDown: CGFloat = 0
         
-        // Apply momentum scrolling
+        // Apply momentum scrolling with corrected direction
         let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
             guard let self = self else { return }
             let decay = pow(0.95, Double(elapsedTime * 60))
@@ -772,11 +789,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
                 node.position.y += velocity
                 
                 // Clamp to bounds during momentum
-                if node.position.y > maxScrollY {
-                    node.position.y = maxScrollY
+                if node.position.y > maxScrollUp {
+                    node.position.y = maxScrollUp
                     self.scrollVelocity = 0
-                } else if node.position.y < -minScrollY {
-                    node.position.y = -minScrollY
+                } else if node.position.y < maxScrollDown {
+                    node.position.y = maxScrollDown
                     self.scrollVelocity = 0
                 }
             }
@@ -784,12 +801,12 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         
         // Snap back if overscrolled
         let currentY = container.position.y
-        if currentY > maxScrollY {
-            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+        if currentY > maxScrollUp {
+            let snapBack = SKAction.moveTo(y: maxScrollUp, duration: 0.3)
             snapBack.timingMode = .easeOut
             container.run(snapBack, withKey: "momentum")
-        } else if currentY < -minScrollY {
-            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+        } else if currentY < maxScrollDown {
+            let snapBack = SKAction.moveTo(y: maxScrollDown, duration: 0.3)
             snapBack.timingMode = .easeOut
             container.run(snapBack, withKey: "momentum")
         } else {

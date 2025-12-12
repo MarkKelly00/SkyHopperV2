@@ -21,6 +21,13 @@ class LevelSelectionScene: SKScene, CurrencyManagerDelegate {
     private var topBar = SKNode()
     private var safe: SafeAreaLayout { SafeAreaLayout(scene: self) }
     
+    // Swipe gesture tracking for page navigation
+    private var swipeStartX: CGFloat?
+    private var swipeStartY: CGFloat?
+    private var isSwiping = false
+    private let swipeThreshold: CGFloat = 60  // Minimum horizontal distance for swipe
+    private let swipeVerticalLimit: CGFloat = 80  // Maximum vertical distance allowed
+    
     // MARK: - Scene Lifecycle
     
     override func didMove(to view: SKView) {
@@ -445,9 +452,16 @@ class LevelSelectionScene: SKScene, CurrencyManagerDelegate {
     // MARK: - Touch Handling
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            let location = touch.location(in: self)
-            let touchedNodes = nodes(at: location)
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let touchedNodes = nodes(at: location)
+        
+        // Record swipe start position
+        swipeStartX = location.x
+        swipeStartY = location.y
+        isSwiping = false
+        
+        for _ in [touch] {
             
             for node in touchedNodes {
                 // Check for popup buttons first (highest priority)
@@ -611,6 +625,95 @@ class LevelSelectionScene: SKScene, CurrencyManagerDelegate {
                         return
                     }
                 }
+            }
+        }
+    }
+    
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first,
+              let startX = swipeStartX,
+              let startY = swipeStartY else { return }
+        
+        let location = touch.location(in: self)
+        let deltaX = location.x - startX
+        let deltaY = abs(location.y - startY)
+        
+        // Only consider horizontal swipe if vertical movement is limited
+        if deltaY < swipeVerticalLimit && abs(deltaX) > swipeThreshold / 2 {
+            isSwiping = true
+        }
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first,
+              let startX = swipeStartX,
+              let startY = swipeStartY else {
+            resetSwipeState()
+            return
+        }
+        
+        let location = touch.location(in: self)
+        let deltaX = location.x - startX
+        let deltaY = abs(location.y - startY)
+        
+        // Check for valid horizontal swipe
+        if deltaY < swipeVerticalLimit && abs(deltaX) >= swipeThreshold {
+            let totalPages = Int(ceil(Double(levels.count) / Double(levelsPerPage)))
+            
+            if deltaX > 0 && currentPage > 0 {
+                // Swipe RIGHT = go to PREVIOUS page
+                currentPage -= 1
+                animatePageTransition(direction: .right)
+                AudioManager.shared.playEffect(.menuTap)
+            } else if deltaX < 0 && currentPage < totalPages - 1 {
+                // Swipe LEFT = go to NEXT page
+                currentPage += 1
+                animatePageTransition(direction: .left)
+                AudioManager.shared.playEffect(.menuTap)
+            }
+        }
+        
+        resetSwipeState()
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        resetSwipeState()
+    }
+    
+    private func resetSwipeState() {
+        swipeStartX = nil
+        swipeStartY = nil
+        isSwiping = false
+    }
+    
+    private enum SwipeDirection {
+        case left
+        case right
+    }
+    
+    private func animatePageTransition(direction: SwipeDirection) {
+        // Animate level nodes out
+        let moveAmount: CGFloat = direction == .left ? -size.width : size.width
+        
+        for node in levelNodes {
+            let moveOut = SKAction.moveBy(x: moveAmount, y: 0, duration: 0.2)
+            moveOut.timingMode = .easeIn
+            node.run(moveOut)
+        }
+        
+        // After animation, reload with new page
+        run(SKAction.wait(forDuration: 0.15)) { [weak self] in
+            guard let self = self else { return }
+            self.setupLevelDisplay()
+            self.updateNavigationButtons()
+            
+            // Animate new nodes in from opposite direction
+            let startOffset: CGFloat = direction == .left ? self.size.width : -self.size.width
+            for node in self.levelNodes {
+                node.position.x += startOffset
+                let moveIn = SKAction.moveBy(x: -startOffset, y: 0, duration: 0.25)
+                moveIn.timingMode = .easeOut
+                node.run(moveIn)
             }
         }
     }

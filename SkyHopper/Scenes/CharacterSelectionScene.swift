@@ -414,21 +414,26 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         // Track total scroll distance to distinguish scrolls from taps
         totalScrollDistance += abs(deltaY)
         
-        container.position.y += deltaY
-        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
+        // CORRECTED iOS-style scrolling:
+        // Swipe UP (negative deltaY) = show content below (move container UP = positive position)
+        // Swipe DOWN (positive deltaY) = show content above (move container DOWN = negative position)
+        container.position.y -= deltaY  // INVERTED for correct iOS direction
+        scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2  // Invert velocity too
         lastTouchY = location.y
         
-        // Calculate scroll bounds
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        // Calculate scroll bounds (corrected for iOS-style scrolling)
+        // maxScrollUp = how far we can scroll up to show bottom content (positive)
+        // maxScrollDown = 0 (starting position, can't go negative)
+        let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
+        let maxScrollDown: CGFloat = 0
         
         // Rubber band effect at edges
-        if container.position.y > maxScrollY {
-            let overscroll = container.position.y - maxScrollY
-            container.position.y = maxScrollY + overscroll * 0.3
-        } else if container.position.y < -minScrollY {
-            let overscroll = -minScrollY - container.position.y
-            container.position.y = -minScrollY - overscroll * 0.3
+        if container.position.y > maxScrollUp {
+            let overscroll = container.position.y - maxScrollUp
+            container.position.y = maxScrollUp + overscroll * 0.3
+        } else if container.position.y < maxScrollDown {
+            let overscroll = maxScrollDown - container.position.y
+            container.position.y = maxScrollDown - overscroll * 0.3
         }
     }
     
@@ -488,11 +493,11 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         
         isScrolling = false
         
-        // Calculate scroll bounds
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight, 0)
+        // Calculate scroll bounds (matching touchesMoved)
+        let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
+        let maxScrollDown: CGFloat = 0
         
-        // Apply momentum scrolling
+        // Apply momentum scrolling with corrected direction
         let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
             guard let self = self else { return }
             let decay = pow(0.95, Double(elapsedTime * 60))
@@ -502,11 +507,11 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
                 node.position.y += velocity
                 
                 // Clamp to bounds during momentum
-                if node.position.y > maxScrollY {
-                    node.position.y = maxScrollY
+                if node.position.y > maxScrollUp {
+                    node.position.y = maxScrollUp
                     self.scrollVelocity = 0
-                } else if node.position.y < -minScrollY {
-                    node.position.y = -minScrollY
+                } else if node.position.y < maxScrollDown {
+                    node.position.y = maxScrollDown
                     self.scrollVelocity = 0
                 }
             }
@@ -514,12 +519,12 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         
         // Snap back if overscrolled
         let currentY = container.position.y
-        if currentY > maxScrollY {
-            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+        if currentY > maxScrollUp {
+            let snapBack = SKAction.moveTo(y: maxScrollUp, duration: 0.3)
             snapBack.timingMode = .easeOut
             container.run(snapBack, withKey: "momentum")
-        } else if currentY < -minScrollY {
-            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+        } else if currentY < maxScrollDown {
+            let snapBack = SKAction.moveTo(y: maxScrollDown, duration: 0.3)
             snapBack.timingMode = .easeOut
             container.run(snapBack, withKey: "momentum")
         } else {

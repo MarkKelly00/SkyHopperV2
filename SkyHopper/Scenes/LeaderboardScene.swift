@@ -1,4 +1,5 @@
 import SpriteKit
+import UIKit
 import GameKit
 
 class LeaderboardScene: SKScene {
@@ -12,6 +13,15 @@ class LeaderboardScene: SKScene {
     private var lastTouchX: CGFloat?
     private var leaderboardContainer: SKNode!
     private var scrollView: SKNode!
+    
+    // Vertical content scrolling
+    private var contentScrollContainer: SKNode!
+    private var contentCropNode: SKCropNode!
+    private var lastTouchY: CGFloat?
+    private var isScrollingContent = false
+    private var scrollVelocity: CGFloat = 0
+    private var contentHeight: CGFloat = 0
+    private var visibleContentHeight: CGFloat = 0
     
     // Map data - COMPLETE list including all seasonal/special maps
     private let maps = [
@@ -40,6 +50,7 @@ class LeaderboardScene: SKScene {
         let playerName: String
         let score: Int
         let isLocalPlayer: Bool
+        let avatarData: Data?
     }
     
     // Sky Hopper themed titles for top 3
@@ -142,15 +153,30 @@ class LeaderboardScene: SKScene {
         }
         createMapTabs()
         
-        // Create leaderboard container
-        leaderboardContainer = SKNode()
-        // Place content 12pt below tabs if available
-        if let bottomY = topBar.userData?["topBarBottomY"] as? CGFloat {
-            leaderboardContainer.position = CGPoint(x: 0, y: bottomY - (UIConstants.Spacing.large * 2) - 40)
-        } else {
-            leaderboardContainer.position = CGPoint(x: 0, y: size.height - 200)
-        }
-        addChild(leaderboardContainer)
+        // Create leaderboard container with crop node for scrolling
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let contentTopY = topBarBottomY - (UIConstants.Spacing.large * 2) - 40
+        let bottomPadding: CGFloat = 40
+        visibleContentHeight = contentTopY - bottomPadding
+        
+        // Crop node for masking scrollable content
+        contentCropNode = SKCropNode()
+        contentCropNode.position = CGPoint(x: size.width / 2, y: contentTopY / 2 + bottomPadding / 2)
+        contentCropNode.zPosition = 5
+        addChild(contentCropNode)
+        
+        // Create mask
+        let scrollMask = SKShapeNode(rectOf: CGSize(width: size.width - 20, height: visibleContentHeight), cornerRadius: 12)
+        scrollMask.fillColor = .white
+        contentCropNode.maskNode = scrollMask
+        
+        // Scrollable content container
+        contentScrollContainer = SKNode()
+        contentScrollContainer.position = CGPoint(x: 0, y: 0)
+        contentCropNode.addChild(contentScrollContainer)
+        
+        // Legacy container reference (for backward compat)
+        leaderboardContainer = contentScrollContainer
     }
     
     private func createMapTabs() {
@@ -236,15 +262,25 @@ class LeaderboardScene: SKScene {
                 continue
             }
             
-            // Check if this is the local player (simple name comparison for now)
-            let currentPlayerName = GameCenterManager.shared.getPlayerDisplayName()
-            let isLocalPlayer = (playerName == currentPlayerName) || (playerName == "Player" && currentPlayerName.isEmpty)
+            // Check if this is the local player - check multiple sources
+            let currentUser = AuthenticationManager.shared.currentUser
+            let gameCenterName = GameCenterManager.shared.getPlayerDisplayName()
+            let authUsername = currentUser?.username ?? ""
+            
+            // Match against Game Center name, AuthenticationManager username, or common defaults
+            let isLocalPlayer = (playerName == gameCenterName && !gameCenterName.isEmpty) ||
+                               (playerName == authUsername && !authUsername.isEmpty) ||
+                               (playerName == "Player" && gameCenterName.isEmpty && authUsername.isEmpty)
+            
+            // ALWAYS use current profile picture for local player (not stored avatar)
+            let avatarData: Data? = isLocalPlayer ? currentUser?.customAvatar : (entryData["avatar"] as? Data)
             
             entries.append(LeaderboardEntry(
                 rank: 0, // Will be set after sorting
                 playerName: playerName,
                 score: score,
-                isLocalPlayer: isLocalPlayer
+                isLocalPlayer: isLocalPlayer,
+                avatarData: avatarData
             ))
         }
         
@@ -256,7 +292,8 @@ class LeaderboardScene: SKScene {
                 rank: index + 1,
                 playerName: entries[index].playerName,
                 score: entries[index].score,
-                isLocalPlayer: entries[index].isLocalPlayer
+                isLocalPlayer: entries[index].isLocalPlayer,
+                avatarData: entries[index].avatarData
             )
         }
         
@@ -291,7 +328,8 @@ class LeaderboardScene: SKScene {
                             rank: entry.rank,
                             playerName: entry.player.displayName,
                             score: entry.score,
-                            isLocalPlayer: entry.player == GKLocalPlayer.local
+                            isLocalPlayer: entry.player == GKLocalPlayer.local,
+                            avatarData: nil
                         )
                         self.leaderboardEntries.append(leaderboardEntry)
                     }
@@ -311,22 +349,23 @@ class LeaderboardScene: SKScene {
     private func loadMockData() {
         // For testing/demo purposes
         leaderboardEntries = [
-            LeaderboardEntry(rank: 1, playerName: "SkyMaster", score: 1250, isLocalPlayer: false),
-            LeaderboardEntry(rank: 2, playerName: "AceFlyer", score: 1100, isLocalPlayer: false),
-            LeaderboardEntry(rank: 3, playerName: "You", score: 950, isLocalPlayer: true),
-            LeaderboardEntry(rank: 4, playerName: "CloudHopper", score: 875, isLocalPlayer: false),
-            LeaderboardEntry(rank: 5, playerName: "JetStream", score: 720, isLocalPlayer: false),
-            LeaderboardEntry(rank: 6, playerName: "WindRider", score: 650, isLocalPlayer: false),
-            LeaderboardEntry(rank: 7, playerName: "SkyDancer", score: 580, isLocalPlayer: false),
-            LeaderboardEntry(rank: 8, playerName: "AirBender", score: 510, isLocalPlayer: false),
-            LeaderboardEntry(rank: 9, playerName: "StormPilot", score: 445, isLocalPlayer: false),
-            LeaderboardEntry(rank: 10, playerName: "CloudSurfer", score: 380, isLocalPlayer: false)
+            LeaderboardEntry(rank: 1, playerName: "SkyMaster", score: 1250, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 2, playerName: "AceFlyer", score: 1100, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 3, playerName: "You", score: 950, isLocalPlayer: true, avatarData: nil),
+            LeaderboardEntry(rank: 4, playerName: "CloudHopper", score: 875, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 5, playerName: "JetStream", score: 720, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 6, playerName: "WindRider", score: 650, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 7, playerName: "SkyDancer", score: 580, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 8, playerName: "AirBender", score: 510, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 9, playerName: "StormPilot", score: 445, isLocalPlayer: false, avatarData: nil),
+            LeaderboardEntry(rank: 10, playerName: "CloudSurfer", score: 380, isLocalPlayer: false, avatarData: nil)
         ]
         displayLeaderboard()
     }
     
     private func displayLeaderboard() {
         leaderboardContainer.removeAllChildren()
+        contentScrollContainer?.position = CGPoint(x: 0, y: 0) // Reset scroll position
         
         print("DEBUG: displayLeaderboard called with \(leaderboardEntries.count) entries")
         
@@ -337,21 +376,32 @@ class LeaderboardScene: SKScene {
         }
         
         let entryHeight: CGFloat = 50
-        // Since leaderboardContainer is already positioned, start from relative 0
-        let startY: CGFloat = 0
+        // Start from top of visible area (positive Y in crop node)
+        let startY: CGFloat = visibleContentHeight / 2 - 30
         
-        // Create header
+        // Calculate total content height for scrolling
+        contentHeight = 60 + CGFloat(min(leaderboardEntries.count, 20)) * entryHeight + 40
+        
+        // Create header - centered in crop node (x = 0)
         let headerBG = SKShapeNode(rectOf: CGSize(width: size.width - 40, height: 40), cornerRadius: 5)
         headerBG.fillColor = UIColor(red: 0.15, green: 0.2, blue: 0.35, alpha: 0.9)
         headerBG.strokeColor = .white
-        headerBG.position = CGPoint(x: size.width/2, y: startY)
+        headerBG.position = CGPoint(x: 0, y: startY)
         leaderboardContainer.addChild(headerBG)
+        
+        // All X positions relative to center (0) since content is in centered crop node
+        let halfWidth = (size.width - 40) / 2
+        let rankX: CGFloat = -halfWidth + 60
+        let trophyX: CGFloat = -halfWidth + 20
+        let avatarX: CGFloat = -60
+        let nameX: CGFloat = 0
+        let scoreX: CGFloat = halfWidth - 40
         
         let rankHeader = SKLabelNode(text: "RANK")
         rankHeader.fontName = "AvenirNext-Bold"
         rankHeader.fontSize = 16
         rankHeader.fontColor = .white
-        rankHeader.position = CGPoint(x: 100, y: startY)
+        rankHeader.position = CGPoint(x: rankX, y: startY)
         rankHeader.verticalAlignmentMode = .center
         leaderboardContainer.addChild(rankHeader)
         
@@ -359,7 +409,7 @@ class LeaderboardScene: SKScene {
         nameHeader.fontName = "AvenirNext-Bold"
         nameHeader.fontSize = 16
         nameHeader.fontColor = .white
-        nameHeader.position = CGPoint(x: size.width/2, y: startY)
+        nameHeader.position = CGPoint(x: nameX, y: startY)
         nameHeader.verticalAlignmentMode = .center
         leaderboardContainer.addChild(nameHeader)
         
@@ -367,7 +417,7 @@ class LeaderboardScene: SKScene {
         scoreHeader.fontName = "AvenirNext-Bold"
         scoreHeader.fontSize = 16
         scoreHeader.fontColor = .white
-        scoreHeader.position = CGPoint(x: size.width - 100, y: startY)
+        scoreHeader.position = CGPoint(x: scoreX, y: startY)
         scoreHeader.verticalAlignmentMode = .center
         leaderboardContainer.addChild(scoreHeader)
         
@@ -375,7 +425,7 @@ class LeaderboardScene: SKScene {
         for (index, entry) in leaderboardEntries.prefix(20).enumerated() {
             let yPos = startY - CGFloat(index + 1) * entryHeight - 20
             
-            // Entry background
+            // Entry background (centered at x = 0)
             let entryBG = SKShapeNode(rectOf: CGSize(width: size.width - 40, height: entryHeight - 5), cornerRadius: 5)
             
             // Special colors for top 3
@@ -398,7 +448,7 @@ class LeaderboardScene: SKScene {
             
             entryBG.strokeColor = entry.isLocalPlayer ? .yellow : .white
             entryBG.lineWidth = entry.isLocalPlayer ? 2 : 1
-            entryBG.position = CGPoint(x: size.width/2, y: yPos)
+            entryBG.position = CGPoint(x: 0, y: yPos)
             leaderboardContainer.addChild(entryBG)
             
             // Rank with title for top 3
@@ -416,7 +466,7 @@ class LeaderboardScene: SKScene {
                                  entry.rank == 2 ? UIColor(red: 0.8, green: 0.8, blue: 0.9, alpha: 1.0) :
                                  entry.rank == 3 ? UIColor(red: 0.8, green: 0.5, blue: 0.3, alpha: 1.0) : .white
             rankLabel.numberOfLines = 2
-            rankLabel.position = CGPoint(x: 100, y: yPos)
+            rankLabel.position = CGPoint(x: rankX, y: yPos)
             rankLabel.verticalAlignmentMode = .center
             leaderboardContainer.addChild(rankLabel)
             
@@ -424,9 +474,42 @@ class LeaderboardScene: SKScene {
             if entry.rank <= 3 {
                 let trophy = SKLabelNode(text: "🏆")
                 trophy.fontSize = 20
-                trophy.position = CGPoint(x: 60, y: yPos)
+                trophy.position = CGPoint(x: trophyX, y: yPos)
                 trophy.verticalAlignmentMode = .center
                 leaderboardContainer.addChild(trophy)
+            }
+            
+            // Avatar - use current user's profile picture if local player
+            var avatarImage: UIImage? = nil
+            if entry.isLocalPlayer, let currentAvatar = AuthenticationManager.shared.currentUser?.customAvatar {
+                avatarImage = UIImage(data: currentAvatar)
+            } else if let avatarData = entry.avatarData {
+                avatarImage = UIImage(data: avatarData)
+            }
+            
+            if let image = avatarImage {
+                let texture = SKTexture(image: image)
+                let avatarSprite = SKSpriteNode(texture: texture)
+                avatarSprite.size = CGSize(width: 36, height: 36)
+                avatarSprite.position = CGPoint(x: avatarX, y: yPos)
+                
+                let maskNode = SKShapeNode(circleOfRadius: 18)
+                maskNode.fillColor = .white
+                
+                let cropNode = SKCropNode()
+                cropNode.maskNode = maskNode
+                cropNode.addChild(avatarSprite)
+                leaderboardContainer.addChild(cropNode)
+            } else {
+                if let image = UIImage(systemName: "person.fill") {
+                    let texture = SKTexture(image: image)
+                    let defaultAvatar = SKSpriteNode(texture: texture)
+                    defaultAvatar.size = CGSize(width: 28, height: 28)
+                    defaultAvatar.colorBlendFactor = 1.0
+                    defaultAvatar.color = .white
+                    defaultAvatar.position = CGPoint(x: avatarX, y: yPos)
+                    leaderboardContainer.addChild(defaultAvatar)
+                }
             }
             
             // Player name
@@ -434,7 +517,7 @@ class LeaderboardScene: SKScene {
             nameLabel.fontName = entry.isLocalPlayer ? "AvenirNext-Heavy" : "AvenirNext-Regular"
             nameLabel.fontSize = 16
             nameLabel.fontColor = entry.isLocalPlayer ? .yellow : .white
-            nameLabel.position = CGPoint(x: size.width/2, y: yPos)
+            nameLabel.position = CGPoint(x: nameX + 20, y: yPos)
             nameLabel.verticalAlignmentMode = .center
             leaderboardContainer.addChild(nameLabel)
             
@@ -443,7 +526,7 @@ class LeaderboardScene: SKScene {
             scoreLabel.fontName = "AvenirNext-Bold"
             scoreLabel.fontSize = 18
             scoreLabel.fontColor = .white
-            scoreLabel.position = CGPoint(x: size.width - 100, y: yPos)
+            scoreLabel.position = CGPoint(x: scoreX, y: yPos)
             scoreLabel.verticalAlignmentMode = .center
             leaderboardContainer.addChild(scoreLabel)
         }
@@ -451,19 +534,20 @@ class LeaderboardScene: SKScene {
     
     private func showNoDataMessage() {
         leaderboardContainer.removeAllChildren()
+        contentHeight = 0 // No scroll needed for empty state
         
         let messageLabel = SKLabelNode(text: "No scores yet for this map!")
         messageLabel.fontName = "AvenirNext-Regular"
         messageLabel.fontSize = 24
         messageLabel.fontColor = .white
-        messageLabel.position = CGPoint(x: size.width/2, y: -100)
+        messageLabel.position = CGPoint(x: 0, y: 20)
         leaderboardContainer.addChild(messageLabel)
         
         let subLabel = SKLabelNode(text: "Be the first to set a high score!")
         subLabel.fontName = "AvenirNext-Regular"
         subLabel.fontSize = 18
         subLabel.fontColor = UIColor(white: 0.8, alpha: 1.0)
-        subLabel.position = CGPoint(x: size.width/2, y: -130)
+        subLabel.position = CGPoint(x: 0, y: -20)
         leaderboardContainer.addChild(subLabel)
     }
     
@@ -472,6 +556,10 @@ class LeaderboardScene: SKScene {
         let location = touch.location(in: self)
         let touchedNode = atPoint(location)
         lastTouchX = location.x
+        lastTouchY = location.y
+        isScrollingContent = false
+        scrollVelocity = 0
+        contentScrollContainer?.removeAction(forKey: "momentum")
         
         if touchedNode.name == "backButton" || touchedNode.parent?.name == "backButton" {
             // Return to main menu
@@ -492,16 +580,95 @@ class LeaderboardScene: SKScene {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let last = lastTouchX else { return }
+        guard let touch = touches.first else { return }
         let p = touch.location(in: self)
-        let dx = p.x - last
-        tabsContainer.position.x += dx
-        lastTouchX = p.x
+        
+        // Check if touch is in the tabs area (upper region) or content area (lower region)
+        let topBarBottomY = topBar.userData?["topBarBottomY"] as? CGFloat ?? (size.height - 120)
+        let tabsRegionBottom = topBarBottomY - 80
+        
+        if p.y > tabsRegionBottom, let last = lastTouchX {
+            // Horizontal tab scrolling
+            let dx = p.x - last
+            tabsContainer.position.x += dx
+            lastTouchX = p.x
+        } else if let lastY = lastTouchY, contentHeight > visibleContentHeight {
+            // Vertical content scrolling (iOS-style direction)
+            let deltaY = p.y - lastY
+            // CORRECTED iOS-style scrolling:
+            // Swipe UP (negative deltaY) = show content below (move container UP)
+            // Swipe DOWN (positive deltaY) = show content above (move container DOWN)
+            contentScrollContainer.position.y -= deltaY
+            scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2
+            lastTouchY = p.y
+            isScrollingContent = true
+            
+            // Calculate scroll bounds
+            let maxScrollUp: CGFloat = max(contentHeight - visibleContentHeight, 0)
+            let maxScrollDown: CGFloat = 0
+            
+            // Rubber band effect at edges
+            if contentScrollContainer.position.y > maxScrollUp {
+                let overscroll = contentScrollContainer.position.y - maxScrollUp
+                contentScrollContainer.position.y = maxScrollUp + overscroll * 0.3
+            } else if contentScrollContainer.position.y < maxScrollDown {
+                let overscroll = maxScrollDown - contentScrollContainer.position.y
+                contentScrollContainer.position.y = maxScrollDown - overscroll * 0.3
+            }
+        }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         lastTouchX = nil
+        lastTouchY = nil
         snapTabsToNearest()
+        
+        // Apply momentum scrolling for content if needed
+        if isScrollingContent && abs(scrollVelocity) > 1 {
+            let maxScrollUp: CGFloat = max(contentHeight - visibleContentHeight, 0)
+            let maxScrollDown: CGFloat = 0
+            
+            let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
+                guard let self = self else { return }
+                let decay = pow(0.95, Double(elapsedTime * 60))
+                let velocity = self.scrollVelocity * CGFloat(decay)
+                
+                if abs(velocity) > 0.5 {
+                    node.position.y += velocity
+                    
+                    // Clamp to bounds during momentum
+                    if node.position.y > maxScrollUp {
+                        node.position.y = maxScrollUp
+                        self.scrollVelocity = 0
+                    } else if node.position.y < maxScrollDown {
+                        node.position.y = maxScrollDown
+                        self.scrollVelocity = 0
+                    }
+                }
+            }
+            
+            // Snap back if overscrolled
+            let currentY = contentScrollContainer.position.y
+            if currentY > maxScrollUp {
+                let snapBack = SKAction.moveTo(y: maxScrollUp, duration: 0.3)
+                snapBack.timingMode = .easeOut
+                contentScrollContainer.run(snapBack, withKey: "momentum")
+            } else if currentY < maxScrollDown {
+                let snapBack = SKAction.moveTo(y: maxScrollDown, duration: 0.3)
+                snapBack.timingMode = .easeOut
+                contentScrollContainer.run(snapBack, withKey: "momentum")
+            } else {
+                contentScrollContainer.run(momentumAction, withKey: "momentum")
+            }
+        }
+        
+        isScrollingContent = false
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        lastTouchX = nil
+        lastTouchY = nil
+        isScrollingContent = false
     }
 
     private func snapTabsToNearest() {
