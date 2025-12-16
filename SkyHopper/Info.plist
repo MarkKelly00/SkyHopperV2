@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- URL Schemes for Google Sign-In callback -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- IMPORTANT: Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
+				<!-- Example: com.googleusercontent.apps.123456789-abcdefghijk -->
+				<string>com.googleusercontent.apps.1089291040134-3qasusl14e4eaufpmp9otjnahev09dnt</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Google Sign-In Client ID (optional - Firebase will auto-load from GoogleService-Info.plist) -->
+	<!-- Uncomment and add your client ID if you want to read it from Info.plist instead -->
+	<!--
+	<key>GIDClientID</key>
+	<string>YOUR_CLIENT_ID_FROM_FIREBASE.apps.googleusercontent.com</string>
+	-->
+</dict>
+</plist>

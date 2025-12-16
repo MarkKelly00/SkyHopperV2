@@ -1,11 +1,15 @@
 import Foundation
 import AuthenticationServices
 import CryptoKit
+#if canImport(FirebaseCore)
+import FirebaseCore
+#endif
 #if canImport(FirebaseAuth)
 import FirebaseAuth
 #endif
-// TODO: Add GoogleSignIn SDK
-// import GoogleSignIn
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 class AuthenticationManager: NSObject {
     static let shared = AuthenticationManager()
@@ -66,11 +70,17 @@ class AuthenticationManager: NSObject {
         }
     }
 
+    /// Notification name for profile updates (e.g., avatar change)
+    static let profileDidUpdateNotification = Notification.Name("AuthenticationManagerProfileDidUpdate")
+    
     /// Persist a custom avatar image for the signed-in user.
     func updateCustomAvatar(_ data: Data?) {
         guard var user = currentUser else { return }
         user.customAvatar = data
         saveCurrentUser(user)
+        
+        // Post notification so other scenes (like Leaderboard) can refresh
+        NotificationCenter.default.post(name: AuthenticationManager.profileDidUpdateNotification, object: nil)
     }
     
     func logout() {
@@ -176,9 +186,153 @@ class AuthenticationManager: NSObject {
     // MARK: - Google Sign In
     
     func signInWithGoogle(presentingViewController: UIViewController, completion: @escaping (Result<UserProfile, Error>) -> Void) {
-        // Note: Requires Google Sign-In SDK setup
-        // This is a placeholder implementation
-        completion(.failure(AuthError.unknownError))
+        #if canImport(GoogleSignIn) && canImport(FirebaseCore)
+        // Get client ID from Firebase configuration (set up in AppDelegate)
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            completion(.failure(NSError(domain: "GoogleSignIn", code: -1, 
+                userInfo: [NSLocalizedDescriptionKey: "Google Sign-In is not configured. Please ensure GoogleService-Info.plist is added to your project and Firebase is initialized."])))
+            return
+        }
+        
+        // Ensure Google Sign-In is configured (should already be done in AppDelegate)
+        if GIDSignIn.sharedInstance.configuration == nil {
+            let config = GIDConfiguration(clientID: clientID)
+            GIDSignIn.sharedInstance.configuration = config
+        }
+        
+        GIDSignIn.sharedInstance.signIn(withPresenting: presentingViewController) { [weak self] result, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    completion(.failure(self?.mapGoogleError(error) ?? error))
+                }
+                return
+            }
+            
+            guard let user = result?.user,
+                  let userID = user.userID else {
+                DispatchQueue.main.async {
+                    completion(.failure(AuthError.unknownError))
+                }
+                return
+            }
+            
+            // Extract user information
+            let email = user.profile?.email ?? "google_user@gmail.com"
+            let fullName = user.profile?.name ?? "Player\(Int.random(in: 1000...9999))"
+            let avatarURL = user.profile?.imageURL(withDimension: 200)?.absoluteString
+            
+            // Check if user already exists with this Google ID
+            if let existingUser = self?.loadUserByGoogleID(userID) {
+                self?.saveCurrentUser(existingUser)
+                self?.setOnboardingCompleted()
+                DispatchQueue.main.async {
+                    completion(.success(existingUser))
+                }
+                return
+            }
+            
+            // Create new user profile
+            var newUser = UserProfile(username: fullName, email: email, authProvider: .google, authID: userID)
+            
+            // Download and save avatar if available
+            if let avatarURLString = avatarURL, let url = URL(string: avatarURLString) {
+                self?.downloadAvatar(from: url) { avatarData in
+                    if let data = avatarData {
+                        newUser.customAvatar = data
+                    }
+                    self?.saveUserProfile(newUser)
+                    self?.saveCurrentUser(newUser)
+                    self?.setOnboardingCompleted()
+                    DispatchQueue.main.async {
+                        completion(.success(newUser))
+                    }
+                }
+            } else {
+                self?.saveUserProfile(newUser)
+                self?.saveCurrentUser(newUser)
+                self?.setOnboardingCompleted()
+                DispatchQueue.main.async {
+                    completion(.success(newUser))
+                }
+            }
+        }
+        #else
+        // Google Sign-In SDK or Firebase not available - show user-friendly error
+        completion(.failure(NSError(domain: "GoogleSignIn", code: -1, 
+            userInfo: [NSLocalizedDescriptionKey: "Google Sign-In is not available. Please ensure Firebase and GoogleSignIn SDKs are installed."])))
+        #endif
+    }
+    
+    /// Maps Google Sign-In errors to user-friendly messages
+    private func mapGoogleError(_ error: Error) -> Error {
+        let nsError = error as NSError
+        let message: String
+        
+        switch nsError.code {
+        case -5: // GIDSignInError.canceled
+            message = "Sign in was canceled. Please try again."
+        case -4: // GIDSignInError.hasNoAuthInKeychain
+            message = "No previous sign-in found. Please sign in again."
+        case -7: // GIDSignInError.unknown
+            message = "An unknown error occurred with Google Sign-In."
+        default:
+            message = "Google Sign-In failed. Please check your internet connection and try again."
+        }
+        
+        return NSError(domain: "GoogleSignIn", code: nsError.code, userInfo: [NSLocalizedDescriptionKey: message])
+    }
+    
+    /// Downloads avatar image from URL
+    private func downloadAvatar(from url: URL, completion: @escaping (Data?) -> Void) {
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let data = data, error == nil {
+                completion(data)
+            } else {
+                completion(nil)
+            }
+        }.resume()
+    }
+    
+    /// Loads existing user by Google ID
+    private func loadUserByGoogleID(_ googleID: String) -> UserProfile? {
+        let profileKey = "google_profile_\(googleID)"
+        if let profileData = UserDefaults.standard.data(forKey: profileKey),
+           let profile = try? JSONDecoder().decode(UserProfile.self, from: profileData) {
+            return profile
+        }
+        return nil
+    }
+    
+    /// Saves user profile to persistent storage (linked by auth ID)
+    private func saveUserProfile(_ user: UserProfile) {
+        // Save by email for email auth
+        let emailKey = "profile_\(user.email)"
+        if let encoded = try? JSONEncoder().encode(user) {
+            UserDefaults.standard.set(encoded, forKey: emailKey)
+        }
+        
+        // Also save by Apple ID if present
+        if let appleID = user.appleID {
+            let appleKey = "apple_profile_\(appleID)"
+            if let encoded = try? JSONEncoder().encode(user) {
+                UserDefaults.standard.set(encoded, forKey: appleKey)
+            }
+        }
+        
+        // Also save by Google ID if present
+        if let googleID = user.googleID {
+            let googleKey = "google_profile_\(googleID)"
+            if let encoded = try? JSONEncoder().encode(user) {
+                UserDefaults.standard.set(encoded, forKey: googleKey)
+            }
+        }
+        
+        // Add username to taken usernames list
+        var takenUsernames = UserDefaults.standard.stringArray(forKey: "takenUsernames") ?? []
+        if !takenUsernames.contains(user.username.lowercased()) {
+            takenUsernames.append(user.username.lowercased())
+            UserDefaults.standard.set(takenUsernames, forKey: "takenUsernames")
+        }
     }
     
     // MARK: - Helper Methods
@@ -425,18 +579,55 @@ extension AuthenticationManager: ASAuthorizationControllerDelegate {
         }
         
         let userID = appleIDCredential.user
-        let email = appleIDCredential.email ?? "apple_user@icloud.com"
-        let fullName = appleIDCredential.fullName
-        let username = fullName?.givenName ?? "Player\(Int.random(in: 1000...9999))"
         
-        // Create or update user profile
-        let user = UserProfile(username: username, email: email, authProvider: .apple, authID: userID)
-        saveCurrentUser(user)
+        // Check if user already exists with this Apple ID
+        if let existingUser = loadUserByAppleID(userID) {
+            saveCurrentUser(existingUser)
+            setOnboardingCompleted()
+            DispatchQueue.main.async { [weak self] in
+                self?.authCompletion?(.success(existingUser))
+            }
+            return
+        }
+        
+        // For new users, Apple only provides name/email on first sign-in
+        // On subsequent sign-ins, these will be nil, so we generate defaults
+        let email = appleIDCredential.email ?? "apple_\(userID.prefix(8))@icloud.com"
+        let fullName = appleIDCredential.fullName
+        let firstName = fullName?.givenName
+        let lastName = fullName?.familyName
+        
+        // Create username from name or generate random
+        let username: String
+        if let first = firstName {
+            if let last = lastName {
+                username = "\(first) \(last.prefix(1))."
+            } else {
+                username = first
+            }
+        } else {
+            username = "Player\(Int.random(in: 1000...9999))"
+        }
+        
+        // Create new user profile and save to database
+        let newUser = UserProfile(username: username, email: email, authProvider: .apple, authID: userID)
+        saveUserProfile(newUser)  // Save to database
+        saveCurrentUser(newUser)  // Set as current user
         setOnboardingCompleted()
         
         DispatchQueue.main.async { [weak self] in
-            self?.authCompletion?(.success(user))
+            self?.authCompletion?(.success(newUser))
         }
+    }
+    
+    /// Loads existing user by Apple ID
+    private func loadUserByAppleID(_ appleID: String) -> UserProfile? {
+        let profileKey = "apple_profile_\(appleID)"
+        if let profileData = UserDefaults.standard.data(forKey: profileKey),
+           let profile = try? JSONDecoder().decode(UserProfile.self, from: profileData) {
+            return profile
+        }
+        return nil
     }
     
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {

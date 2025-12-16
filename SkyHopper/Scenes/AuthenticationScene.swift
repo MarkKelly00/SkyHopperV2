@@ -25,11 +25,22 @@ class AuthenticationScene: SKScene {
     private var isSignUpMode = true
     private var privacyPolicyAccepted = false
     
-    // Layout constants
-    private let formWidth: CGFloat = 320
+    // Layout constants - adaptive for device
+    private var formWidth: CGFloat {
+        // Scale form width based on device - iPad gets larger form, but capped
+        let isIPad = UIDevice.current.userInterfaceIdiom == .pad
+        let maxWidth: CGFloat = isIPad ? 420 : 340
+        let screenWidth = UIScreen.main.bounds.width
+        return min(screenWidth * 0.85, maxWidth)
+    }
     private let fieldHeight: CGFloat = 50
     private let fieldSpacing: CGFloat = 16
     private let buttonSpacing: CGFloat = 20
+    
+    // Check if device is iPad
+    private var isIPad: Bool {
+        return UIDevice.current.userInterfaceIdiom == .pad
+    }
     
     override func didMove(to view: SKView) {
         setupBackground()
@@ -82,12 +93,15 @@ class AuthenticationScene: SKScene {
     }
     
     private func setupLogo() {
-        // Sky Hopper logo with glow effect
+        // Sky Hopper logo with glow effect - scale for device
         logoNode = SKLabelNode(text: "Sky Hopper")
         logoNode.fontName = "AvenirNext-Bold"
-        logoNode.fontSize = 48
+        logoNode.fontSize = isIPad ? 64 : 48
         logoNode.fontColor = .white
-        logoNode.position = CGPoint(x: size.width/2, y: size.height - 150)
+        
+        // Position logo relative to screen height - more space from top on iPad
+        let topOffset: CGFloat = isIPad ? 180 : 150
+        logoNode.position = CGPoint(x: size.width/2, y: size.height - topOffset)
         logoNode.zPosition = 10
         addChild(logoNode)
         
@@ -98,7 +112,7 @@ class AuthenticationScene: SKScene {
         glowNode.setScale(1.1)
         
         let glowEffect = SKEffectNode()
-        glowEffect.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 10])
+        glowEffect.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": isIPad ? 12 : 10])
         glowEffect.shouldRasterize = true
         glowEffect.addChild(glowNode)
         glowEffect.position = logoNode.position
@@ -119,25 +133,31 @@ class AuthenticationScene: SKScene {
         let fieldsCount: CGFloat = isSignUpMode ? 4 : 2
         let submitButtonHeight: CGFloat = 50
         let socialSectionHeight: CGFloat = 100
-        let padding: CGFloat = 40
+        let padding: CGFloat = isIPad ? 50 : 40
         
         let privacyCheckboxHeight: CGFloat = 40
         let containerHeight = toggleHeight + (fieldsCount * (fieldHeight + fieldSpacing)) +
                             submitButtonHeight + privacyCheckboxHeight + socialSectionHeight + padding * 2
         
-        let containerSize = CGSize(width: formWidth + 40, height: containerHeight)
+        // Add extra padding for iPad
+        let horizontalPadding: CGFloat = isIPad ? 50 : 40
+        let containerSize = CGSize(width: formWidth + horizontalPadding, height: containerHeight)
         let containerPath = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: -containerSize.width/2, y: -containerSize.height/2),
                                                             size: containerSize),
-                                        cornerRadius: 24)
+                                        cornerRadius: isIPad ? 32 : 24)
         
         formContainer = SKShapeNode(path: containerPath.cgPath)
-        formContainer.position = CGPoint(x: size.width/2, y: size.height/2 - 20)
+        
+        // Center the form vertically, accounting for logo at top
+        // On iPad, position slightly higher as there's more screen real estate
+        let verticalOffset: CGFloat = isIPad ? 0 : -20
+        formContainer.position = CGPoint(x: size.width/2, y: size.height/2 + verticalOffset)
         formContainer.zPosition = 1
         
         // Glass effect
         formContainer.fillColor = UIColor(white: 0.1, alpha: 0.9)
         formContainer.strokeColor = UIColor(white: 1.0, alpha: 0.15)
-        formContainer.lineWidth = 1
+        formContainer.lineWidth = isIPad ? 1.5 : 1
         
         addChild(formContainer)
     }
@@ -188,20 +208,28 @@ class AuthenticationScene: SKScene {
         
         guard let view = self.view else { return }
         
+        // Get the current form width (computed property)
+        let currentFormWidth = formWidth
+        
         // Calculate container position in screen coordinates
         let containerScreenPos = convertPoint(toView: formContainer.position)
         
+        // Calculate the center X position of the container in view coordinates
+        let containerCenterX = containerScreenPos.x
+        let fieldX = containerCenterX - currentFormWidth / 2
+        
         // Start position for fields just below the toggle, anchored to the top of the container
         let containerTopY = containerScreenPos.y - formContainer.frame.height/2
-        var yOffset: CGFloat = containerTopY + 160  // 40 padding + 50 toggle + ~70 margin
+        let topPadding: CGFloat = isIPad ? 170 : 160  // Slightly more padding on iPad
+        var yOffset: CGFloat = containerTopY + topPadding
         
         // Username field (only for sign up)
         if isSignUpMode {
             usernameField = createTextField(placeholder: "Username", isSecure: false)
             usernameField?.frame = CGRect(
-                x: (view.frame.width - formWidth) / 2,
+                x: fieldX,
                 y: yOffset,
-                width: formWidth,
+                width: currentFormWidth,
                 height: fieldHeight
             )
             view.addSubview(usernameField!)
@@ -211,9 +239,9 @@ class AuthenticationScene: SKScene {
         // Email field
         emailField = createTextField(placeholder: "Email", isSecure: false)
         emailField?.frame = CGRect(
-            x: (view.frame.width - formWidth) / 2,
+            x: fieldX,
             y: yOffset,
-            width: formWidth,
+            width: currentFormWidth,
             height: fieldHeight
         )
         emailField?.keyboardType = .emailAddress
@@ -224,9 +252,9 @@ class AuthenticationScene: SKScene {
         // Password field
         passwordField = createTextField(placeholder: "Password", isSecure: true)
         passwordField?.frame = CGRect(
-            x: (view.frame.width - formWidth) / 2,
+            x: fieldX,
             y: yOffset,
-            width: formWidth,
+            width: currentFormWidth,
             height: fieldHeight
         )
         view.addSubview(passwordField!)
@@ -236,9 +264,9 @@ class AuthenticationScene: SKScene {
         if isSignUpMode {
             referralField = createTextField(placeholder: "Referral Code (Optional)", isSecure: false)
             referralField?.frame = CGRect(
-                x: (view.frame.width - formWidth) / 2,
+                x: fieldX,
                 y: yOffset,
-                width: formWidth,
+                width: currentFormWidth,
                 height: fieldHeight
             )
             referralField?.autocapitalizationType = .allCharacters
@@ -280,17 +308,19 @@ class AuthenticationScene: SKScene {
     private func setupButtons() {
         // Calculate button positions based on form height
         let containerHeight = formContainer.frame.height
-        let bottomPadding: CGFloat = 40
+        let bottomPadding: CGFloat = isIPad ? 50 : 40
+        let currentFormWidth = formWidth
         
-        // Submit button
         // Privacy Policy Checkbox
         privacyCheckbox = createPrivacyCheckbox()
         privacyCheckbox.position = CGPoint(x: 0, y: -containerHeight/2 + 170)
         privacyCheckbox.name = "privacyCheckbox"
         formContainer.addChild(privacyCheckbox)
 
+        // Submit button - use current form width for proper sizing
+        let buttonWidth = currentFormWidth - 40
         submitButton = createGlassButton(text: isSignUpMode ? "Create Account" : "Login",
-                                       size: CGSize(width: formWidth - 40, height: 50),
+                                       size: CGSize(width: buttonWidth, height: 50),
                                        isPrimary: true)
         submitButton.position = CGPoint(x: 0, y: -containerHeight/2 + 120)
         submitButton.name = "submitButton"
@@ -299,19 +329,20 @@ class AuthenticationScene: SKScene {
         // Divider
         let dividerLabel = SKLabelNode(text: "or continue with")
         dividerLabel.fontName = "AvenirNext-Regular"
-        dividerLabel.fontSize = 14
+        dividerLabel.fontSize = isIPad ? 16 : 14
         dividerLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
         dividerLabel.position = CGPoint(x: 0, y: -containerHeight/2 + 80)
         formContainer.addChild(dividerLabel)
         
-        // Social sign in buttons
+        // Social sign in buttons - wider spacing on iPad
+        let socialButtonSpacing: CGFloat = isIPad ? 80 : 60
         appleSignInButton = createSocialButton(type: .apple)
-        appleSignInButton.position = CGPoint(x: -60, y: -containerHeight/2 + bottomPadding)
+        appleSignInButton.position = CGPoint(x: -socialButtonSpacing, y: -containerHeight/2 + bottomPadding)
         appleSignInButton.name = "appleSignIn"
         formContainer.addChild(appleSignInButton)
         
         googleSignInButton = createSocialButton(type: .google)
-        googleSignInButton.position = CGPoint(x: 60, y: -containerHeight/2 + bottomPadding)
+        googleSignInButton.position = CGPoint(x: socialButtonSpacing, y: -containerHeight/2 + bottomPadding)
         googleSignInButton.name = "googleSignIn"
         formContainer.addChild(googleSignInButton)
     }
@@ -348,23 +379,24 @@ class AuthenticationScene: SKScene {
 
     private func createPrivacyCheckbox() -> SKNode {
         let container = SKNode()
+        let currentFormWidth = formWidth
 
         // Checkbox square
-        let checkboxSize: CGFloat = 20
+        let checkboxSize: CGFloat = isIPad ? 24 : 20
         let checkbox = SKShapeNode(rectOf: CGSize(width: checkboxSize, height: checkboxSize), cornerRadius: 4)
         checkbox.fillColor = UIColor(white: 1.0, alpha: 0.1)
         checkbox.strokeColor = UIColor(white: 1.0, alpha: 0.3)
         checkbox.lineWidth = 1.5
-        checkbox.position = CGPoint(x: -formWidth/2 + 30, y: 0)
+        checkbox.position = CGPoint(x: -currentFormWidth/2 + 30, y: 0)
         checkbox.name = "checkbox"
         container.addChild(checkbox)
 
         // Checkmark (initially hidden)
         let checkmark = SKLabelNode(text: "✓")
         checkmark.fontName = "AvenirNext-Bold"
-        checkmark.fontSize = 16
+        checkmark.fontSize = isIPad ? 18 : 16
         checkmark.fontColor = UIColor(red: 0.3, green: 0.8, blue: 0.3, alpha: 1.0)
-        checkmark.position = CGPoint(x: -formWidth/2 + 30, y: -2)
+        checkmark.position = CGPoint(x: -currentFormWidth/2 + 30, y: -2)
         checkmark.name = "checkmark"
         checkmark.isHidden = true
         container.addChild(checkmark)
@@ -372,10 +404,10 @@ class AuthenticationScene: SKScene {
         // Privacy policy text
         let privacyText = SKLabelNode(text: "I agree to the Privacy Policy")
         privacyText.fontName = "AvenirNext-Regular"
-        privacyText.fontSize = 14
+        privacyText.fontSize = isIPad ? 16 : 14
         privacyText.fontColor = UIColor(white: 0.8, alpha: 1.0)
         privacyText.horizontalAlignmentMode = .left
-        privacyText.position = CGPoint(x: -formWidth/2 + 60, y: 0)
+        privacyText.position = CGPoint(x: -currentFormWidth/2 + 60, y: 0)
         container.addChild(privacyText)
 
         return container
@@ -595,8 +627,16 @@ class AuthenticationScene: SKScene {
     }
     
     private func handleGoogleSignIn() {
-        // Google sign in implementation
-        showError("Google Sign In coming soon!")
+        guard let viewController = view?.window?.rootViewController else { return }
+        
+        AuthenticationManager.shared.signInWithGoogle(presentingViewController: viewController) { [weak self] result in
+            switch result {
+            case .success:
+                self?.transitionToMainMenu()
+            case .failure(let error):
+                self?.showError(error.localizedDescription)
+            }
+        }
     }
     
     private func showError(_ message: String) {

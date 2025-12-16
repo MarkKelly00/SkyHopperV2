@@ -414,14 +414,14 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         // Track total scroll distance to distinguish scrolls from taps
         totalScrollDistance += abs(deltaY)
         
-        // CORRECTED iOS-style scrolling:
-        // Swipe UP (negative deltaY) = show content below (move container UP = positive position)
-        // Swipe DOWN (positive deltaY) = show content above (move container DOWN = negative position)
-        container.position.y -= deltaY  // INVERTED for correct iOS direction
-        scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2  // Invert velocity too
+        // Standard iOS-style scrolling:
+        // Swipe UP (positive deltaY in SpriteKit) = show content below = container moves UP (positive)
+        // Swipe DOWN (negative deltaY) = show content above = container moves DOWN (negative)
+        container.position.y += deltaY
+        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
         lastTouchY = location.y
         
-        // Calculate scroll bounds (corrected for iOS-style scrolling)
+        // Calculate scroll bounds
         // maxScrollUp = how far we can scroll up to show bottom content (positive)
         // maxScrollDown = 0 (starting position, can't go negative)
         let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
@@ -497,7 +497,7 @@ class CharacterSelectionScene: SKScene, CurrencyManagerDelegate {
         let maxScrollUp: CGFloat = max(contentHeight - visibleHeight, 0)
         let maxScrollDown: CGFloat = 0
         
-        // Apply momentum scrolling with corrected direction
+        // Apply momentum scrolling (standard iOS direction)
         let momentumAction = SKAction.customAction(withDuration: 1.5) { [weak self] node, elapsedTime in
             guard let self = self else { return }
             let decay = pow(0.95, Double(elapsedTime * 60))

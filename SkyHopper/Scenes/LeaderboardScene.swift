@@ -75,6 +75,43 @@ class LeaderboardScene: SKScene {
         }
         
         loadLeaderboard(for: maps[currentMapIndex].0)
+        
+        // Listen for profile updates to refresh avatar display
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleProfileUpdate),
+            name: AuthenticationManager.profileDidUpdateNotification,
+            object: nil
+        )
+        
+        // Also listen for app becoming active to refresh if needed
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppBecameActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+    
+    override func willMove(from view: SKView) {
+        // Remove observers when scene is removed
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleProfileUpdate() {
+        // Refresh the current leaderboard to show updated profile picture
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.loadLeaderboard(for: self.maps[self.currentMapIndex].0)
+        }
+    }
+    
+    @objc private func handleAppBecameActive() {
+        // Refresh on app return in case profile was changed externally
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            self.displayLeaderboard()
+        }
     }
 
     private func safeTopInset() -> CGFloat {
@@ -593,13 +630,13 @@ class LeaderboardScene: SKScene {
             tabsContainer.position.x += dx
             lastTouchX = p.x
         } else if let lastY = lastTouchY, contentHeight > visibleContentHeight {
-            // Vertical content scrolling (iOS-style direction)
+            // Vertical content scrolling - standard iOS style
             let deltaY = p.y - lastY
-            // CORRECTED iOS-style scrolling:
-            // Swipe UP (negative deltaY) = show content below (move container UP)
-            // Swipe DOWN (positive deltaY) = show content above (move container DOWN)
-            contentScrollContainer.position.y -= deltaY
-            scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2
+            // Standard iOS scrolling:
+            // Swipe UP (positive deltaY in SpriteKit) = show content below = container moves UP
+            // Swipe DOWN (negative deltaY) = show content above = container moves DOWN
+            contentScrollContainer.position.y += deltaY
+            scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
             lastTouchY = p.y
             isScrollingContent = true
             
