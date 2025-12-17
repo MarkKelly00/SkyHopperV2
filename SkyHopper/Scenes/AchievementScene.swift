@@ -18,6 +18,7 @@ class AchievementScene: SKScene {
     private var startingYPosition: CGFloat = 0
     private var isScrolling = false
     private var lastTouchPosition: CGPoint = CGPoint.zero
+    private var scrollVelocity: CGFloat = 0
     
     override func didMove(to view: SKView) {
         backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0)
@@ -339,10 +340,11 @@ class AchievementScene: SKScene {
             let shouldScroll = contentHeight > (size.height - startingYPosition - 100)
             
             if shouldScroll && abs(deltaY) > 3 {
-                // CORRECTED iOS-style scrolling:
-                // Swipe UP (negative deltaY) = show content below (move container UP = negative position)
-                // Swipe DOWN (positive deltaY) = show content above (move container DOWN = positive position)
-                scrollContainer.position.y -= deltaY  // INVERTED the direction
+                // iOS-style scrolling:
+                // Swipe UP (negative deltaY) = show content below (move container UP = positive position)
+                // Swipe DOWN (positive deltaY) = show content above (move container DOWN = negative position)
+                scrollContainer.position.y += deltaY  // iOS standard direction
+                scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2  // Smooth velocity tracking
                 
                 // Calculate proper scroll bounds
                 let availableHeight = size.height - startingYPosition - 100
@@ -354,11 +356,13 @@ class AchievementScene: SKScene {
                 let maxScrollUp = max(0, contentOverflow)
                 let maxScrollDown: CGFloat = 0
                 
-                // Apply bounds
+                // Apply bounds with rubber band effect
                 if scrollContainer.position.y > maxScrollUp {
-                    scrollContainer.position.y = maxScrollUp
+                    let overscroll = scrollContainer.position.y - maxScrollUp
+                    scrollContainer.position.y = maxScrollUp + overscroll * 0.3
                 } else if scrollContainer.position.y < maxScrollDown {
-                    scrollContainer.position.y = maxScrollDown
+                    let overscroll = maxScrollDown - scrollContainer.position.y
+                    scrollContainer.position.y = maxScrollDown - overscroll * 0.3
                 }
                 
                 isScrolling = true
@@ -375,8 +379,55 @@ class AchievementScene: SKScene {
         // Only call super if we weren't scrolling, to avoid interfering with back button
         if !isScrolling {
             super.touchesEnded(touches, with: event)
+            return
         }
         isScrolling = false
+        
+        // Calculate scroll bounds
+        let availableHeight = size.height - startingYPosition - 100
+        let contentOverflow = contentHeight - availableHeight
+        let maxScrollUp = max(0, contentOverflow)
+        let maxScrollDown: CGFloat = 0
+        
+        // Snap back if overscrolled
+        if scrollContainer.position.y > maxScrollUp {
+            let snapBack = SKAction.moveTo(y: maxScrollUp, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        } else if scrollContainer.position.y < maxScrollDown {
+            let snapBack = SKAction.moveTo(y: maxScrollDown, duration: 0.3)
+            snapBack.timingMode = .easeOut
+            scrollContainer.run(snapBack)
+            return
+        }
+        
+        // Apply momentum scrolling
+        if abs(scrollVelocity) > 2 {
+            let momentumDuration: TimeInterval = 0.8
+            let friction: CGFloat = 0.95
+            
+            let deceleration = SKAction.customAction(withDuration: momentumDuration) { [weak self] _, elapsedTime in
+                guard let self = self else { return }
+                
+                let decayFactor = pow(friction, elapsedTime * 60)
+                let velocity = self.scrollVelocity * decayFactor * 0.15
+                
+                guard abs(velocity) > 0.1 else { return }
+                
+                self.scrollContainer.position.y += velocity
+                
+                // Clamp to bounds
+                if self.scrollContainer.position.y > maxScrollUp {
+                    self.scrollContainer.position.y = maxScrollUp
+                    self.scrollContainer.removeAllActions()
+                } else if self.scrollContainer.position.y < maxScrollDown {
+                    self.scrollContainer.position.y = maxScrollDown
+                    self.scrollContainer.removeAllActions()
+                }
+            }
+            scrollContainer.run(deceleration, withKey: "momentum")
+        }
     }
     
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {

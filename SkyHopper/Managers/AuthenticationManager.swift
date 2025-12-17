@@ -498,8 +498,9 @@ class AuthenticationManager: NSObject {
         
         for (index, dict) in requestsData.enumerated() {
             if let data = try? JSONSerialization.data(withJSONObject: dict),
-               var request = try? JSONDecoder().decode(FriendRequest.self, from: data),
+               let request = try? JSONDecoder().decode(FriendRequest.self, from: data),
                request.id == requestId {
+                // Note: 'request' is intentionally a 'let' constant (not mutated)
                 
                 // Create updated request with new status
                 let updatedRequest = FriendRequest(
@@ -641,22 +642,24 @@ extension AuthenticationManager: ASAuthorizationControllerDelegate {
     private func mapAppleError(_ error: Error) -> Error {
         if let authError = error as? ASAuthorizationError {
             let message: String
-            switch authError.code {
-            case .canceled:
+            let errorCode = authError.code
+            
+            if errorCode == .canceled {
                 message = "Sign in was canceled. Please try again."
-            case .failed:
+            } else if errorCode == .failed {
                 message = "Sign in with Apple failed. Please check your iCloud account and try again."
-            case .invalidResponse:
+            } else if errorCode == .invalidResponse {
                 message = "Invalid response from Apple ID. Please retry."
-            case .notHandled:
+            } else if errorCode == .notHandled {
                 message = "Sign in with Apple could not be completed. Please try again."
-            case .unknown:
+            } else if errorCode == .unknown {
                 message = "An unknown Apple sign-in error occurred."
-            case .notInteractive:
+            } else if errorCode == .notInteractive {
                 message = "Apple sign-in requires user interaction. Please try again."
-            @unknown default:
+            } else {
                 message = "Sign in with Apple encountered an unexpected error."
             }
+            
             return NSError(domain: "SignInWithApple", code: authError.code.rawValue, userInfo: [NSLocalizedDescriptionKey: message])
         }
         return error

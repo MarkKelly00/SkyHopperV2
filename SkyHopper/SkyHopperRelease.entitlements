@@ -11,6 +11,7 @@
 	<key>com.apple.developer.in-app-payments</key>
 	<array>
 		<string>merchant.mkp</string>
+		<string>merchant.makllipse</string>
 	</array>
 </dict>
 </plist>

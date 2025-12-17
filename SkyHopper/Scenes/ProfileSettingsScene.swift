@@ -289,78 +289,179 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
     }
 
     private func setupFriendsInProfile(containerSize: CGSize) {
-        // Friends section starts well below the referral code (which is at containerSize.height/2 - 290)
-        let friendsSectionY: CGFloat = containerSize.height/2 - 420
-        
-        // Check if user has friends
+        // Get friend requests count
+        let pendingRequests = AuthenticationManager.shared.getPendingFriendRequests()
         let friends = AuthenticationManager.shared.currentUser?.friends ?? []
         
-        if friends.isEmpty {
-            // Show "Add Friends" prompt when no friends - centered, below code section
-            let noFriendsContainer = SKNode()
-            noFriendsContainer.position = CGPoint(x: 0, y: friendsSectionY + 40)
-            profileContainer.addChild(noFriendsContainer)
-            
-            let noFriendsLabel = SKLabelNode(text: "No friends yet")
-            noFriendsLabel.fontName = "AvenirNext-Medium"
-            noFriendsLabel.fontSize = 15
-            noFriendsLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
-            noFriendsLabel.horizontalAlignmentMode = .center
-            noFriendsLabel.position = CGPoint(x: 0, y: 30)
-            noFriendsContainer.addChild(noFriendsLabel)
-            
-            // Add Friends button - text only, no icon overlap issue
-            let addFriendButton = createGlassButton(text: "Add Friends", icon: nil, size: CGSize(width: 140, height: 40))
-            addFriendButton.position = CGPoint(x: 0, y: -15)
-            addFriendButton.name = "addFriendButton"
-            noFriendsContainer.addChild(addFriendButton)
-            
-            // Don't create the friends scroll container if no friends
-            return
-        }
+        // Layout with proper vertical spacing - positions relative to container center
+        // Referral code is at: containerSize.height/2 - 290
+        // Friends section starts with good padding below it
         
-        // Friends header with count and add button - all centered
-        let friendsHeaderContainer = SKNode()
-        friendsHeaderContainer.position = CGPoint(x: 0, y: friendsSectionY + 100)
-        profileContainer.addChild(friendsHeaderContainer)
+        // Friends section header - 60px below referral code
+        let headerY: CGFloat = containerSize.height/2 - 360
         
-        let friendsHeader = SKLabelNode(text: "Friends (\(friends.count))")
+        let friendsHeader = SKLabelNode(text: "Friends")
         friendsHeader.fontName = "AvenirNext-Bold"
         friendsHeader.fontSize = 18
         friendsHeader.fontColor = .white
         friendsHeader.horizontalAlignmentMode = .center
         friendsHeader.verticalAlignmentMode = .center
-        friendsHeader.position = CGPoint(x: -40, y: 0)
-        friendsHeaderContainer.addChild(friendsHeader)
-
-        // Add friend button - next to header, centered together
-        let addFriendButton = createGlassButton(text: nil, icon: "person.badge.plus", size: CGSize(width: 36, height: 36))
-        addFriendButton.position = CGPoint(x: 50, y: 0)
+        friendsHeader.position = CGPoint(x: 0, y: headerY)
+        profileContainer.addChild(friendsHeader)
+        
+        // Buttons row - 45px below header
+        let buttonsY: CGFloat = headerY - 45
+        let buttonWidth: CGFloat = (containerSize.width - 80) / 2
+        let buttonHeight: CGFloat = 40
+        let buttonSpacing: CGFloat = 12
+        
+        // "View Friends" button
+        let viewFriendsButton = createFriendsMenuButton(
+            text: "View Friends",
+            icon: "person.2.fill",
+            count: friends.count,
+            size: CGSize(width: buttonWidth, height: buttonHeight)
+        )
+        viewFriendsButton.position = CGPoint(x: -buttonWidth/2 - buttonSpacing/2, y: buttonsY)
+        viewFriendsButton.name = "viewFriendsButton"
+        profileContainer.addChild(viewFriendsButton)
+        
+        // "Requests" button with badge for pending requests
+        let viewRequestsButton = createFriendsMenuButton(
+            text: "Requests",
+            icon: "person.badge.clock.fill",
+            count: pendingRequests.count,
+            size: CGSize(width: buttonWidth, height: buttonHeight),
+            hasNotification: pendingRequests.count > 0
+        )
+        viewRequestsButton.position = CGPoint(x: buttonWidth/2 + buttonSpacing/2, y: buttonsY)
+        viewRequestsButton.name = "viewRequestsButton"
+        profileContainer.addChild(viewRequestsButton)
+        
+        // Add Friend button - 50px below button row
+        let addFriendY: CGFloat = buttonsY - 50
+        let addFriendButton = createGlassButton(text: "Add Friend", icon: "person.badge.plus", size: CGSize(width: 150, height: 38))
+        addFriendButton.position = CGPoint(x: 0, y: addFriendY)
         addFriendButton.name = "addFriendButton"
-        friendsHeaderContainer.addChild(addFriendButton)
+        profileContainer.addChild(addFriendButton)
 
-        // Friends container with glass effect - centered
-        let friendsContainerBg = SKShapeNode(rectOf: CGSize(width: containerSize.width - 50, height: 140), cornerRadius: 16)
-        friendsContainerBg.fillColor = UIColor(white: 0.05, alpha: 0.4)
-        friendsContainerBg.strokeColor = UIColor(white: 1.0, alpha: 0.2)
-        friendsContainerBg.lineWidth = 1
-        friendsContainerBg.position = CGPoint(x: 0, y: friendsSectionY)
-        profileContainer.addChild(friendsContainerBg)
+        // Friends preview container - 55px below Add Friend button
+        let previewY: CGFloat = addFriendY - 70
+        let previewHeight: CGFloat = 80
+        
+        let previewContainerBg = SKShapeNode(rectOf: CGSize(width: containerSize.width - 50, height: previewHeight), cornerRadius: 14)
+        previewContainerBg.fillColor = UIColor(white: 0.05, alpha: 0.5)
+        previewContainerBg.strokeColor = UIColor(white: 1.0, alpha: 0.15)
+        previewContainerBg.lineWidth = 1
+        previewContainerBg.position = CGPoint(x: 0, y: previewY)
+        profileContainer.addChild(previewContainerBg)
 
-        // Friends scroll container
+        // Friends preview content inside the container
         friendsScrollContainer = SKNode()
-        friendsScrollContainer.position = CGPoint(x: 0, y: friendsSectionY)
+        friendsScrollContainer.position = CGPoint(x: 0, y: previewY)
 
-        let maskSize = CGSize(width: containerSize.width - 60, height: 120)
-        let mask = SKShapeNode(rectOf: maskSize, cornerRadius: 12)
+        let maskSize = CGSize(width: containerSize.width - 60, height: previewHeight - 10)
+        let mask = SKShapeNode(rectOf: maskSize, cornerRadius: 10)
         mask.fillColor = .white
 
         let cropNode = SKCropNode()
         cropNode.maskNode = mask
         cropNode.addChild(friendsScrollContainer)
-        cropNode.position = CGPoint(x: 0, y: 0)
-
+        cropNode.position = .zero
         profileContainer.addChild(cropNode)
+        
+        // Add preview content - centered in preview container
+        if friends.isEmpty && pendingRequests.isEmpty {
+            let emptyLabel = SKLabelNode(text: "No friends yet. Add friends from the leaderboard!")
+            emptyLabel.fontName = "AvenirNext-Regular"
+            emptyLabel.fontSize = 13
+            emptyLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            emptyLabel.horizontalAlignmentMode = .center
+            emptyLabel.position = CGPoint(x: 0, y: previewY)
+            profileContainer.addChild(emptyLabel)
+        } else if pendingRequests.count > 0 {
+            let requestsLabel = SKLabelNode(text: "You have \(pendingRequests.count) pending request\(pendingRequests.count > 1 ? "s" : "")")
+            requestsLabel.fontName = "AvenirNext-Medium"
+            requestsLabel.fontSize = 14
+            requestsLabel.fontColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
+            requestsLabel.horizontalAlignmentMode = .center
+            requestsLabel.position = CGPoint(x: 0, y: previewY + 10)
+            profileContainer.addChild(requestsLabel)
+            
+            let tapLabel = SKLabelNode(text: "Tap 'Requests' to view")
+            tapLabel.fontName = "AvenirNext-Regular"
+            tapLabel.fontSize = 12
+            tapLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            tapLabel.horizontalAlignmentMode = .center
+            tapLabel.position = CGPoint(x: 0, y: previewY - 12)
+            profileContainer.addChild(tapLabel)
+        } else {
+            let friendsPreviewLabel = SKLabelNode(text: "\(friends.count) friend\(friends.count > 1 ? "s" : "") • Tap to view all")
+            friendsPreviewLabel.fontName = "AvenirNext-Medium"
+            friendsPreviewLabel.fontSize = 14
+            friendsPreviewLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
+            friendsPreviewLabel.horizontalAlignmentMode = .center
+            friendsPreviewLabel.position = CGPoint(x: 0, y: previewY)
+            profileContainer.addChild(friendsPreviewLabel)
+        }
+    }
+    
+    private func createFriendsMenuButton(text: String, icon: String, count: Int, size: CGSize, hasNotification: Bool = false) -> SKNode {
+        let container = SKNode()
+        
+        // Button background
+        let bg = SKShapeNode(rectOf: size, cornerRadius: size.height / 2)
+        bg.fillColor = hasNotification ? 
+            UIColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 0.4) :
+            UIColor(white: 0.1, alpha: 0.6)
+        bg.strokeColor = hasNotification ?
+            UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 0.8) :
+            UIColor(white: 1.0, alpha: 0.2)
+        bg.lineWidth = 1.5
+        container.addChild(bg)
+        
+        // Icon
+        if let iconImage = UIImage(systemName: icon) {
+            let texture = SKTexture(image: iconImage)
+            let iconNode = SKSpriteNode(texture: texture)
+            iconNode.size = CGSize(width: 18, height: 18)
+            iconNode.colorBlendFactor = 1.0
+            iconNode.color = .white
+            iconNode.position = CGPoint(x: -size.width/2 + 25, y: 0)
+            container.addChild(iconNode)
+        }
+        
+        // Text
+        let label = SKLabelNode(text: text)
+        label.fontName = "AvenirNext-Medium"
+        label.fontSize = 14
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .left
+        label.position = CGPoint(x: -size.width/2 + 45, y: 0)
+        container.addChild(label)
+        
+        // Count badge
+        if count > 0 {
+            let badgeBg = SKShapeNode(circleOfRadius: 12)
+            badgeBg.fillColor = hasNotification ? 
+                UIColor(red: 1.0, green: 0.3, blue: 0.3, alpha: 1.0) :
+                UIColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1.0)
+            badgeBg.strokeColor = .clear
+            badgeBg.position = CGPoint(x: size.width/2 - 25, y: 0)
+            container.addChild(badgeBg)
+            
+            let countLabel = SKLabelNode(text: "\(count)")
+            countLabel.fontName = "AvenirNext-Bold"
+            countLabel.fontSize = 12
+            countLabel.fontColor = .white
+            countLabel.verticalAlignmentMode = .center
+            countLabel.horizontalAlignmentMode = .center
+            countLabel.position = CGPoint(x: size.width/2 - 25, y: 0)
+            container.addChild(countLabel)
+        }
+        
+        return container
     }
 
     private func setupAchievementsSection() {
@@ -1225,6 +1326,12 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
                 performAccountDeletion()
             case "cancelDeleteAccount":
                 dismissDeleteConfirmation()
+            case "viewFriendsButton":
+                showFriendsListModal()
+            case "viewRequestsButton":
+                showFriendRequestsModal()
+            case "closeFriendsModal", "closeRequestsModal":
+                dismissModal()
             case "notificationsButton":
                 print("Notifications settings")
             case "privacyButton":
@@ -1260,6 +1367,11 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         
         let location = touch.location(in: self)
         let deltaY = location.y - lastAchievementTouchY
+        
+        // iOS-style scrolling:
+        // In SpriteKit, Y increases upward. When user swipes UP, deltaY is POSITIVE.
+        // To reveal content BELOW (at lower Y positions), container must move UP (positive direction).
+        // This makes the viewport show lower-Y content, which is iOS standard behavior.
         scrollContainer.position.y += deltaY
         achievementScrollVelocity = deltaY * 0.8 + achievementScrollVelocity * 0.2
         lastAchievementTouchY = location.y
@@ -1272,16 +1384,19 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         let containerSize = CGSize(width: size.width - 40, height: size.height - 240)
         let visibleHeight = containerSize.height - 130
         
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
+        // Scroll bounds for iOS-style behavior:
+        // minScrollY = 0 (starting position, content at top)
+        // maxScrollY = positive (how far down we can scroll to see bottom content)
+        let minScrollY: CGFloat = 0
+        let maxScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
         
         // Rubber band effect at edges
-        if scrollContainer.position.y > maxScrollY {
+        if scrollContainer.position.y < minScrollY {
+            let overscroll = minScrollY - scrollContainer.position.y
+            scrollContainer.position.y = minScrollY - overscroll * 0.3
+        } else if scrollContainer.position.y > maxScrollY {
             let overscroll = scrollContainer.position.y - maxScrollY
             scrollContainer.position.y = maxScrollY + overscroll * 0.3
-        } else if scrollContainer.position.y < -minScrollY {
-            let overscroll = -minScrollY - scrollContainer.position.y
-            scrollContainer.position.y = -minScrollY - overscroll * 0.3
         }
     }
     
@@ -1301,17 +1416,18 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         let containerSize = CGSize(width: size.width - 40, height: size.height - 240)
         let visibleHeight = containerSize.height - 130
         
-        let maxScrollY: CGFloat = 0
-        let minScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
+        // iOS-style scroll bounds
+        let minScrollY: CGFloat = 0
+        let maxScrollY: CGFloat = max(contentHeight - visibleHeight + 30, 0)
         
         // Snap back if overscrolled
-        if scrollContainer.position.y > maxScrollY {
-            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
+        if scrollContainer.position.y < minScrollY {
+            let snapBack = SKAction.moveTo(y: minScrollY, duration: 0.3)
             snapBack.timingMode = .easeOut
             scrollContainer.run(snapBack)
             return
-        } else if scrollContainer.position.y < -minScrollY {
-            let snapBack = SKAction.moveTo(y: -minScrollY, duration: 0.3)
+        } else if scrollContainer.position.y > maxScrollY {
+            let snapBack = SKAction.moveTo(y: maxScrollY, duration: 0.3)
             snapBack.timingMode = .easeOut
             scrollContainer.run(snapBack)
             return
@@ -1333,11 +1449,11 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
                 container.position.y += velocity
                 
                 // Clamp to bounds
-                if container.position.y > maxScrollY {
-                    container.position.y = maxScrollY
+                if container.position.y < minScrollY {
+                    container.position.y = minScrollY
                     container.removeAllActions()
-                } else if container.position.y < -minScrollY {
-                    container.position.y = -minScrollY
+                } else if container.position.y > maxScrollY {
+                    container.position.y = maxScrollY
                     container.removeAllActions()
                 }
             }
@@ -1636,6 +1752,321 @@ class ProfileSettingsScene: SKScene, UIImagePickerControllerDelegate, UINavigati
         let fade = SKAction.fadeOut(withDuration: 0.5)
         let remove = SKAction.removeFromParent()
         label.run(SKAction.sequence([wait, fade, remove]))
+    }
+    
+    // MARK: - Friends & Requests Modals
+    
+    private var currentModalNode: SKNode?
+    
+    private func showFriendsListModal() {
+        guard currentModalNode == nil else { return }
+        
+        let friends = AuthenticationManager.shared.getFriendsList()
+        
+        // Create modal overlay
+        let overlay = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        overlay.fillColor = UIColor(white: 0, alpha: 0.7)
+        overlay.strokeColor = .clear
+        overlay.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.zPosition = 500
+        overlay.name = "modalOverlay"
+        
+        // Modal panel
+        let panelWidth = size.width - 60
+        let panelHeight = min(size.height - 200, CGFloat(max(friends.count, 1)) * 70 + 120)
+        let panel = SKShapeNode(rectOf: CGSize(width: panelWidth, height: panelHeight), cornerRadius: 24)
+        panel.fillColor = UIColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 0.98)
+        panel.strokeColor = UIColor(white: 1.0, alpha: 0.2)
+        panel.lineWidth = 1.5
+        panel.position = .zero
+        overlay.addChild(panel)
+        
+        // Title
+        let title = SKLabelNode(text: "Friends (\(friends.count))")
+        title.fontName = "AvenirNext-Bold"
+        title.fontSize = 22
+        title.fontColor = .white
+        title.position = CGPoint(x: 0, y: panelHeight/2 - 40)
+        overlay.addChild(title)
+        
+        // Close button
+        let closeButton = createCloseButton()
+        closeButton.position = CGPoint(x: panelWidth/2 - 30, y: panelHeight/2 - 30)
+        closeButton.name = "closeFriendsModal"
+        overlay.addChild(closeButton)
+        
+        // Friends list
+        var yPos: CGFloat = panelHeight/2 - 90
+        
+        if friends.isEmpty {
+            let emptyLabel = SKLabelNode(text: "No friends yet")
+            emptyLabel.fontName = "AvenirNext-Regular"
+            emptyLabel.fontSize = 16
+            emptyLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            emptyLabel.position = CGPoint(x: 0, y: 0)
+            overlay.addChild(emptyLabel)
+            
+            let tipLabel = SKLabelNode(text: "Add friends from the leaderboard!")
+            tipLabel.fontName = "AvenirNext-Regular"
+            tipLabel.fontSize = 14
+            tipLabel.fontColor = UIColor(white: 0.4, alpha: 1.0)
+            tipLabel.position = CGPoint(x: 0, y: -25)
+            overlay.addChild(tipLabel)
+        } else {
+            for friend in friends.prefix(8) { // Show max 8 friends in modal
+                let friendCard = createFriendCard(friend: friend, width: panelWidth - 40)
+                friendCard.position = CGPoint(x: 0, y: yPos)
+                overlay.addChild(friendCard)
+                yPos -= 65
+            }
+            
+            if friends.count > 8 {
+                let moreLabel = SKLabelNode(text: "...and \(friends.count - 8) more")
+                moreLabel.fontName = "AvenirNext-Regular"
+                moreLabel.fontSize = 14
+                moreLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+                moreLabel.position = CGPoint(x: 0, y: yPos)
+                overlay.addChild(moreLabel)
+            }
+        }
+        
+        currentModalNode = overlay
+        addChild(overlay)
+        
+        // Fade in animation
+        overlay.alpha = 0
+        overlay.run(SKAction.fadeIn(withDuration: 0.2))
+    }
+    
+    private func showFriendRequestsModal() {
+        guard currentModalNode == nil else { return }
+        
+        let requests = AuthenticationManager.shared.getPendingFriendRequests()
+        
+        // Create modal overlay
+        let overlay = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        overlay.fillColor = UIColor(white: 0, alpha: 0.7)
+        overlay.strokeColor = .clear
+        overlay.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        overlay.zPosition = 500
+        overlay.name = "modalOverlay"
+        
+        // Modal panel
+        let panelWidth = size.width - 60
+        let panelHeight = min(size.height - 200, CGFloat(max(requests.count, 1)) * 85 + 120)
+        let panel = SKShapeNode(rectOf: CGSize(width: panelWidth, height: panelHeight), cornerRadius: 24)
+        panel.fillColor = UIColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 0.98)
+        panel.strokeColor = UIColor(white: 1.0, alpha: 0.2)
+        panel.lineWidth = 1.5
+        panel.position = .zero
+        overlay.addChild(panel)
+        
+        // Title
+        let title = SKLabelNode(text: "Friend Requests (\(requests.count))")
+        title.fontName = "AvenirNext-Bold"
+        title.fontSize = 22
+        title.fontColor = .white
+        title.position = CGPoint(x: 0, y: panelHeight/2 - 40)
+        overlay.addChild(title)
+        
+        // Close button
+        let closeButton = createCloseButton()
+        closeButton.position = CGPoint(x: panelWidth/2 - 30, y: panelHeight/2 - 30)
+        closeButton.name = "closeRequestsModal"
+        overlay.addChild(closeButton)
+        
+        // Requests list
+        var yPos: CGFloat = panelHeight/2 - 90
+        
+        if requests.isEmpty {
+            let emptyLabel = SKLabelNode(text: "No pending requests")
+            emptyLabel.fontName = "AvenirNext-Regular"
+            emptyLabel.fontSize = 16
+            emptyLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+            emptyLabel.position = CGPoint(x: 0, y: 0)
+            overlay.addChild(emptyLabel)
+            
+            let tipLabel = SKLabelNode(text: "Friend requests will appear here")
+            tipLabel.fontName = "AvenirNext-Regular"
+            tipLabel.fontSize = 14
+            tipLabel.fontColor = UIColor(white: 0.4, alpha: 1.0)
+            tipLabel.position = CGPoint(x: 0, y: -25)
+            overlay.addChild(tipLabel)
+        } else {
+            for request in requests.prefix(6) { // Show max 6 requests in modal
+                let requestCard = createFriendRequestCard(request: request, width: panelWidth - 40)
+                requestCard.position = CGPoint(x: 0, y: yPos)
+                overlay.addChild(requestCard)
+                yPos -= 80
+            }
+            
+            if requests.count > 6 {
+                let moreLabel = SKLabelNode(text: "...and \(requests.count - 6) more")
+                moreLabel.fontName = "AvenirNext-Regular"
+                moreLabel.fontSize = 14
+                moreLabel.fontColor = UIColor(white: 0.5, alpha: 1.0)
+                moreLabel.position = CGPoint(x: 0, y: yPos)
+                overlay.addChild(moreLabel)
+            }
+        }
+        
+        currentModalNode = overlay
+        addChild(overlay)
+        
+        // Fade in animation
+        overlay.alpha = 0
+        overlay.run(SKAction.fadeIn(withDuration: 0.2))
+    }
+    
+    private func createCloseButton() -> SKNode {
+        let container = SKNode()
+        
+        let bg = SKShapeNode(circleOfRadius: 18)
+        bg.fillColor = UIColor(white: 0.2, alpha: 0.8)
+        bg.strokeColor = UIColor(white: 1.0, alpha: 0.3)
+        bg.lineWidth = 1
+        container.addChild(bg)
+        
+        let xLabel = SKLabelNode(text: "✕")
+        xLabel.fontName = "AvenirNext-Bold"
+        xLabel.fontSize = 16
+        xLabel.fontColor = .white
+        xLabel.verticalAlignmentMode = .center
+        xLabel.horizontalAlignmentMode = .center
+        container.addChild(xLabel)
+        
+        return container
+    }
+    
+    /// Creates a card view for displaying a friend's info
+    private func createFriendCard(friend: (userId: String, username: String), width: CGFloat) -> SKNode {
+        let container = SKNode()
+        
+        // Card background
+        let bg = SKShapeNode(rectOf: CGSize(width: width, height: 55), cornerRadius: 12)
+        bg.fillColor = UIColor(white: 0.15, alpha: 0.8)
+        bg.strokeColor = UIColor(white: 1.0, alpha: 0.1)
+        bg.lineWidth = 1
+        container.addChild(bg)
+        
+        // Avatar
+        let avatar = SKShapeNode(circleOfRadius: 20)
+        avatar.fillColor = UIColor(red: 0.2, green: 0.3, blue: 0.5, alpha: 1.0)
+        avatar.strokeColor = UIColor(white: 1.0, alpha: 0.2)
+        avatar.position = CGPoint(x: -width/2 + 35, y: 0)
+        container.addChild(avatar)
+        
+        let initial = SKLabelNode(text: String(friend.username.prefix(1)).uppercased())
+        initial.fontName = "AvenirNext-Bold"
+        initial.fontSize = 16
+        initial.fontColor = UIColor.white
+        initial.verticalAlignmentMode = .center
+        initial.position = avatar.position
+        container.addChild(initial)
+        
+        // Username
+        let nameLabel = SKLabelNode(text: friend.username)
+        nameLabel.fontName = "AvenirNext-Medium"
+        nameLabel.fontSize = 16
+        nameLabel.fontColor = UIColor.white
+        nameLabel.horizontalAlignmentMode = .left
+        nameLabel.verticalAlignmentMode = .center
+        nameLabel.position = CGPoint(x: -width/2 + 70, y: 0)
+        container.addChild(nameLabel)
+        
+        return container
+    }
+    
+    private func createFriendRequestCard(request: FriendRequest, width: CGFloat) -> SKNode {
+        let container = SKNode()
+        container.name = "requestCard_\(request.id)"
+        
+        // Card background
+        let bg = SKShapeNode(rectOf: CGSize(width: width, height: 70), cornerRadius: 14)
+        bg.fillColor = UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 0.9)
+        bg.strokeColor = UIColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.4)
+        bg.lineWidth = 1
+        container.addChild(bg)
+        
+        // Avatar
+        let avatar = SKShapeNode(circleOfRadius: 22)
+        avatar.fillColor = UIColor(red: 0.3, green: 0.2, blue: 0.4, alpha: 1.0)
+        avatar.strokeColor = UIColor(white: 1.0, alpha: 0.2)
+        avatar.position = CGPoint(x: -width/2 + 40, y: 5)
+        container.addChild(avatar)
+        
+        let initial = SKLabelNode(text: String(request.fromUsername.prefix(1)).uppercased())
+        initial.fontName = "AvenirNext-Bold"
+        initial.fontSize = 18
+        initial.fontColor = .white
+        initial.verticalAlignmentMode = .center
+        initial.position = avatar.position
+        container.addChild(initial)
+        
+        // Username
+        let nameLabel = SKLabelNode(text: request.fromUsername)
+        nameLabel.fontName = "AvenirNext-Medium"
+        nameLabel.fontSize = 16
+        nameLabel.fontColor = .white
+        nameLabel.horizontalAlignmentMode = .left
+        nameLabel.verticalAlignmentMode = .center
+        nameLabel.position = CGPoint(x: -width/2 + 75, y: 10)
+        container.addChild(nameLabel)
+        
+        // "wants to be friends" subtitle
+        let subLabel = SKLabelNode(text: "wants to be friends")
+        subLabel.fontName = "AvenirNext-Regular"
+        subLabel.fontSize = 12
+        subLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
+        subLabel.horizontalAlignmentMode = .left
+        subLabel.verticalAlignmentMode = .center
+        subLabel.position = CGPoint(x: -width/2 + 75, y: -8)
+        container.addChild(subLabel)
+        
+        // Accept button
+        let acceptBg = SKShapeNode(rectOf: CGSize(width: 65, height: 32), cornerRadius: 8)
+        acceptBg.fillColor = UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1.0)
+        acceptBg.strokeColor = .clear
+        acceptBg.position = CGPoint(x: width/2 - 100, y: 0)
+        acceptBg.name = "acceptFriend_\(request.id)"
+        container.addChild(acceptBg)
+        
+        let acceptLabel = SKLabelNode(text: "Accept")
+        acceptLabel.fontName = "AvenirNext-Bold"
+        acceptLabel.fontSize = 12
+        acceptLabel.fontColor = .white
+        acceptLabel.verticalAlignmentMode = .center
+        acceptLabel.position = acceptBg.position
+        container.addChild(acceptLabel)
+        
+        // Decline button
+        let declineBg = SKShapeNode(rectOf: CGSize(width: 65, height: 32), cornerRadius: 8)
+        declineBg.fillColor = UIColor(red: 0.5, green: 0.2, blue: 0.2, alpha: 1.0)
+        declineBg.strokeColor = .clear
+        declineBg.position = CGPoint(x: width/2 - 35, y: 0)
+        declineBg.name = "declineFriend_\(request.id)"
+        container.addChild(declineBg)
+        
+        let declineLabel = SKLabelNode(text: "Decline")
+        declineLabel.fontName = "AvenirNext-Bold"
+        declineLabel.fontSize = 12
+        declineLabel.fontColor = .white
+        declineLabel.verticalAlignmentMode = .center
+        declineLabel.position = declineBg.position
+        container.addChild(declineLabel)
+        
+        return container
+    }
+    
+    private func dismissModal() {
+        guard let modal = currentModalNode else { return }
+        
+        modal.run(SKAction.sequence([
+            SKAction.fadeOut(withDuration: 0.15),
+            SKAction.removeFromParent()
+        ]))
+        
+        currentModalNode = nil
     }
     
     // MARK: - UIImagePickerControllerDelegate

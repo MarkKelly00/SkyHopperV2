@@ -13,12 +13,6 @@
       "size" : "20x20"
     },
     {
-      "filename" : "HopVerse Icon 1027.png",
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "29x29"
-    },
-    {
       "filename" : "HopVerse Icon 1026.png",
       "idiom" : "iphone",
       "scale" : "2x",
@@ -55,16 +49,34 @@
       "size" : "60x60"
     },
     {
-      "filename" : "HopVerse Icon 1037.png",
+      "filename" : "HopVerse_Icon_20x20.png",
+      "idiom" : "ipad",
+      "scale" : "1x",
+      "size" : "20x20"
+    },
+    {
+      "filename" : "HopVerse_Icon_40x40.png",
       "idiom" : "ipad",
       "scale" : "2x",
       "size" : "20x20"
+    },
+    {
+      "filename" : "HopVerse Icon 1027.png",
+      "idiom" : "ipad",
+      "scale" : "1x",
+      "size" : "29x29"
     },
     {
       "filename" : "HopVerse Icon 1038.png",
       "idiom" : "ipad",
       "scale" : "2x",
       "size" : "29x29"
+    },
+    {
+      "filename" : "HopVerse Icon 1029.png",
+      "idiom" : "ipad",
+      "scale" : "1x",
+      "size" : "40x40"
     },
     {
       "filename" : "HopVerse Icon 1039.png",
@@ -95,18 +107,6 @@
       "idiom" : "ios-marketing",
       "scale" : "1x",
       "size" : "1024x1024"
-    },
-    {
-      "filename" : "HopVerse Icon 1030.png",
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "20x20"
-    },
-    {
-      "filename" : "HopVerse Icon 1029.png",
-      "idiom" : "iphone",
-      "scale" : "1x",
-      "size" : "40x40"
     }
   ],
   "info" : {

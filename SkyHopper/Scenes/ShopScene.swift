@@ -744,11 +744,11 @@ class ShopScene: SKScene, CurrencyManagerDelegate, StoreKitManagerDelegate {
         
         let location = touch.location(in: self)
         let deltaY = location.y - lastTouchY
-        // CORRECTED iOS-style scrolling:
-        // Swipe UP (negative deltaY) = show content below (move container UP = positive position)
-        // Swipe DOWN (positive deltaY) = show content above (move container DOWN = negative position)
-        container.position.y -= deltaY  // INVERTED for correct iOS direction
-        scrollVelocity = -deltaY * 0.8 + scrollVelocity * 0.2  // Invert velocity too
+        // iOS-style scrolling (matches CharacterSelectionScene):
+        // In SpriteKit, swipe UP = positive deltaY
+        // Swipe UP should reveal content below = move container UP = increase position.y
+        container.position.y += deltaY
+        scrollVelocity = deltaY * 0.8 + scrollVelocity * 0.2
         lastTouchY = location.y
         
         // Calculate scroll bounds

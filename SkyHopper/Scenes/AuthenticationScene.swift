@@ -93,8 +93,8 @@ class AuthenticationScene: SKScene {
     }
     
     private func setupLogo() {
-        // Sky Hopper logo with glow effect - scale for device
-        logoNode = SKLabelNode(text: "Sky Hopper")
+        // HopVerse logo with glow effect - scale for device
+        logoNode = SKLabelNode(text: "HopVerse")
         logoNode.fontName = "AvenirNext-Bold"
         logoNode.fontSize = isIPad ? 64 : 48
         logoNode.fontColor = .white
@@ -218,10 +218,16 @@ class AuthenticationScene: SKScene {
         let containerCenterX = containerScreenPos.x
         let fieldX = containerCenterX - currentFormWidth / 2
         
-        // Start position for fields just below the toggle, anchored to the top of the container
-        let containerTopY = containerScreenPos.y - formContainer.frame.height/2
-        let topPadding: CGFloat = isIPad ? 170 : 160  // Slightly more padding on iPad
-        var yOffset: CGFloat = containerTopY + topPadding
+        // The toggle is at y: 150 in container SpriteKit coordinates (relative to container center)
+        // In view coordinates (inverted Y), the toggle center is at:
+        // containerScreenPos.y - 150 (since SpriteKit Y increases upward, view Y increases downward)
+        let toggleCenterViewY = containerScreenPos.y - 150
+        let toggleHeight: CGFloat = 40
+        let toggleBottomViewY = toggleCenterViewY + toggleHeight / 2
+        
+        // Start text fields below the toggle with some padding
+        let fieldStartPadding: CGFloat = 20
+        var yOffset: CGFloat = toggleBottomViewY + fieldStartPadding
         
         // Username field (only for sign up)
         if isSignUpMode {
@@ -306,43 +312,60 @@ class AuthenticationScene: SKScene {
     }
     
     private func setupButtons() {
+        // Remove existing buttons if any (for mode switching)
+        privacyCheckbox?.removeFromParent()
+        submitButton?.removeFromParent()
+        formContainer.children.filter { $0.name == "dividerLabel" || $0.name == "appleSignIn" || $0.name == "googleSignIn" }.forEach { $0.removeFromParent() }
+        
         // Calculate button positions based on form height
         let containerHeight = formContainer.frame.height
         let bottomPadding: CGFloat = isIPad ? 50 : 40
         let currentFormWidth = formWidth
         
-        // Privacy Policy Checkbox
+        // Privacy Policy Checkbox - always visible in both modes
+        // Position based on number of fields to ensure proper spacing
+        let fieldsCount: CGFloat = isSignUpMode ? 4 : 2
+        let toggleHeight: CGFloat = 40
+        let toggleBottomY: CGFloat = 150 - toggleHeight/2  // Toggle center is at 150
+        let fieldsTotalHeight: CGFloat = fieldsCount * (fieldHeight + fieldSpacing)
+        
+        // Privacy checkbox positioned just below the last text field with padding
+        let privacyY: CGFloat = toggleBottomY - 20 - fieldsTotalHeight - 30
+        
         privacyCheckbox = createPrivacyCheckbox()
-        privacyCheckbox.position = CGPoint(x: 0, y: -containerHeight/2 + 170)
+        privacyCheckbox.position = CGPoint(x: 0, y: privacyY)
         privacyCheckbox.name = "privacyCheckbox"
         formContainer.addChild(privacyCheckbox)
 
-        // Submit button - use current form width for proper sizing
+        // Submit button - positioned below privacy checkbox
         let buttonWidth = currentFormWidth - 40
         submitButton = createGlassButton(text: isSignUpMode ? "Create Account" : "Login",
                                        size: CGSize(width: buttonWidth, height: 50),
                                        isPrimary: true)
-        submitButton.position = CGPoint(x: 0, y: -containerHeight/2 + 120)
+        submitButton.position = CGPoint(x: 0, y: privacyY - 50)
         submitButton.name = "submitButton"
         formContainer.addChild(submitButton)
         
-        // Divider
+        // Divider - positioned below submit button
         let dividerLabel = SKLabelNode(text: "or continue with")
         dividerLabel.fontName = "AvenirNext-Regular"
         dividerLabel.fontSize = isIPad ? 16 : 14
         dividerLabel.fontColor = UIColor(white: 0.6, alpha: 1.0)
-        dividerLabel.position = CGPoint(x: 0, y: -containerHeight/2 + 80)
+        dividerLabel.position = CGPoint(x: 0, y: privacyY - 95)
+        dividerLabel.name = "dividerLabel"
         formContainer.addChild(dividerLabel)
         
-        // Social sign in buttons - wider spacing on iPad
+        // Social sign in buttons - positioned below divider
         let socialButtonSpacing: CGFloat = isIPad ? 80 : 60
+        let socialButtonsY = privacyY - 140
+        
         appleSignInButton = createSocialButton(type: .apple)
-        appleSignInButton.position = CGPoint(x: -socialButtonSpacing, y: -containerHeight/2 + bottomPadding)
+        appleSignInButton.position = CGPoint(x: -socialButtonSpacing, y: socialButtonsY)
         appleSignInButton.name = "appleSignIn"
         formContainer.addChild(appleSignInButton)
         
         googleSignInButton = createSocialButton(type: .google)
-        googleSignInButton.position = CGPoint(x: socialButtonSpacing, y: -containerHeight/2 + bottomPadding)
+        googleSignInButton.position = CGPoint(x: socialButtonSpacing, y: socialButtonsY)
         googleSignInButton.name = "googleSignIn"
         formContainer.addChild(googleSignInButton)
     }
@@ -401,14 +424,26 @@ class AuthenticationScene: SKScene {
         checkmark.isHidden = true
         container.addChild(checkmark)
 
-        // Privacy policy text
-        let privacyText = SKLabelNode(text: "I agree to the Privacy Policy")
-        privacyText.fontName = "AvenirNext-Regular"
-        privacyText.fontSize = isIPad ? 16 : 14
-        privacyText.fontColor = UIColor(white: 0.8, alpha: 1.0)
-        privacyText.horizontalAlignmentMode = .left
-        privacyText.position = CGPoint(x: -currentFormWidth/2 + 60, y: 0)
-        container.addChild(privacyText)
+        // "I agree to the" text
+        let agreeText = SKLabelNode(text: "I agree to the ")
+        agreeText.fontName = "AvenirNext-Regular"
+        agreeText.fontSize = isIPad ? 16 : 14
+        agreeText.fontColor = UIColor(white: 0.8, alpha: 1.0)
+        agreeText.horizontalAlignmentMode = .left
+        agreeText.verticalAlignmentMode = .center
+        agreeText.position = CGPoint(x: -currentFormWidth/2 + 55, y: 0)
+        container.addChild(agreeText)
+        
+        // "Privacy Policy" as clickable link
+        let privacyLink = SKLabelNode(text: "Privacy Policy")
+        privacyLink.fontName = "AvenirNext-DemiBold"
+        privacyLink.fontSize = isIPad ? 16 : 14
+        privacyLink.fontColor = UIColor(red: 0.4, green: 0.7, blue: 1.0, alpha: 1.0)
+        privacyLink.horizontalAlignmentMode = .left
+        privacyLink.verticalAlignmentMode = .center
+        privacyLink.position = CGPoint(x: agreeText.position.x + agreeText.frame.width, y: 0)
+        privacyLink.name = "privacyPolicyLink"
+        container.addChild(privacyLink)
 
         return container
     }
@@ -516,11 +551,20 @@ class AuthenticationScene: SKScene {
                 handleAppleSignIn()
             case "googleSignIn":
                 handleGoogleSignIn()
-            case "privacyCheckbox", "checkbox":
+            case "privacyCheckbox", "checkbox", "checkmark":
                 togglePrivacyCheckbox()
+            case "privacyPolicyLink":
+                openPrivacyPolicy()
             default:
                 break
             }
+        }
+    }
+    
+    private func openPrivacyPolicy() {
+        // Open HopVerse privacy policy at https://markkelly.dev/hopverse-privacy/
+        if let url = URL(string: "https://markkelly.dev/hopverse-privacy/") {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
     
@@ -546,9 +590,17 @@ class AuthenticationScene: SKScene {
         // Update form fields
         setupTextFields()
         
-        // Update submit button
-        if let buttonLabel = submitButton.children.compactMap({ $0 as? SKLabelNode }).first {
-            buttonLabel.text = isSignUpMode ? "Create Account" : "Login"
+        // Rebuild buttons to ensure privacy checkbox is visible in both modes
+        setupButtons()
+        
+        // Restore privacy checkbox state
+        if privacyPolicyAccepted {
+            if let checkmark = privacyCheckbox.childNode(withName: "checkmark") {
+                checkmark.isHidden = false
+            }
+            if let checkbox = privacyCheckbox.childNode(withName: "checkbox") as? SKShapeNode {
+                checkbox.fillColor = UIColor(red: 0.3, green: 0.8, blue: 0.3, alpha: 0.3)
+            }
         }
     }
     
