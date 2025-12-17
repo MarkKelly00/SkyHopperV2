@@ -6,6 +6,16 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		67658A1F2EF1424700357CC1 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A1E2EF1424700357CC1 /* FirebaseAI */; };
+		67658A212EF1424700357CC1 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A202EF1424700357CC1 /* FirebaseAILogic */; };
+		67658A232EF1424700357CC1 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A222EF1424700357CC1 /* FirebaseAnalytics */; };
+		67658A252EF1424700357CC1 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A242EF1424700357CC1 /* FirebaseAnalyticsCore */; };
+		67658A272EF1424700357CC1 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A262EF1424700357CC1 /* FirebaseAnalyticsIdentitySupport */; };
+		67658A2A2EF1466200357CC1 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A292EF1466200357CC1 /* GoogleSignInSwift */; };
+		67658A2C2EF1466700357CC1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 67658A2B2EF1466700357CC1 /* GoogleSignIn */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		677B38222E3F0F4000B5C8CB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,14 +34,28 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		67658A2D2EF146B900357CC1 /* libswift_Concurrency.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswift_Concurrency.tbd; path = usr/lib/swift/libswift_Concurrency.tbd; sourceTree = SDKROOT; };
 		677B38082E3F0F3F00B5C8CB /* SkyHopper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SkyHopper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		677B38212E3F0F4000B5C8CB /* SkyHopperTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkyHopperTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		677B382B2E3F0F4000B5C8CB /* SkyHopperUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkyHopperUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		67658A1A2EF13C5100357CC1 /* Exceptions for "SkyHopper" folder in "SkyHopper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 677B38072E3F0F3F00B5C8CB /* SkyHopper */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		677B380A2E3F0F3F00B5C8CB /* SkyHopper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				67658A1A2EF13C5100357CC1 /* Exceptions for "SkyHopper" folder in "SkyHopper" target */,
+			);
 			path = SkyHopper;
 			sourceTree = "<group>";
 		};
@@ -52,6 +76,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				67658A212EF1424700357CC1 /* FirebaseAILogic in Frameworks */,
+				67658A272EF1424700357CC1 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				67658A1F2EF1424700357CC1 /* FirebaseAI in Frameworks */,
+				67658A2A2EF1466200357CC1 /* GoogleSignInSwift in Frameworks */,
+				67658A232EF1424700357CC1 /* FirebaseAnalytics in Frameworks */,
+				67658A252EF1424700357CC1 /* FirebaseAnalyticsCore in Frameworks */,
+				67658A2C2EF1466700357CC1 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +103,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		67658A282EF1466200357CC1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				67658A2D2EF146B900357CC1 /* libswift_Concurrency.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		677B37FF2E3F0F3F00B5C8CB = {
 			isa = PBXGroup;
 			children = (
 				677B380A2E3F0F3F00B5C8CB /* SkyHopper */,
 				677B38242E3F0F4000B5C8CB /* SkyHopperTests */,
 				677B382E2E3F0F4000B5C8CB /* SkyHopperUITests */,
+				67658A282EF1466200357CC1 /* Frameworks */,
 				677B38092E3F0F3F00B5C8CB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +152,13 @@
 			);
 			name = SkyHopper;
 			packageProductDependencies = (
+				67658A1E2EF1424700357CC1 /* FirebaseAI */,
+				67658A202EF1424700357CC1 /* FirebaseAILogic */,
+				67658A222EF1424700357CC1 /* FirebaseAnalytics */,
+				67658A242EF1424700357CC1 /* FirebaseAnalyticsCore */,
+				67658A262EF1424700357CC1 /* FirebaseAnalyticsIdentitySupport */,
+				67658A292EF1466200357CC1 /* GoogleSignInSwift */,
+				67658A2B2EF1466700357CC1 /* GoogleSignIn */,
 			);
 			productName = SkyHopper;
 			productReference = 677B38082E3F0F3F00B5C8CB /* SkyHopper.app */;
@@ -195,6 +242,10 @@
 			);
 			mainGroup = 677B37FF2E3F0F3F00B5C8CB;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				67658A182EF13C1200357CC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 677B38092E3F0F3F00B5C8CB /* Products */;
 			projectDirPath = "";
@@ -372,6 +423,7 @@
 				DEVELOPMENT_TEAM = B4H49GDQ8Q;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -385,6 +437,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -397,10 +450,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = SkyHopper/SkyHopper.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B4H49GDQ8Q;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SkyHopper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HopVerse;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSGKFriendListUsageDescription = "Keep track of friends high scores";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -425,10 +484,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = SkyHopper/SkyHopperRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B4H49GDQ8Q;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SkyHopper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HopVerse;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				INFOPLIST_KEY_NSGKFriendListUsageDescription = "Keep track of friends high scores";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -560,6 +625,63 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		67658A182EF13C1200357CC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		67658A1E2EF1424700357CC1 /* FirebaseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAI;
+		};
+		67658A202EF1424700357CC1 /* FirebaseAILogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAILogic;
+		};
+		67658A222EF1424700357CC1 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		67658A242EF1424700357CC1 /* FirebaseAnalyticsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsCore;
+		};
+		67658A262EF1424700357CC1 /* FirebaseAnalyticsIdentitySupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A1B2EF13EEA00357CC1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsIdentitySupport;
+		};
+		67658A292EF1466200357CC1 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A182EF13C1200357CC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		67658A2B2EF1466700357CC1 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67658A182EF13C1200357CC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 677B38002E3F0F3F00B5C8CB /* Project object */;
 }
